@@ -108,7 +108,13 @@ PATCH creates a revision in the item history (also when unchanged); (c) a user w
 an instance with the REST token disabled (no `top.getRestApiToken`, or 401) → the Save button stays hidden;
 (d) non-ASCII and special characters (`é`, `&`, `<`, quotes) in the written text.
 
-Still open from run 1 (optional): S5 with a named space, another project and a missing document.
+Still open from run 1 (optional): S5 with a named space, another project and a missing document (done in run 3b below).
+
+### Run 3b on 2512 (2026-10-30, PO; S5 table, read from a photo, not committed)
+
+| ID | Result |
+|---|---|
+| S5 | ✅ One `module` query (`SELECT m.c_uri FROM module m INNER JOIN project p ON p.c_uri = m.fk_uri_project WHERE (p.c_id = … AND m.c_modulefolder = … AND m.c_id = …) OR (…)`) for three declared documents, ≈ 1 ms: a document of a **named space** of the current project (`Space/Name`) found; a document of **another project** (`PROJECT/Space/Name`, the sandbox project of the sister repo) found with its title; a **missing** document (`Space/Name`) reported "no" (summary "2 of 3 found", info). The binding resolution of `dm-model.vm` uses the same form |
 
 ### Run 3 on 2512 (2026-10-30, PO; S9 box, read from a photo of the screen, not committed)
 

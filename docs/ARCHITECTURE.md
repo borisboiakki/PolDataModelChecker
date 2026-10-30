@@ -312,7 +312,7 @@ spike after dmDefine 0.1.0.
 | S8 | Read a work item of another project (`getWorkItem`), at a given revision | §3.4 |
 | T1–T3 | Correlated sub-select / `NOT EXISTS` in `sqlSearch`, binding queries, drill-down Lucene | §4 |
 
-**Run 1 on 2512 (2026-10-30)**: S1, S2, S3, S5 (default space), S6, S8 confirmed; S4 GET confirmed; run 2: S4 PATCH confirmed (204). Details: `tests/dmSpike-v0.1.x/spike-tests.md` §4. All spikes run on 2512 first. **2612 compatibility is unverified** until the PO repeats the key spikes (S1, S3, S4,
+**Run 1 on 2512 (2026-10-30)**: S1, S2, S3, S5 (default space; named space, other project and missing document in run 3b), S6, S8 confirmed; run 3: S9 confirmed; S4 GET confirmed; run 2: S4 PATCH confirmed (204). Details: `tests/dmSpike-v0.1.x/spike-tests.md` §4. All spikes run on 2512 first. **2612 compatibility is unverified** until the PO repeats the key spikes (S1, S3, S4,
 T1) there.
 
 ## 10. Increments
