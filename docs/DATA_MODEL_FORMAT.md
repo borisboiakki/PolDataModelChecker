@@ -17,54 +17,65 @@ dedicated LiveDoc, documents referred to by logical role plus binding, one proje
 
 ## 2. Draft schema
 
+The text is a **YAML subset** (valid YAML): block maps and lists indented with spaces, plain or quoted scalars,
+one-level flow lists `[a, b]` and flow maps `{k: v}` of scalars, `#` comments, `null`/`true`/`false`/integers. No tabs,
+anchors, multi-line scalars or nested flow collections. It is parsed by the widgets in Velocity (ARCHITECTURE §3.3).
+
+Two parts with different scopes (PO 2026-10-30: the model must be reusable, the documents are declared by the user):
+- `model`: project-neutral (roles, item types, link rules): reusable;
+- `bindings`: local to the checked project (role → explicit list of documents; branches/copies only if listed).
+
 ```yaml
-model: 1                       # schema version
+version: 1                     # schema version
 name: V-cycle model
-projects: [ ]                  # optional: other projects whose documents may be bound (default: this project only)
 
-documents:                     # logical roles: stable names used by the rules
-  SystemSpec:
-    title: System specification
-    bind:                      # PO 2026-10-30: the user lists the documents explicitly (branches/copies only if listed)
-      - "Specs/System Specification"           # space/name, or "project/space/name" for another project
-    items:                     # work item types allowed/required in this document
-      - type: systemRequirement
-        required: true         # at least min items (default min: 1 when required)
-        min: 1
-        max: null
-      - type: heading          # allowed, ignored by the rules
-        ignored: true
-    unexpected_types: error    # severity for other types: error | warning | ignore
+model:
+  roles:                       # logical document roles: stable names used by the rules
+    SystemSpec:
+      title: System specification
+      items:                   # work item types of this role
+        - type: systemRequirement
+          min: 1               # required: at least min items per bound document (omit = allowed, not required)
+        - type: heading
+          ignored: true        # allowed, not counted by the rules
+      unexpected_types: error  # severity for other types: error | warning | ignore
+    SubsystemReq:
+      title: Subsystem requirements
+      items:
+        - { type: subsystemRequirement, min: 1 }
 
-  SubsystemReq:
-    title: Subsystem requirements
-    bind: ["Specs/Subsystem A Requirements", "Specs/Subsystem B Requirements"]  # several documents may fill one role
-    items:
-      - type: subsystemRequirement
-        required: true
+  links:                       # link rules, written in the direction of storage (from = link source)
+    - id: L1
+      from: { role: SubsystemReq, type: subsystemRequirement }
+      link_role: satisfies     # link role id (project configuration)
+      to: { role: SystemSpec, type: systemRequirement }
+      from_min: 1              # each from item has >= 1 such link (downstream traceability)
+      to_min: 1                # each to item is targeted by >= 1 such link (upstream coverage)
+      severity: error          # error | warning | info
+  unexpected_links: warning    # links of a role used above, between declared documents, matching no rule
 
-links:                         # link rules
-  - id: L1
-    from: { document: SubsystemReq, type: subsystemRequirement }   # link source (stored on this item)
-    role: satisfies            # link role id (Polarion project configuration)
-    to:   { document: SystemSpec,   type: systemRequirement }      # link target
-    from_min: 1                # each `from` item must have >= 1 such link ("required link", downstream coverage)
-    to_min: 1                  # each `to` item must be targeted by >= 1 such link ("coverage" of the upstream item)
-    severity: error            # error | warning | info
-  - id: L2
-    allow_other: false         # forbidden/unexpected links: links with this role between these documents that
-    from: { document: SubsystemReq }     # match no rule are reported
-    role: satisfies
-    to:   { document: SystemSpec }
+bindings:                      # local: the documents of this project (or project/space/name)
+  SystemSpec: ["Specs/System Specification"]
+  SubsystemReq: ["Specs/Subsystem A Requirements", "Specs/Subsystem B Requirements"]
+```
+
+Reuse by reference (dmDefine 0.2.0, ARCHITECTURE §3.4): the local item holds only
+
+```yaml
+version: 1
+uses: "SYSENG/SE-12"           # project/work item id of an item holding a `model` part (one level only)
+bindings:
+  SystemSpec: ["Specs/System Specification"]
+  SubsystemReq: ["Specs/Subsystem A Requirements"]
 ```
 
 ## 3. Rules for the checker (v1)
 
 | Check | Meaning |
 |---|---|
-| Required item types | Every `required` type has at least `min` items in each bound document (or per role). |
+| Required item types | Every type with `min` has at least `min` items in each bound document. |
 | Unexpected item types | An item whose type is not listed in its document role is reported with `unexpected_types`. |
-| Required links | `from_min`/`to_min` as above, counted only for links of `role` between the bound documents. |
+| Required links | `from_min`/`to_min` as above, counted only for links of `link_role` between the bound documents. |
 | Forbidden/unexpected links | A link of a role used by the model that goes between modelled documents but matches no rule (wrong direction, wrong target document or type) is reported. A role the model never mentions is ignored. |
 | Later | Orphan items (no link at all), items in the wrong document, mandatory field values, statuses, max cardinalities. |
 
@@ -74,7 +85,7 @@ Link direction follows Polarion: the link is stored on the source item and point
 ## 4. Open points
 
 - Binding by document type / name pattern: dropped from v1 (PO: documents are declared explicitly). May return later.
-- Inheritance between models, reuse across projects (out of scope of v1).
+- Reuse: `uses:` one level, no local override of `model` keys in v0.2; pinning a revision (`PROJ/ID@rev`) later.
 - Versioning of the model: baselines/revisions of the model LiveDoc give it for free; the checker should show the
   revision of the model it used.
 - Schema evolution: `model:` number; unknown keys are warnings, not errors.

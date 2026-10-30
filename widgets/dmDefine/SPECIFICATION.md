@@ -48,7 +48,8 @@ referenced object, Velocity 1.4-safe templates, PDF/print without JS, no custome
 ## 5. Technical approach (preliminary, to challenge in `docs/ARCHITECTURE.md`)
 
 - Reuse `shared/` (style, params, common macros, `core.js` graph/table/export, `xlsx.js`) and the build/test tooling.
-- **YAML parsing** is the key risk. Options: (a) parse in the browser with a small embedded YAML subset parser in
+- **Superseded by decision 7 (§7) and `docs/ARCHITECTURE.md` §3.3: one YAML subset parser in Velocity.** Original
+  analysis kept for the record: **YAML parsing** is the key risk. Options: (a) parse in the browser with a small embedded YAML subset parser in
   `core.js`/`graph.js` (Velocity only extracts the text and puts it in the page model; no `$`/`#`/backslash allowed in
   the JS, the YAML parser must respect that); (b) parse in Velocity (poor fit: Velocity 1.4); (c) JSON instead of YAML
   (PO prefers YAML for readability). Recommendation: (a), with a YAML **subset** documented in `DATA_MODEL_FORMAT.md`
@@ -67,11 +68,12 @@ referenced object, Velocity 1.4-safe templates, PDF/print without JS, no custome
 |---|---|
 | S1 | How is the **description** of a work item read in Velocity (`$workItem.fields().description()`, `.render()`/`.asPlainText()`, Open API `getDescription()`), and what HTML does a YAML block produce in the rich-text editor (paragraphs, `<pre>`, `<code>`, `&nbsp;`, quotes, indentation)? Is a code block / macro the most robust container? |
 | S2 | Find the model item robustly: by document (`@document`), type, title/id; SQL vs `queryWorkItems`; several items in one document read in order |
-| S3 | Client-side YAML subset parser: feasible within the JS constraints (no `$ # \`, ASCII only); round trip on the real description text |
+| S3 | YAML subset parser in **Velocity 1.4**: `$esc.b`/`$esc.h`, run-time regexes, stack builder with `newMap()`; round trip on the real description text (ARCHITECTURE §3.3) |
 | S4 | **REST write-back**: can the widget (browser, user session) call the Polarion REST API (`/polarion/rest/v1/...`) to PATCH the description? Auth/CSRF, CORS, permission handling, rich text format of the PATCH, behaviour under 2512 and 2612, and detection when REST is disabled |
 | S5 | Document binding: by `space/name`, document type, name pattern, custom document field; what is available in SQL (`MODULE` columns) |
 | S6 | Validation sources: reading the project's work item types, link roles (name, opposite name), custom document types from the project configuration |
 | S7 | Starter generator data: item types per document, observed link roles between documents (reuse docCoverage queries), timing on a large project |
+| S8 | Read a work item of another project (`$trackerService.getWorkItem`), optionally at a revision (`uses:` reference) |
 
 ## 7. Decisions and open questions
 
@@ -85,13 +87,17 @@ Decided by the PO (2026-10-30):
    explicit document lists per role. Binding by document type or name pattern is dropped from v1 (S5 reduced to
    "resolve explicit documents, same project or `project/space/document`").
 
-Still open:
-
-5. Model per project only, or a reusable template applied to several projects later?
-6. Should dmDefine be usable without dmCheck (read-only documentation of the model for the team)? Assumed yes.
+5. **The model must be reusable** across projects (PO, 2026-10-30). The YAML separates the project-neutral `model`
+   (roles, types, rules) from the local `bindings` (documents). Reuse: copy/branch the model LiveDoc (works from 0.1.0),
+   then a `uses: "PROJ/WI-ID"` reference with local bindings (0.2.0). See `docs/ARCHITECTURE.md` §3.4.
+6. **dmDefine is usable on its own** as read-only documentation of the data model (PO, 2026-10-30).
+7. **YAML is parsed in Velocity, not in the browser** (architecture, 2026-10-30): dmCheck must compute on the server
+   (PDF export has no JavaScript, no server call from the browser), so one Velocity parser is shared by both widgets.
+   The browser only serializes YAML (editor). Replaces option (a) of §5.
 
 ## 8. Increments
 
 1. **0.1.0** read + validate + show: parameters, YAML read (spike S1–S3), validation, graph + table + bindings. No editing.
-2. **0.2.0** starter generator and in-widget editor with copy/paste output.
+   Reuse by copying/branching the model LiveDoc.
+2. **0.2.0** `uses:` reference, starter generator and in-widget editor with copy/paste output.
 3. **0.3.0** REST write-back (if S4 is positive), cross-project bindings.

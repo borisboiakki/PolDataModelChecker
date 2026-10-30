@@ -45,7 +45,8 @@ every referenced object. Velocity 1.4-safe. No customer data in the repository.
 
 ## 5. Technical approach (preliminary)
 
-- Model read as in dmDefine (shared snippet and shared YAML subset parser). Resolution of bindings by SQL on `module`.
+- Model read as in dmDefine (shared Velocity snippets and YAML subset parser, `docs/ARCHITECTURE.md` §3). Resolution of
+  bindings by SQL on `module`. Rules evaluated in Velocity on SQL results (ARCHITECTURE §4), so the PDF view has them too.
 - Per rule one or two SQL queries on `workitem` / `struct_workitem_linkedworkitems` / `module` (as the docCoverage and
   advImpact queries): count, and the list of ids of the violating items (capped).
 - Page model: model graph + per-rule counts + capped violation lists; the client renders graph, table, details, exports

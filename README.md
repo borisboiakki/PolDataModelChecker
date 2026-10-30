@@ -24,7 +24,7 @@ This repository was started from [polarion_branches_copies_widget](https://githu
 (docBranches, docCoverage, advImpact), whose Polarion knowledge, build tooling and client core it reuses.
 
 1. Specifications of both widgets and the model format (**draft, open questions listed**).
-2. Preliminary architecture (`docs/ARCHITECTURE.md`) once the specifications are agreed.
+2. Preliminary architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (**draft, to be revised after the spikes**).
 3. Spikes (YAML in a work item description, REST write-back, SQL for the checks) with diagnostic widgets in `tests/`.
 4. dmDefine 0.1.0 (read, validate, show), dmCheck 0.1.0 (the three v1 checks), then the later increments.
 
@@ -35,7 +35,8 @@ This repository was started from [polarion_branches_copies_widget](https://githu
 | `CLAUDE.md` | Instructions for Claude Code: workflow, rules, Polarion facts verified on 2512 |
 | `Polarion_Development_Guide.md` | Polarion development best practices (copied from the sister repo) |
 | `docs/DATA_MODEL_FORMAT.md` | Draft of the model YAML |
-| `docs/reference/` | Architecture of the sister widgets (reference until `docs/ARCHITECTURE.md` exists) |
+| `docs/ARCHITECTURE.md` | Preliminary architecture (model pipeline, parser, checks, page model, spikes) |
+| `docs/reference/` | Architecture of the sister widgets (reference for the reused parts) |
 | `widgets/<widget>/SPECIFICATION.md` | Requirements, decisions, spikes and open questions of each widget |
 | `shared/` | Client core, Velocity snippets, Excel library: **copied** from the sister repo, to be adapted |
 | `tools/` | `build-widget.py`, `vcheck.sh` (Velocity 1.4 parse check), mock Polarion objects in `tools/vtest/mocks/` |
