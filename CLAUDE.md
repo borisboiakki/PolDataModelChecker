@@ -10,7 +10,7 @@ documents) and **check the real data against it**. Typical case: the V-cycle (sy
 requirements linked with `satisfies` → tests linked with `verifies`). Two widgets, built iteratively:
 
 - **dmDefine** (`widgets/dmDefine/`): reads the model, shows it (graph + table), validates it, helps to edit it.
-  **0.4.0 built** (0.1.0 read, validate, show; 0.2.0 pairs; 0.3.0 editor: forms + YAML text, `src/editor.js`; 0.4.0
+  **0.5.0 built** (0.1.0 read, validate, show; 0.2.0 pairs; 0.3.0 editor: forms + YAML text, `src/editor.js`; 0.4.0
   `uses:` + documents of other projects; 0.5.0 Save to Polarion (REST, optional); tested on mocks and in Chromium with a round trip of the generated YAML;
   to validate on 2512: `docs/PO_CHECKS.md`, keep it up to date with every new feature).
   PO 2026-10-30: dmDefine is completed before dmCheck is started.
@@ -151,7 +151,8 @@ tools/                         build-widget.py, vcheck.sh + VCheck.java (copied)
 tests/<name>-vN.N.x/           spikes: spike-tests.md (plan + findings) and diagnostic widget; dmSpike-v0.1.x = model
                                item, YAML parser prototype, bindings, configuration, REST (smoke test + zip:
                                tools/test-spikes.sh, harness tools/vtest/dmSpike/DmSpikeHarness.java)
-test-data/                     invented sample models and structures (vcycle-model.yaml; later the dummy model of dmCheck)
+test-data/                     invented sample models and structures (vcycle-model.yaml; vcycle-check/ = dmCheck test
+                               structure with its expected violations)
 docs/<w>/                      install guide, previews (mock data), icon source (icon.svg; package icon widgets/<w>/src/icon.png)
 .github/workflows/             ci.yml (tools/test-widget.sh all + dist/zip freshness), release.yml (tag <w>-vN.N.N)
 ```
@@ -159,6 +160,13 @@ docs/<w>/                      install guide, previews (mock data), icon source 
 `shared/` and `tools/` are **snapshots** of the sister repo. A fix made there is not propagated automatically: note it in
 the commit and tell the PO (open question: git submodule or a common package later). Local changes so far: `style.vm`
 root classes `dd-root`/`dc-root`; `core.js` optional widget fields `isolatedText`, `searchText`.
+
+## Where the work stands (read first in a new session)
+
+- Pending checks of the PO on 2512, in order: `docs/PO_CHECKS.md` (dmSpike S5/S7/S9/S10, dmDefine 0.1-0.5, dmCheck 0.1,
+  decisions to confirm). Record each result in the spec / `tests/dmSpike-v0.1.x/spike-tests.md`, then tick it there.
+- Next increments: dmDefine starter generator (after S7 results), dmCheck 0.2 (faster set queries, drill-down; after
+  S10 results). Specs §8 of each widget list them.
 
 ## Working conventions
 
