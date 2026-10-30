@@ -3,3 +3,4 @@ $parameters.put("itemTypes", $factory.enumeration("Model work item type", "worki
 $parameters.put("itemId", $factory.string("Model work item id (optional; empty = first item of the type holding the model)").value("").build())
 $parameters.put("height", $factory.integer("Graph height in pixels").value(500).build())
 $parameters.put("restSave", $factory.customEnum("Save to Polarion (REST API) in the editor").addEnumItem("auto", "When available (REST token of the session, read access checked)").addEnumItem("off", "Off: copy and paste only").allowNoValue(false).allowMultipleValues(false).singleValue("auto").build())
+$parameters.put("initialView", $factory.customEnum("Graph view when the page opens (roles with several documents)").addEnumItem("collapsed", "Collapsed: one box per role").addEnumItem("exploded", "Exploded: one box per document, pairs drawn").allowNoValue(false).allowMultipleValues(false).singleValue("collapsed").build())

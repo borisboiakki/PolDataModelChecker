@@ -13,6 +13,8 @@
 ##   $dcViolN  map "rule|kind" -> full count;  $dcSevN map severity -> full count
 ##   $dcStat   map rule id -> map fc, fo (from side: checked, compliant), tc, to (to side), cross, unp, sev
 ##   $dcDocs   list of maps key, roles (list), items (counted), bad (items with a violation), types ("type|n;" text)
+##   $dcViolDN map "rule|kind|document key" -> full count; $dcCrossN map "rule|source doc>target doc" -> cross-pair links
+##             (exploded view, K17)
 ##   $dcQs     drill-down queries (K9, dmCheck 0.2): list of [rule, kind, document key, count, Lucene query] for the
 ##             kinds from, to (per document of the rule's side) and unexpected-type (per document). The query lists the
 ##             same items as the evaluation: NOT IN form verified on 2512 (dmSpike S10 runs 5 and 5b, also inside a
@@ -30,6 +32,7 @@
 #set($dcDocs = [])
 #set($dcQs = [])
 #set($dcViolDN = $objectFactory.newMap())
+#set($dcCrossN = $objectFactory.newMap())
 
 ## Violation [sev, kind, rule, doc, item, msg]: counted always, stored up to $dcListCap per rule and kind.
 ## Arguments are passed by name (Velocity 1.4): the macro uses its own variable names (dca*) so that an argument such
@@ -311,6 +314,11 @@
         #set($void = $dcL.set(3, true))
         #if($dcPaired && !$dcPairs.contains("${dcSd}>${dcTd}"))
           #set($dcCross = $dcCross + 1)
+          #set($dcXk = "${dcUid}|${dcSd}>${dcTd}")
+          #set($dcXn = 0)
+          #set($dcXn = $dcCrossN.get($dcXk))
+          #set($dcXn = $dcXn + 1)
+          #set($void = $dcCrossN.put($dcXk, $dcXn))
           #set($dcSid = $dcItems.get($dcL.get(0)).get(2))
           #set($dcTid = $dcItems.get($dcL.get(2)).get(2))
           #dcAdd($dcSev "cross-pair" $dcUid $dcSd $dcL.get(0) "$dcSid $dmU.get('rname') $dcTid: documents not paired for ${dcUid} ($dcSd, $dcTd).")

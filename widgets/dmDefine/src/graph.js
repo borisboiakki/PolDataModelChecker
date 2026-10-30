@@ -173,6 +173,9 @@
     st.extras = [];
     st.rel = relFromData('', this.cats);
     st.baseLines = model.nodes.some(function (n) { return n.selfRules.length; }) ? 5 : 4;
+    // Exploded view (D16): offered when a role has several documents or a rule is paired.
+    this.canExplode = model.nodes.some(function (n) { return n.docs.length > 1; }) || model.rules.some(function (r) { return r.paired; });
+    st.exploded = this.canExplode && ds.view === 'exploded';
     this.build();
     this.render(true);
   }
@@ -186,6 +189,7 @@
     if (this.cats.length) { this.kindChecks(bar, 'Link roles:'); }
     this.searchBox(bar);
     this.viewButtons(bar);
+    this.viewSwitch(bar, this.canExplode);
     var more = el('span', { 'class': 'bw-btns' }, bar);
     this.button(more, 'Model text', 'Show or hide the YAML text of the model with line numbers', function () { self.toggleText(); });
     this.button(more, 'Copy YAML', 'Copy the YAML text of the model to the clipboard', function () { self.copyYaml(); });
@@ -377,6 +381,76 @@
       var ln = el('span', { 'class': 'dd-line' }, td, String(r.line));
       ln.addEventListener('click', function () { self.showLine(r.line); });
     });
+  };
+
+  // ------------------------------------------------------------------ exploded view (D16)
+  // Key of a declared document as used by the pairs: space/name for the current project, project/space/name otherwise.
+  Widget.prototype.docKey = function (d) {
+    if (!d.found && !d.name) { return d.decl; }
+    return (d.project && d.project !== this.project ? d.project + '/' : '') + d.space + '/' + d.name;
+  };
+
+  Widget.prototype.explodedModel = function () {
+    var self = this;
+    var m = this.model;
+    var st = this.state;
+    var dark = 'rgb(25,35,55)';
+    var grey = 'rgb(90,98,115)';
+    var red = 'rgb(198,40,40)';
+    var orange = 'rgb(211,120,0)';
+    var shown = m.rules.filter(function (r) { return r.drawn && st.rel[r.role]; });
+    // Documents of a paired rule's roles that are in no pair of it (warning, as in the problems).
+    var unpaired = {};
+    shown.forEach(function (r) {
+      if (!r.paired) { return; }
+      [[r.from, 's'], [r.to, 't']].forEach(function (side) {
+        var n = m.byKey[side[0]];
+        n.docs.forEach(function (d) {
+          var k = self.docKey(d);
+          if (!r.pairs.some(function (p) { return p[side[1]] === k; })) { (unpaired[n.key + '|' + k] = unpaired[n.key + '|' + k] || []).push(r.id); }
+        });
+      });
+    });
+    var frames = m.nodes.map(function (n) {
+      return {
+        key: n.key, search: n.key + ' ' + n.title,
+        lines: [{ text: n.key, weight: 600, color: dark }, { text: n.title !== n.key ? n.title : '', weight: 400, color: grey }],
+        docs: n.docs.map(function (d) {
+          var k = self.docKey(d);
+          var lines = [{ text: d.name || d.decl, weight: 600, color: dark },
+            { text: (d.project && d.project !== self.project ? d.project + ' / ' : '') + (d.space === '_default' ? '(default space)' : d.space), weight: 400, color: grey }];
+          var stroke = '';
+          var sw = 0;
+          if (!d.found) { lines.push({ text: 'not found', weight: 400, color: red }); stroke = red; sw = 2.2; }
+          var up = unpaired[n.key + '|' + k];
+          if (up) {
+            lines.push({ text: 'in no pair of ' + up.join(', '), weight: 400, color: orange });
+            if (!stroke) { stroke = orange; sw = 2.2; }
+          }
+          return { key: k, lines: lines, stroke: stroke, sw: sw, tip: [k + (d.title && d.title !== d.name ? ' ' + DASH + ' ' + d.title : ''), 'Role ' + n.key] };
+        }),
+        onClick: function () { self.showRole(n); },
+        onDoc: function () { self.showRole(n); }
+      };
+    });
+    var arrows = [];
+    shown.forEach(function (r) {
+      var cat = catById(self.cats, r.role);
+      var base = { color: cat.color, dash: cat.dash, tip: [ruleText(r), pairsText(r)],
+        onClick: function () { self.showDetails({ o: r.to, c: r.from, rules: [r] }); } };
+      function add(from, to, label) {
+        var a = {};
+        Object.keys(base).forEach(function (k) { a[k] = base[k]; });
+        a.from = from; a.to = to; a.label = label;
+        arrows.push(a);
+      }
+      if (r.paired) {
+        r.pairs.forEach(function (p) { add({ f: r.from, d: p.s }, { f: r.to, d: p.t }, r.id + ' ' + r.rname); });
+      } else if (r.from !== r.to) {
+        m.byKey[r.from].docs.forEach(function (d, i) { add({ f: r.from, d: self.docKey(d) }, { f: r.to }, i ? '' : r.id + ' ' + r.rname); });
+      }
+    });
+    return { frames: frames, arrows: arrows };
   };
 
   Widget.prototype.showDetails = function (e) {

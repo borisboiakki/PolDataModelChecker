@@ -21,6 +21,7 @@ Target: Polarion 2512 (0.1.0 verified on 2512, `docs/PO_CHECKS.md` §3; the 0.2.
 | Model work item id | Optional: the id of the model item |
 | Violations listed per rule and check | At most this many violations are listed per rule and kind of check (default 500); all are counted |
 | Graph height in pixels | Height of the graph area |
+| Graph view when the page opens | *Collapsed* (one box per role, default) or *Exploded* (one box per document coloured by its own violations, arrows per pair (or per source document for a pooled rule) with their counts, cross-pair links dotted). The toolbar switch *View: Collapsed / Exploded* is shown when a role has several documents or a rule is paired |
 
 Put dmDefine and dmCheck on the same page (same parameters) to see the model and its check side by side.
 

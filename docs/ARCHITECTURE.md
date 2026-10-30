@@ -244,6 +244,7 @@ values escaped with `$esc.html`, separators replaced inside values, caps with wa
 | `dc-v` (violation) | `data-sev`, `data-kind` (`missing-type`, `too-many`, `unexpected-type`, `from`, `to`, `cross-pair`, `unpaired`, `unexpected-link`), `data-rule` (rule id, `types:<role>`, or empty for unexpected links), `data-doc` (`project/space/name`), `data-item` (`project/id`), `data-msg` | dmCheck 0.1.0 |
 | `dc-n` (full count) | `data-k` (`rule|kind`), `data-n` | dmCheck 0.1.0 |
 | `dc-d` (document) | `data-k`, `data-roles` (`R;…`), `data-items` (counted), `data-bad` (with a violation), `data-types` (`type|n;…`) | dmCheck 0.1.0 |
+| `dc-dn`, `dc-x` (exploded view) | `dc-dn`: `data-k` (`rule|kind|document key`), `data-n` full count; `dc-x`: `data-k` (`rule|source doc>target doc`), `data-n` cross-pair links; rules add `data-pairs` (`source|target;`, document keys) | dmCheck 0.4.0 |
 | `dc-q` (drill-down query) | `data-rule` (rule id or `types:<role>`), `data-kind` (`from`, `to`, `unexpected-type`), `data-doc` (`project/space/name`), `data-n` (violations of that rule, kind and document), `data-q` (Lucene `project.id:P AND SQL:(…)`) | dmCheck 0.2.0 |
 
 `|` and `;` inside values are replaced by a space.
@@ -281,6 +282,13 @@ optional widget fields added: `isolatedText` and `searchText`. Widget code:
   errors; counts on edges and nodes); a click lists the violations and, from 0.2.0, the drill-down per document (link to
   Polarion's work item table with the query, *Copy query*); table (violations, rules, documents, drill-down queries);
   Excel sheets Rules, Violations, Documents, Queries (0.2.0), Model problems.
+
+- **Exploded view** (dmDefine 0.8.0 D16, dmCheck 0.4.0 K17), `shared/js/core.js`: `viewSwitch(bar, available)` adds the
+  *Collapsed / Exploded* buttons (root `data-view` = initial view, parameter `initialView`); `layoutAndDraw` calls
+  `drawExploded(widget.explodedModel())` instead of `drawGraph()` when exploded. The widget gives frames (one per role,
+  header lines, documents with their lines, colour and tooltip) and arrows (document to document, or document to a
+  frame for a pooled rule, colour, dash, label, click). Frames keep the columns and order of the collapsed layout
+  (target roles on the left); documents are stacked inside; same-column arrows loop out on the left.
 
 Constraints of the inlined JS (enforced by the build): no `$`, `#`, backslash or non-ASCII character (`HASH`,
 `String.fromCharCode`). The YAML serializer must respect them, and `#` comments are produced from `HASH`. Toolbar

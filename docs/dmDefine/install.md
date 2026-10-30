@@ -30,6 +30,7 @@ Target: Polarion 2512 (verified with the spike widget); 2612 not verified yet.
 | Model work item type | Type of the model item (default Text) |
 | Model work item id | Optional: the id of the model item, when the document holds several items of the type |
 | Graph height in pixels | Height of the graph area (default 500) |
+| Graph view when the page opens | *Collapsed* (one box per role, default) or *Exploded* (one box per document inside a frame per role, pooled rules drawn from each document to the target role, pairs document to document, documents in no pair outlined in orange). The toolbar switch *View: Collapsed / Exploded* is shown when a role has several documents or a rule is paired |
 | Save to Polarion (REST API) in the editor | *When available* (default) or *Off* (copy and paste only) |
 
 The widget reads the first item of the type with a line starting with `version:`, `model:` or `uses:`.

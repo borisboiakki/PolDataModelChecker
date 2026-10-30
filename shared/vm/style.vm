@@ -8,8 +8,10 @@
   .bw-check { display: inline-flex; align-items: center; gap: 3px; cursor: pointer; white-space: nowrap; }
   .bw-fields { display: inline-flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
   .bw-btns { display: inline-flex; gap: 4px; }
+  .bw-viewsw { align-items: center; }
   .bw-btn { font-size: 12px; padding: 2px 8px; cursor: pointer; border: 1px solid rgb(170,178,195); background: rgb(248,249,252); border-radius: 3px; }
   .bw-btn:hover { background: rgb(232,237,247); }
+  .bw-btn.bw-on, .bw-btn.bw-on:hover { background: rgb(51,103,214); color: rgb(255,255,255); border-color: rgb(51,103,214); }
   .bw-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: center; margin: 2px 0 4px 0; }
   .bw-leg { display: inline-flex; align-items: center; gap: 4px; }
   .bw-muted { color: rgb(110,118,135); }

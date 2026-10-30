@@ -96,6 +96,7 @@
         id: a.id, from: a.from, ft: a.ft || '', role: a.role, rname: a.rn || a.role, to: a.to, tt: a.tt || '',
         fmin: toInt(a.fmin), tmin: toInt(a.tmin), sev: a.sev || 'error', paired: a.paired === '1',
         fsev: a.fsev || a.sev || 'error', tsev: a.tsev || a.sev || 'error',
+        pairs: parts(a.pairs, ';').map(function (p) { var f = p.split('|'); return { s: f[0], t: f[1] || '' }; }),
         fc: toInt(a.fc), fo: toInt(a.fo), tc: toInt(a.tc), to2: toInt(a.to2), cross: toInt(a.cross), unp: toInt(a.unp)
       };
       // Violations per severity (K18: from = fsev, to = tsev, cross-pair and unpaired = sev).
@@ -117,6 +118,16 @@
       var d = e.dataset;
       docs.push({ key: d.k, roles: parts(d.roles, ';'), items: toInt(d.items), bad: toInt(d.bad),
         types: parts(d.types, ';').map(function (p) { var f = p.split('|'); return { type: f[0], n: toInt(f[1]) }; }) });
+    });
+    // Full counts per rule, check and document, and cross-pair links per document pair (exploded view, K17).
+    var docCounts = {};
+    Array.prototype.forEach.call(root.querySelectorAll('.bw-model .dc-dn'), function (e) { docCounts[e.dataset.k] = toInt(e.dataset.n); });
+    var cross = [];
+    Array.prototype.forEach.call(root.querySelectorAll('.bw-model .dc-x'), function (e) {
+      var k = e.dataset.k;
+      var i = k.indexOf('|');
+      var st = k.substring(i + 1).split('>');
+      cross.push({ rule: k.substring(0, i), s: st[0], t: st[1] || '', n: toInt(e.dataset.n) });
     });
     var queries = [];
     Array.prototype.forEach.call(root.querySelectorAll('.bw-model .dc-q'), function (e) {
@@ -142,7 +153,7 @@
       e.rules.forEach(function (r) { Object.keys(r.bySev).forEach(function (s) { e.kinds[s] += r.bySev[s]; }); });
       if (!e.kinds.error && !e.kinds.warning && !e.kinds.info) { e.meta.ok = true; }
     });
-    return { nodes: nodes, byKey: byKey, rules: rules, viol: viol, docs: docs, probs: probs, edges: edges, counts: counts, queries: queries };
+    return { nodes: nodes, byKey: byKey, rules: rules, viol: viol, docs: docs, probs: probs, edges: edges, counts: counts, queries: queries, docCounts: docCounts, cross: cross };
   }
 
   // Worst severity among the violations found (K18), 'ok' without violation.
@@ -186,6 +197,9 @@
     st.rel = relFromData('', this.cats);
     st.filterText = '';
     st.baseLines = model.nodes.some(function (n) { return n.selfRules.length; }) ? 5 : 4;
+    // Exploded view (K17): offered when a role has several documents or a rule is paired.
+    this.canExplode = this.run && (model.nodes.some(function (n) { return n.docs.length > 1; }) || model.rules.some(function (r) { return r.paired; }));
+    st.exploded = this.canExplode && ds.view === 'exploded';
     this.build();
     this.render(true);
   }
@@ -229,6 +243,7 @@
     var f = el('input', { 'class': 'bw-ctl dc-filter', type: 'search', placeholder: 'Filter violations (text)' + ELLIPSIS }, bar);
     f.addEventListener('input', function () { self.state.filterText = f.value.trim().toLowerCase(); self.render(false); });
     this.viewButtons(bar);
+    this.viewSwitch(bar, this.canExplode);
     if (this.item.id) {
       var a = el('a', { href: itemUrl(this.item.project, this.item.id, ''), target: '_top', title: 'Open the model work item' }, bar, 'Open model item');
       a.style.alignSelf = 'center';
@@ -322,6 +337,111 @@
   Widget.prototype.onNode = function (a, n) {
     var self = this;
     a.addEventListener('click', function (ev) { ev.preventDefault(); self.showRole(n); });
+  };
+
+  // ------------------------------------------------------------------ exploded view (K17)
+  var SEV_COLOR = { error: 'rgb(198,40,40)', warning: 'rgb(211,120,0)', info: 'rgb(51,103,214)', ok: 'rgb(26,127,55)' };
+  var SEV_ORDER = ['error', 'warning', 'info'];
+  var KIND_SHORT = {
+    'from': 'without link', 'to': 'not covered', 'cross-pair': 'cross-pair link(s)', 'unpaired': '', 'unexpected-type': 'unexpected type(s)',
+    'missing-type': 'missing type(s)', 'too-many': 'too many items', 'unexpected-link': 'unexpected link(s)'
+  };
+
+  function worst(bySev) {
+    return SEV_ORDER.filter(function (x) { return bySev[x]; })[0] || 'ok';
+  }
+
+  // "errors 1 + warnings 3" (shown severities only).
+  function sevLabel(bySev, rel) {
+    return SEV_ORDER.filter(function (x) { return bySev[x] && rel[x] !== false; }).map(function (x) {
+      return (x === 'info' ? 'info' : x + 's') + ' ' + bySev[x];
+    }).join(' + ');
+  }
+
+  Widget.prototype.explodedModel = function () {
+    var self = this;
+    var m = this.model;
+    var st = this.state;
+    var dark = 'rgb(25,35,55)';
+    var grey = 'rgb(90,98,115)';
+    var docInfo = {};
+    m.docs.forEach(function (d) { docInfo[d.key] = d; });
+    // Violations per document: [{ rule, kind, n, sev }].
+    var perDoc = {};
+    Object.keys(m.docCounts).forEach(function (k) {
+      var a = k.split('|');
+      var doc = a.slice(2).join('|');
+      (perDoc[doc] = perDoc[doc] || []).push({ rule: a[0], kind: a[1], n: m.docCounts[k], sev: self.sevOf(a[0], a[1]) });
+    });
+    var frames = m.nodes.map(function (n) {
+      return {
+        key: n.key, search: n.key + ' ' + n.title,
+        lines: [{ text: n.key, weight: 600, color: dark }, { text: n.title !== n.key ? n.title : '', weight: 400, color: grey }],
+        docs: n.docs.map(function (dd) {
+          var k = dd.key;
+          var sp = splitKey(k);
+          var name = k.substring(k.lastIndexOf('/') + 1);
+          var lines = [{ text: name, weight: 600, color: dark }];
+          if (!dd.found) { return { key: k, lines: lines.concat([{ text: 'not found', weight: 400, color: SEV_COLOR.error }]), stroke: SEV_COLOR.error, sw: 2, tip: [k] }; }
+          var v = (perDoc[k] || []).filter(function (x) { return st.rel[x.sev] !== false; });
+          var bySev = {};
+          v.forEach(function (x) { bySev[x.sev] = (bySev[x.sev] || 0) + x.n; });
+          var w = worst(bySev);
+          var di = docInfo[k] || { items: 0, bad: 0 };
+          lines.push({ text: (sp.project !== self.project ? sp.project + ' / ' : '') + 'Items: ' + di.items + ', without violation: ' + pct(di.items - di.bad, di.items),
+            weight: 400, color: SEV_COLOR[w] });
+          v.sort(function (x, y) { return SEV_ORDER.indexOf(x.sev) - SEV_ORDER.indexOf(y.sev) || x.rule.localeCompare(y.rule); });
+          var shown = v.slice(0, 3);
+          shown.forEach(function (x) {
+            var rule = x.rule.indexOf('types:') === 0 ? 'Types' : (x.rule || 'Links');
+            lines.push({ text: x.kind === 'unpaired' ? 'in no pair of ' + x.rule : rule + ': ' + x.n + ' ' + KIND_SHORT[x.kind], weight: 400, color: SEV_COLOR[x.sev] });
+          });
+          if (v.length > shown.length) { lines.push({ text: '+' + (v.length - shown.length) + ' more (click)', weight: 400, color: grey }); }
+          return { key: k, lines: lines, stroke: SEV_COLOR[w], sw: 1.6,
+            tip: [k].concat(v.map(function (x) { return x.sev + ': ' + (x.rule || 'links') + ' ' + (KIND_TEXT[x.kind] || x.kind) + ' ' + x.n; })) };
+        }),
+        onClick: function () { self.showRole(n); },
+        onDoc: function () { self.showRole(n); }
+      };
+    });
+    var arrows = [];
+    var dc = m.docCounts;
+    m.rules.forEach(function (r) {
+      if (!m.byKey[r.from] || !m.byKey[r.to]) { return; }
+      function add(from, to, bySev, extra) {
+        var w = worst(bySev);
+        if (st.rel[w] === false && !sevLabel(bySev, st.rel)) { return; }
+        var lab = sevLabel(bySev, st.rel);
+        arrows.push({ from: from, to: to, color: SEV_COLOR[lab ? worst(bySev) : 'ok'], label: r.id + ' ' + (lab || 'compliant'),
+          tip: [self.ruleSummary(r)].concat(extra || []), onClick: function () { self.showDetails({ o: r.to, c: r.from, rules: [r] }); } });
+      }
+      function count(bySev, kind, doc, sev) {
+        var n = dc[r.id + '|' + kind + '|' + doc] || 0;
+        if (n) { bySev[sev] = (bySev[sev] || 0) + n; }
+      }
+      if (r.paired) {
+        r.pairs.forEach(function (p) {
+          var b = {};
+          count(b, 'from', p.s, r.fsev);
+          count(b, 'to', p.t, r.tsev);
+          add({ f: r.from, d: p.s }, { f: r.to, d: p.t }, b, [shortDoc(p.s, self.project) + ' ' + ARROW + ' ' + shortDoc(p.t, self.project)]);
+        });
+        m.cross.filter(function (x) { return x.rule === r.id; }).forEach(function (x) {
+          if (st.rel[r.sev] === false) { return; }
+          arrows.push({ from: { f: r.from, d: x.s }, to: { f: r.to, d: x.t }, color: SEV_COLOR[r.sev], dash: '3,3', width: 1.3, label: 'cross-pair ' + x.n,
+            tip: [r.id + ': ' + x.n + ' link(s) between documents that are not paired (they do not count)', shortDoc(x.s, self.project) + ' ' + ARROW + ' ' + shortDoc(x.t, self.project)],
+            onClick: function () { self.showDetails({ o: r.to, c: r.from, rules: [r] }); } });
+        });
+      } else if (r.from !== r.to) {
+        m.byKey[r.from].docs.forEach(function (d) {
+          if (!d.found) { return; }
+          var b = {};
+          count(b, 'from', d.key, r.fsev);
+          add({ f: r.from, d: d.key }, { f: r.to }, b);
+        });
+      }
+    });
+    return { frames: frames, arrows: arrows };
   };
 
   Widget.prototype.ruleSummary = function (r) {

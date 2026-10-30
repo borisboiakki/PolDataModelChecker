@@ -35,6 +35,12 @@
 #end
 ## BW_SHARED dm-check.vm
 
+#set($initialView = "collapsed")
+#set($tmp = "")
+#set($tmp = $parameters.initialView.singleValue())
+#if("$tmp" == "exploded")
+  #set($initialView = "exploded")
+#end
 #set($graphHeight = 500)
 #set($tmp = "")
 #set($tmp = $parameters.height.value())
@@ -123,7 +129,7 @@
 #if($dcCapped)
   #set($dcCapF = "1")
 #end
-<div class="dc-root" data-project="$esc.html($dmProjectId)" data-version="$bwVersion" data-height="$graphHeight" data-item="$esc.html($dmItemId)" data-item-project="$esc.html($dmItemProject)" data-rev="$esc.html($dmItemRev)" data-uses="$esc.html($dmUses)" data-name="$esc.html($dmName)" data-run="$dcRunF" data-note="$esc.html($dcNote)" data-items="$dcItemN" data-links="$dcLinkN" data-unres="$dcUnres" data-capped="$dcCapF" data-cap="$dcListCap" data-unexp="$dmUnexpLinks">
+<div class="dc-root" data-project="$esc.html($dmProjectId)" data-version="$bwVersion" data-height="$graphHeight" data-item="$esc.html($dmItemId)" data-item-project="$esc.html($dmItemProject)" data-rev="$esc.html($dmItemRev)" data-uses="$esc.html($dmUses)" data-name="$esc.html($dmName)" data-run="$dcRunF" data-note="$esc.html($dcNote)" data-items="$dcItemN" data-links="$dcLinkN" data-unres="$dcUnres" data-capped="$dcCapF" data-cap="$dcListCap" data-unexp="$dmUnexpLinks" data-view="$initialView">
 <div class="dc-head"><b>Data Model Check</b>#if($dmName != "") &mdash; $esc.html($dmName)#end &mdash; model $esc.html($itemLabel) <span class="bw-muted">(widget v$bwVersion)</span></div>
 <div class="bw-model" style="display:none">
 #foreach($r in $dmRoles)
@@ -154,7 +160,14 @@
   #if($u.get("paired"))
     #set($pf = "1")
   #end
-<i class="dm-l" data-id="$esc.html($u.get('id'))" data-from="$esc.html($u.get('from'))" data-ft="$esc.html($u.get('ft'))" data-role="$esc.html($u.get('role'))" data-rn="$esc.html($u.get('rname'))" data-to="$esc.html($u.get('to'))" data-tt="$esc.html($u.get('tt'))" data-fmin="$u.get('fmin')" data-tmin="$u.get('tmin')" data-sev="$u.get('sev')" data-fsev="$u.get('fromsev')" data-tsev="$u.get('tosev')" data-paired="$pf"#if($st) data-fc="$st.get('fc')" data-fo="$st.get('fo')" data-tc="$st.get('tc')" data-to2="$st.get('to')" data-cross="$st.get('cross')" data-unp="$st.get('unp')"#end></i>
+  ## Pairs as "source|target;" (document keys project/space/name), for the exploded view (K17).
+  #set($dcPd = "")
+  #foreach($pp in $u.get("pairs"))
+    #set($dcPa = $pp.get(0).replace("|", " ").replace(";", " "))
+    #set($dcPb = $pp.get(1).replace("|", " ").replace(";", " "))
+    #set($dcPd = "${dcPd}${dcPa}|${dcPb};")
+  #end
+<i class="dm-l" data-pairs="$esc.html($dcPd)" data-id="$esc.html($u.get('id'))" data-from="$esc.html($u.get('from'))" data-ft="$esc.html($u.get('ft'))" data-role="$esc.html($u.get('role'))" data-rn="$esc.html($u.get('rname'))" data-to="$esc.html($u.get('to'))" data-tt="$esc.html($u.get('tt'))" data-fmin="$u.get('fmin')" data-tmin="$u.get('tmin')" data-sev="$u.get('sev')" data-fsev="$u.get('fromsev')" data-tsev="$u.get('tosev')" data-paired="$pf"#if($st) data-fc="$st.get('fc')" data-fo="$st.get('fo')" data-tc="$st.get('tc')" data-to2="$st.get('to')" data-cross="$st.get('cross')" data-unp="$st.get('unp')"#end></i>
 #end
 #foreach($p in $dmProbs)
 <i class="dm-p" data-sev="$p.get(0)" data-line="$p.get(1)" data-msg="$esc.html($p.get(2))"></i>
@@ -164,6 +177,12 @@
 #end
 #foreach($k in $dcViolN.keySet())
 <i class="dc-n" data-k="$esc.html($k)" data-n="$dcViolN.get($k)"></i>
+#end
+#foreach($k in $dcViolDN.keySet())
+<i class="dc-dn" data-k="$esc.html($k)" data-n="$dcViolDN.get($k)"></i>
+#end
+#foreach($k in $dcCrossN.keySet())
+<i class="dc-x" data-k="$esc.html($k)" data-n="$dcCrossN.get($k)"></i>
 #end
 #foreach($q in $dcQs)
 <i class="dc-q" data-rule="$esc.html($q.get(0))" data-kind="$q.get(1)" data-doc="$esc.html($q.get(2))" data-n="$q.get(3)" data-q="$esc.html($q.get(4))"></i>

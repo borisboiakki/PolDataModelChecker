@@ -4,7 +4,7 @@
 ## Velocity 1.4 and writes widgets/dmCheck/dist/dmCheck.zip.
 ## Velocity 1.4 dialect (guide 3.1.9): no map literals, one statement per line, no backslashes in strings.
 ## Model pipeline as dmDefine (dm-read, dm-yaml, dm-model); checks in dm-check.vm (SPECIFICATION K3-K5, K15, K16).
-#set($bwVersion = "0.3.0")
+#set($bwVersion = "0.4.0")
 ## Shared snippet style.vm (shared/vm), inlined by tools/build-widget.py at "## BW_SHARED style.vm".
 ## CSS of the interactive view and the static (PDF/print) table. Root classes: bw-root, cw-root (sister repo), dd-root (dmDefine), dc-root (dmCheck).
 <style>
@@ -15,8 +15,10 @@
   .bw-check { display: inline-flex; align-items: center; gap: 3px; cursor: pointer; white-space: nowrap; }
   .bw-fields { display: inline-flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
   .bw-btns { display: inline-flex; gap: 4px; }
+  .bw-viewsw { align-items: center; }
   .bw-btn { font-size: 12px; padding: 2px 8px; cursor: pointer; border: 1px solid rgb(170,178,195); background: rgb(248,249,252); border-radius: 3px; }
   .bw-btn:hover { background: rgb(232,237,247); }
+  .bw-btn.bw-on, .bw-btn.bw-on:hover { background: rgb(51,103,214); color: rgb(255,255,255); border-color: rgb(51,103,214); }
   .bw-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: center; margin: 2px 0 4px 0; }
   .bw-leg { display: inline-flex; align-items: center; gap: 4px; }
   .bw-muted { color: rgb(110,118,135); }
@@ -1319,6 +1321,8 @@
 ##   $dcViolN  map "rule|kind" -> full count;  $dcSevN map severity -> full count
 ##   $dcStat   map rule id -> map fc, fo (from side: checked, compliant), tc, to (to side), cross, unp, sev
 ##   $dcDocs   list of maps key, roles (list), items (counted), bad (items with a violation), types ("type|n;" text)
+##   $dcViolDN map "rule|kind|document key" -> full count; $dcCrossN map "rule|source doc>target doc" -> cross-pair links
+##             (exploded view, K17)
 ##   $dcQs     drill-down queries (K9, dmCheck 0.2): list of [rule, kind, document key, count, Lucene query] for the
 ##             kinds from, to (per document of the rule's side) and unexpected-type (per document). The query lists the
 ##             same items as the evaluation: NOT IN form verified on 2512 (dmSpike S10 runs 5 and 5b, also inside a
@@ -1336,6 +1340,7 @@
 #set($dcDocs = [])
 #set($dcQs = [])
 #set($dcViolDN = $objectFactory.newMap())
+#set($dcCrossN = $objectFactory.newMap())
 
 ## Violation [sev, kind, rule, doc, item, msg]: counted always, stored up to $dcListCap per rule and kind.
 ## Arguments are passed by name (Velocity 1.4): the macro uses its own variable names (dca*) so that an argument such
@@ -1617,6 +1622,11 @@
         #set($void = $dcL.set(3, true))
         #if($dcPaired && !$dcPairs.contains("${dcSd}>${dcTd}"))
           #set($dcCross = $dcCross + 1)
+          #set($dcXk = "${dcUid}|${dcSd}>${dcTd}")
+          #set($dcXn = 0)
+          #set($dcXn = $dcCrossN.get($dcXk))
+          #set($dcXn = $dcXn + 1)
+          #set($void = $dcCrossN.put($dcXk, $dcXn))
           #set($dcSid = $dcItems.get($dcL.get(0)).get(2))
           #set($dcTid = $dcItems.get($dcL.get(2)).get(2))
           #dcAdd($dcSev "cross-pair" $dcUid $dcSd $dcL.get(0) "$dcSid $dmU.get('rname') $dcTid: documents not paired for ${dcUid} ($dcSd, $dcTd).")
@@ -1821,6 +1831,12 @@
   #end
 #end
 
+#set($initialView = "collapsed")
+#set($tmp = "")
+#set($tmp = $parameters.initialView.singleValue())
+#if("$tmp" == "exploded")
+  #set($initialView = "exploded")
+#end
 #set($graphHeight = 500)
 #set($tmp = "")
 #set($tmp = $parameters.height.value())
@@ -1909,7 +1925,7 @@
 #if($dcCapped)
   #set($dcCapF = "1")
 #end
-<div class="dc-root" data-project="$esc.html($dmProjectId)" data-version="$bwVersion" data-height="$graphHeight" data-item="$esc.html($dmItemId)" data-item-project="$esc.html($dmItemProject)" data-rev="$esc.html($dmItemRev)" data-uses="$esc.html($dmUses)" data-name="$esc.html($dmName)" data-run="$dcRunF" data-note="$esc.html($dcNote)" data-items="$dcItemN" data-links="$dcLinkN" data-unres="$dcUnres" data-capped="$dcCapF" data-cap="$dcListCap" data-unexp="$dmUnexpLinks">
+<div class="dc-root" data-project="$esc.html($dmProjectId)" data-version="$bwVersion" data-height="$graphHeight" data-item="$esc.html($dmItemId)" data-item-project="$esc.html($dmItemProject)" data-rev="$esc.html($dmItemRev)" data-uses="$esc.html($dmUses)" data-name="$esc.html($dmName)" data-run="$dcRunF" data-note="$esc.html($dcNote)" data-items="$dcItemN" data-links="$dcLinkN" data-unres="$dcUnres" data-capped="$dcCapF" data-cap="$dcListCap" data-unexp="$dmUnexpLinks" data-view="$initialView">
 <div class="dc-head"><b>Data Model Check</b>#if($dmName != "") &mdash; $esc.html($dmName)#end &mdash; model $esc.html($itemLabel) <span class="bw-muted">(widget v$bwVersion)</span></div>
 <div class="bw-model" style="display:none">
 #foreach($r in $dmRoles)
@@ -1940,7 +1956,14 @@
   #if($u.get("paired"))
     #set($pf = "1")
   #end
-<i class="dm-l" data-id="$esc.html($u.get('id'))" data-from="$esc.html($u.get('from'))" data-ft="$esc.html($u.get('ft'))" data-role="$esc.html($u.get('role'))" data-rn="$esc.html($u.get('rname'))" data-to="$esc.html($u.get('to'))" data-tt="$esc.html($u.get('tt'))" data-fmin="$u.get('fmin')" data-tmin="$u.get('tmin')" data-sev="$u.get('sev')" data-fsev="$u.get('fromsev')" data-tsev="$u.get('tosev')" data-paired="$pf"#if($st) data-fc="$st.get('fc')" data-fo="$st.get('fo')" data-tc="$st.get('tc')" data-to2="$st.get('to')" data-cross="$st.get('cross')" data-unp="$st.get('unp')"#end></i>
+  ## Pairs as "source|target;" (document keys project/space/name), for the exploded view (K17).
+  #set($dcPd = "")
+  #foreach($pp in $u.get("pairs"))
+    #set($dcPa = $pp.get(0).replace("|", " ").replace(";", " "))
+    #set($dcPb = $pp.get(1).replace("|", " ").replace(";", " "))
+    #set($dcPd = "${dcPd}${dcPa}|${dcPb};")
+  #end
+<i class="dm-l" data-pairs="$esc.html($dcPd)" data-id="$esc.html($u.get('id'))" data-from="$esc.html($u.get('from'))" data-ft="$esc.html($u.get('ft'))" data-role="$esc.html($u.get('role'))" data-rn="$esc.html($u.get('rname'))" data-to="$esc.html($u.get('to'))" data-tt="$esc.html($u.get('tt'))" data-fmin="$u.get('fmin')" data-tmin="$u.get('tmin')" data-sev="$u.get('sev')" data-fsev="$u.get('fromsev')" data-tsev="$u.get('tosev')" data-paired="$pf"#if($st) data-fc="$st.get('fc')" data-fo="$st.get('fo')" data-tc="$st.get('tc')" data-to2="$st.get('to')" data-cross="$st.get('cross')" data-unp="$st.get('unp')"#end></i>
 #end
 #foreach($p in $dmProbs)
 <i class="dm-p" data-sev="$p.get(0)" data-line="$p.get(1)" data-msg="$esc.html($p.get(2))"></i>
@@ -1950,6 +1973,12 @@
 #end
 #foreach($k in $dcViolN.keySet())
 <i class="dc-n" data-k="$esc.html($k)" data-n="$dcViolN.get($k)"></i>
+#end
+#foreach($k in $dcViolDN.keySet())
+<i class="dc-dn" data-k="$esc.html($k)" data-n="$dcViolDN.get($k)"></i>
+#end
+#foreach($k in $dcCrossN.keySet())
+<i class="dc-x" data-k="$esc.html($k)" data-n="$dcCrossN.get($k)"></i>
 #end
 #foreach($q in $dcQs)
 <i class="dc-q" data-rule="$esc.html($q.get(0))" data-kind="$q.get(1)" data-doc="$esc.html($q.get(2))" data-n="$q.get(3)" data-q="$esc.html($q.get(4))"></i>
@@ -2450,7 +2479,7 @@
     this.viewBtn.textContent = st.view === 'graph' ? 'Table' : 'Graph';
     this.view.style.display = st.view === 'graph' ? '' : 'none';
     this.table.style.display = st.view === 'table' ? '' : 'none';
-    this.drawGraph();
+    if (st.exploded && this.explodedModel) { this.drawExploded(this.explodedModel()); } else { this.drawGraph(); }
     this.drawTable();
     if (refit) { this.fit(); } else { this.applyZoom(); }
   };
@@ -2561,6 +2590,178 @@
       });
       svg('title', null, a, self.docLabel(n) + ' ' + DASH + ' ' + n.title);
       if (self.onNode) { self.onNode(a, n); }
+    });
+  };
+
+  // ------------------------------------------------------------------ exploded view (dmDefine D16, dmCheck K17)
+  // The widget gives explodedModel() = { frames: [...], arrows: [...] }:
+  //   frame = { key (role, positioned like its collapsed box), lines: [{ text, weight, color }] (header), search (text),
+  //             docs: [{ key, lines, stroke, sw, tip }], onClick(), onDoc(doc) }
+  //   arrow = { from: { f, d } (frame key, document key), to: { f, d } or { f } (frame), color, dash, width, label,
+  //             tip: [lines], onClick() }
+  // Frames take the columns and order of the collapsed layout (target roles on the left); documents are stacked inside.
+  var FRAME_PAD = 10;
+  var FRAME_HEAD = 44;
+  var DOC_GAP = 12;
+
+  Base.viewSwitch = function (bar, available) {
+    var self = this;
+    if (!available) { this.state.exploded = false; return; }
+    var w = el('span', { 'class': 'bw-btns bw-viewsw' }, bar);
+    el('span', { 'class': 'bw-muted' }, w, 'View:');
+    var c = this.button(w, 'Collapsed', 'One box per document role', function () { set(false); });
+    var x = this.button(w, 'Exploded', 'One box per document, inside a frame per role; pairs drawn document to document', function () { set(true); });
+    function mark() { c.classList.toggle('bw-on', !self.state.exploded); x.classList.toggle('bw-on', !!self.state.exploded); }
+    function set(on) { self.state.exploded = on; mark(); self.hideTip(); self.render(true); }
+    mark();
+  };
+
+  Base.drawExploded = function (xm) {
+    var self = this;
+    var lay = this.lay;
+    var root = this.svgEl;
+    while (root.firstChild) { root.removeChild(root.firstChild); }
+    var fw = NODE_W + 2 * FRAME_PAD;
+    var maxLines = 1;
+    xm.frames.forEach(function (f) { f.docs.forEach(function (d) { maxLines = Math.max(maxLines, d.lines.length); }); });
+    var docH = PAD * 2 + LINE_H * maxLines;
+    // Columns from the collapsed layout; roles without rules in a row below.
+    var colOf = {};
+    var cols = [];
+    var below = [];
+    xm.frames.forEach(function (f) {
+      var p = lay.pos[f.key];
+      if (!p) { return; }
+      if (lay.linked.some(function (n) { return n.key === f.key; })) {
+        var ci = Math.round((p.x - MARGIN) / (NODE_W + COL_GAP));
+        (cols[ci] = cols[ci] || []).push({ f: f, y: p.y });
+      } else {
+        below.push(f);
+      }
+    });
+    var pos = {};
+    var frames = {};
+    var width = MARGIN;
+    var height = MARGIN;
+    function frameH(f) { return FRAME_HEAD + Math.max(1, f.docs.length) * (docH + DOC_GAP) + FRAME_PAD - DOC_GAP + 4; }
+    function place(f, x, y) {
+      var h = frameH(f);
+      frames[f.key] = { x: x, y: y, w: fw, h: h, f: f };
+      f.docs.forEach(function (d, i) {
+        pos[f.key + '|' + d.key] = { x: x + FRAME_PAD, y: y + FRAME_HEAD + i * (docH + DOC_GAP), w: NODE_W, h: docH };
+      });
+      width = Math.max(width, x + fw + MARGIN);
+      height = Math.max(height, y + h + MARGIN);
+      return h;
+    }
+    for (var ci = 0; ci < cols.length; ci++) {
+      var list = (cols[ci] || []).sort(function (a, b) { return a.y - b.y; });
+      var y = MARGIN + 10;
+      for (var k = 0; k < list.length; k++) { y += place(list[k].f, MARGIN + ci * (fw + COL_GAP), y) + ROW_GAP; }
+    }
+    if (below.length) {
+      var top = height + (cols.length ? 10 : 0);
+      var x0 = MARGIN;
+      var rowH = 0;
+      var perRow = Math.max(3, cols.length);
+      below.forEach(function (f, i) {
+        if (i && i % perRow === 0) { top += rowH + ROW_GAP; rowH = 0; x0 = MARGIN; }
+        rowH = Math.max(rowH, place(f, x0, top + 24));
+        x0 += fw + 40;
+      });
+      this.belowTop = top;
+    }
+    this.lay = { pos: lay.pos, width: Math.max(width, 200), height: Math.max(height, 80), nodeH: lay.nodeH, linked: lay.linked, isolated: lay.isolated, isoTop: lay.isoTop, topPad: lay.topPad };
+    svg('rect', { x: 0, y: 0, width: this.lay.width, height: this.lay.height, fill: 'rgb(255,255,255)' }, root);
+    if (!xm.frames.length) {
+      svg('text', { x: MARGIN, y: MARGIN + 14, 'font-family': FONT, 'font-size': 13, fill: 'rgb(90,90,90)' }, root, this.emptyText);
+      return;
+    }
+    if (below.length && cols.length) {
+      svg('text', { x: MARGIN, y: this.belowTop + 16, 'font-family': FONT, 'font-size': 12, fill: 'rgb(110,110,110)' }, root,
+        this.isolatedText || 'Without relations');
+    }
+    var gFrames = svg('g', null, root);
+    var gArrows = svg('g', null, root);
+    var gDocs = svg('g', null, root);
+    var gLabels = svg('g', null, root);
+    var filter = this.state.filter;
+    Object.keys(frames).forEach(function (key) {
+      var fr = frames[key];
+      var f = fr.f;
+      var match = !filter || (f.search || f.key).toLowerCase().indexOf(filter) >= 0;
+      var g = svg('g', { 'class': 'bw-frame', opacity: match ? 1 : 0.3 }, gFrames);
+      svg('rect', { x: fr.x, y: fr.y, width: fr.w, height: fr.h, rx: 10, fill: 'rgb(243,245,250)',
+        stroke: filter && match ? 'rgb(230,126,34)' : 'rgb(170,178,195)', 'stroke-width': filter && match ? 2.5 : 1.2 }, g);
+      f.lines.forEach(function (ln, i) {
+        svg('text', { x: fr.x + 12, y: fr.y + 19 + i * 16, 'font-family': FONT, 'font-size': i ? 12 : 13, 'font-weight': ln.weight, fill: ln.color },
+          g, trunc(ln.text, 40));
+      });
+      if (!f.docs.length) {
+        svg('text', { x: fr.x + 12, y: fr.y + FRAME_HEAD + 16, 'font-family': FONT, 'font-size': 12, fill: 'rgb(198,40,40)' }, g, 'No document');
+      }
+      if (f.onClick) {
+        g.style.cursor = 'pointer';
+        g.addEventListener('click', function () { f.onClick(); });
+      }
+      f.docs.forEach(function (d) {
+        var p = pos[key + '|' + d.key];
+        var dg = svg('g', { 'class': 'bw-doc', opacity: match ? 1 : 0.3 }, gDocs);
+        svg('rect', { x: p.x, y: p.y, width: p.w, height: p.h, rx: 6, fill: 'rgb(255,255,255)', stroke: d.stroke || 'rgb(120,130,150)',
+          'stroke-width': d.sw || 1.2 }, dg);
+        d.lines.forEach(function (ln, i) {
+          svg('text', { x: p.x + PAD, y: p.y + PAD + 11 + i * LINE_H, 'font-family': FONT, 'font-size': 12, 'font-weight': ln.weight,
+            fill: ln.color }, dg, trunc(ln.text, 36));
+        });
+        if (d.tip) {
+          dg.addEventListener('mousemove', function (ev) { self.showTip(ev, d.tip); });
+          dg.addEventListener('mouseleave', function () { self.hideTip(); });
+        }
+        if (f.onDoc) {
+          dg.style.cursor = 'pointer';
+          dg.addEventListener('click', function () { f.onDoc(d); });
+        }
+      });
+    });
+    xm.arrows.forEach(function (a) {
+      var s = pos[a.from.f + '|' + a.from.d];
+      var t = a.to.d !== undefined ? pos[a.to.f + '|' + a.to.d] : frames[a.to.f];
+      if (!s || !t) { return; }
+      var sy = s.y + s.h / 2;
+      var ty = a.to.d !== undefined ? t.y + t.h / 2 : Math.min(Math.max(sy, t.y + FRAME_HEAD), t.y + t.h - 12);
+      var x1, x2, c1x, c2x, dir;
+      if (t.x + t.w <= s.x) { x1 = s.x; x2 = t.x + t.w; dir = -1; } else if (t.x >= s.x + s.w) { x1 = s.x + s.w; x2 = t.x; dir = 1; } else {
+        // Same column: loop out on the left.
+        x1 = s.x; x2 = t.x; dir = 0;
+      }
+      if (dir === 0) { c1x = x1 - 60; c2x = x2 - 60; } else { var m = (x1 + x2) / 2; c1x = m; c2x = m; }
+      var d = 'M' + x1 + ',' + sy + ' C' + c1x + ',' + sy + ' ' + c2x + ',' + ty + ' ' + x2 + ',' + ty;
+      var g = svg('g', { 'class': 'bw-edge' }, gArrows);
+      svg('path', { d: d, fill: 'none', stroke: a.color, 'stroke-width': a.width || 1.8, 'stroke-dasharray': a.dash || null }, g);
+      var hd = dir === -1 ? 1 : -1;
+      svg('polygon', { points: (x2 + 10 * hd) + ',' + (ty - 5) + ' ' + x2 + ',' + ty + ' ' + (x2 + 10 * hd) + ',' + (ty + 5), fill: a.color }, g);
+      var hit = svg('path', { d: d, fill: 'none', stroke: 'rgb(0,0,0)', 'stroke-opacity': 0, 'stroke-width': 12, 'class': 'bw-hit' }, g);
+      var targets = [hit];
+      if (a.label) {
+        var lt = 0.5;
+        var lx = bez(x1, c1x, c2x, x2, lt);
+        var ly = bez(sy, sy, ty, ty, lt) - 3;
+        var lg = svg('g', { 'class': 'bw-edge-label' }, gLabels);
+        var bg = svg('rect', { fill: 'rgb(255,255,255)', stroke: a.color, 'stroke-width': 0.8, rx: 3 }, lg);
+        var tx = svg('text', { x: lx, y: ly + 4, 'text-anchor': 'middle', 'font-family': FONT, 'font-size': 11, fill: a.color }, lg, a.label);
+        try {
+          var bb = tx.getBBox();
+          setAttrs(bg, { x: bb.x - 4, y: bb.y - 2, width: bb.width + 8, height: bb.height + 4 });
+        } catch (err) { /* not rendered yet */ }
+        targets.push(lg);
+      }
+      targets.forEach(function (target) {
+        if (a.tip) {
+          target.addEventListener('mousemove', function (ev) { self.showTip(ev, a.tip); });
+          target.addEventListener('mouseleave', function () { self.hideTip(); });
+        }
+        if (a.onClick) { target.addEventListener('click', function () { a.onClick(); }); }
+      });
     });
   };
 
@@ -2847,6 +3048,7 @@
         id: a.id, from: a.from, ft: a.ft || '', role: a.role, rname: a.rn || a.role, to: a.to, tt: a.tt || '',
         fmin: toInt(a.fmin), tmin: toInt(a.tmin), sev: a.sev || 'error', paired: a.paired === '1',
         fsev: a.fsev || a.sev || 'error', tsev: a.tsev || a.sev || 'error',
+        pairs: parts(a.pairs, ';').map(function (p) { var f = p.split('|'); return { s: f[0], t: f[1] || '' }; }),
         fc: toInt(a.fc), fo: toInt(a.fo), tc: toInt(a.tc), to2: toInt(a.to2), cross: toInt(a.cross), unp: toInt(a.unp)
       };
       // Violations per severity (K18: from = fsev, to = tsev, cross-pair and unpaired = sev).
@@ -2868,6 +3070,16 @@
       var d = e.dataset;
       docs.push({ key: d.k, roles: parts(d.roles, ';'), items: toInt(d.items), bad: toInt(d.bad),
         types: parts(d.types, ';').map(function (p) { var f = p.split('|'); return { type: f[0], n: toInt(f[1]) }; }) });
+    });
+    // Full counts per rule, check and document, and cross-pair links per document pair (exploded view, K17).
+    var docCounts = {};
+    Array.prototype.forEach.call(root.querySelectorAll('.bw-model .dc-dn'), function (e) { docCounts[e.dataset.k] = toInt(e.dataset.n); });
+    var cross = [];
+    Array.prototype.forEach.call(root.querySelectorAll('.bw-model .dc-x'), function (e) {
+      var k = e.dataset.k;
+      var i = k.indexOf('|');
+      var st = k.substring(i + 1).split('>');
+      cross.push({ rule: k.substring(0, i), s: st[0], t: st[1] || '', n: toInt(e.dataset.n) });
     });
     var queries = [];
     Array.prototype.forEach.call(root.querySelectorAll('.bw-model .dc-q'), function (e) {
@@ -2893,7 +3105,7 @@
       e.rules.forEach(function (r) { Object.keys(r.bySev).forEach(function (s) { e.kinds[s] += r.bySev[s]; }); });
       if (!e.kinds.error && !e.kinds.warning && !e.kinds.info) { e.meta.ok = true; }
     });
-    return { nodes: nodes, byKey: byKey, rules: rules, viol: viol, docs: docs, probs: probs, edges: edges, counts: counts, queries: queries };
+    return { nodes: nodes, byKey: byKey, rules: rules, viol: viol, docs: docs, probs: probs, edges: edges, counts: counts, queries: queries, docCounts: docCounts, cross: cross };
   }
 
   // Worst severity among the violations found (K18), 'ok' without violation.
@@ -2937,6 +3149,9 @@
     st.rel = relFromData('', this.cats);
     st.filterText = '';
     st.baseLines = model.nodes.some(function (n) { return n.selfRules.length; }) ? 5 : 4;
+    // Exploded view (K17): offered when a role has several documents or a rule is paired.
+    this.canExplode = this.run && (model.nodes.some(function (n) { return n.docs.length > 1; }) || model.rules.some(function (r) { return r.paired; }));
+    st.exploded = this.canExplode && ds.view === 'exploded';
     this.build();
     this.render(true);
   }
@@ -2980,6 +3195,7 @@
     var f = el('input', { 'class': 'bw-ctl dc-filter', type: 'search', placeholder: 'Filter violations (text)' + ELLIPSIS }, bar);
     f.addEventListener('input', function () { self.state.filterText = f.value.trim().toLowerCase(); self.render(false); });
     this.viewButtons(bar);
+    this.viewSwitch(bar, this.canExplode);
     if (this.item.id) {
       var a = el('a', { href: itemUrl(this.item.project, this.item.id, ''), target: '_top', title: 'Open the model work item' }, bar, 'Open model item');
       a.style.alignSelf = 'center';
@@ -3073,6 +3289,111 @@
   Widget.prototype.onNode = function (a, n) {
     var self = this;
     a.addEventListener('click', function (ev) { ev.preventDefault(); self.showRole(n); });
+  };
+
+  // ------------------------------------------------------------------ exploded view (K17)
+  var SEV_COLOR = { error: 'rgb(198,40,40)', warning: 'rgb(211,120,0)', info: 'rgb(51,103,214)', ok: 'rgb(26,127,55)' };
+  var SEV_ORDER = ['error', 'warning', 'info'];
+  var KIND_SHORT = {
+    'from': 'without link', 'to': 'not covered', 'cross-pair': 'cross-pair link(s)', 'unpaired': '', 'unexpected-type': 'unexpected type(s)',
+    'missing-type': 'missing type(s)', 'too-many': 'too many items', 'unexpected-link': 'unexpected link(s)'
+  };
+
+  function worst(bySev) {
+    return SEV_ORDER.filter(function (x) { return bySev[x]; })[0] || 'ok';
+  }
+
+  // "errors 1 + warnings 3" (shown severities only).
+  function sevLabel(bySev, rel) {
+    return SEV_ORDER.filter(function (x) { return bySev[x] && rel[x] !== false; }).map(function (x) {
+      return (x === 'info' ? 'info' : x + 's') + ' ' + bySev[x];
+    }).join(' + ');
+  }
+
+  Widget.prototype.explodedModel = function () {
+    var self = this;
+    var m = this.model;
+    var st = this.state;
+    var dark = 'rgb(25,35,55)';
+    var grey = 'rgb(90,98,115)';
+    var docInfo = {};
+    m.docs.forEach(function (d) { docInfo[d.key] = d; });
+    // Violations per document: [{ rule, kind, n, sev }].
+    var perDoc = {};
+    Object.keys(m.docCounts).forEach(function (k) {
+      var a = k.split('|');
+      var doc = a.slice(2).join('|');
+      (perDoc[doc] = perDoc[doc] || []).push({ rule: a[0], kind: a[1], n: m.docCounts[k], sev: self.sevOf(a[0], a[1]) });
+    });
+    var frames = m.nodes.map(function (n) {
+      return {
+        key: n.key, search: n.key + ' ' + n.title,
+        lines: [{ text: n.key, weight: 600, color: dark }, { text: n.title !== n.key ? n.title : '', weight: 400, color: grey }],
+        docs: n.docs.map(function (dd) {
+          var k = dd.key;
+          var sp = splitKey(k);
+          var name = k.substring(k.lastIndexOf('/') + 1);
+          var lines = [{ text: name, weight: 600, color: dark }];
+          if (!dd.found) { return { key: k, lines: lines.concat([{ text: 'not found', weight: 400, color: SEV_COLOR.error }]), stroke: SEV_COLOR.error, sw: 2, tip: [k] }; }
+          var v = (perDoc[k] || []).filter(function (x) { return st.rel[x.sev] !== false; });
+          var bySev = {};
+          v.forEach(function (x) { bySev[x.sev] = (bySev[x.sev] || 0) + x.n; });
+          var w = worst(bySev);
+          var di = docInfo[k] || { items: 0, bad: 0 };
+          lines.push({ text: (sp.project !== self.project ? sp.project + ' / ' : '') + 'Items: ' + di.items + ', without violation: ' + pct(di.items - di.bad, di.items),
+            weight: 400, color: SEV_COLOR[w] });
+          v.sort(function (x, y) { return SEV_ORDER.indexOf(x.sev) - SEV_ORDER.indexOf(y.sev) || x.rule.localeCompare(y.rule); });
+          var shown = v.slice(0, 3);
+          shown.forEach(function (x) {
+            var rule = x.rule.indexOf('types:') === 0 ? 'Types' : (x.rule || 'Links');
+            lines.push({ text: x.kind === 'unpaired' ? 'in no pair of ' + x.rule : rule + ': ' + x.n + ' ' + KIND_SHORT[x.kind], weight: 400, color: SEV_COLOR[x.sev] });
+          });
+          if (v.length > shown.length) { lines.push({ text: '+' + (v.length - shown.length) + ' more (click)', weight: 400, color: grey }); }
+          return { key: k, lines: lines, stroke: SEV_COLOR[w], sw: 1.6,
+            tip: [k].concat(v.map(function (x) { return x.sev + ': ' + (x.rule || 'links') + ' ' + (KIND_TEXT[x.kind] || x.kind) + ' ' + x.n; })) };
+        }),
+        onClick: function () { self.showRole(n); },
+        onDoc: function () { self.showRole(n); }
+      };
+    });
+    var arrows = [];
+    var dc = m.docCounts;
+    m.rules.forEach(function (r) {
+      if (!m.byKey[r.from] || !m.byKey[r.to]) { return; }
+      function add(from, to, bySev, extra) {
+        var w = worst(bySev);
+        if (st.rel[w] === false && !sevLabel(bySev, st.rel)) { return; }
+        var lab = sevLabel(bySev, st.rel);
+        arrows.push({ from: from, to: to, color: SEV_COLOR[lab ? worst(bySev) : 'ok'], label: r.id + ' ' + (lab || 'compliant'),
+          tip: [self.ruleSummary(r)].concat(extra || []), onClick: function () { self.showDetails({ o: r.to, c: r.from, rules: [r] }); } });
+      }
+      function count(bySev, kind, doc, sev) {
+        var n = dc[r.id + '|' + kind + '|' + doc] || 0;
+        if (n) { bySev[sev] = (bySev[sev] || 0) + n; }
+      }
+      if (r.paired) {
+        r.pairs.forEach(function (p) {
+          var b = {};
+          count(b, 'from', p.s, r.fsev);
+          count(b, 'to', p.t, r.tsev);
+          add({ f: r.from, d: p.s }, { f: r.to, d: p.t }, b, [shortDoc(p.s, self.project) + ' ' + ARROW + ' ' + shortDoc(p.t, self.project)]);
+        });
+        m.cross.filter(function (x) { return x.rule === r.id; }).forEach(function (x) {
+          if (st.rel[r.sev] === false) { return; }
+          arrows.push({ from: { f: r.from, d: x.s }, to: { f: r.to, d: x.t }, color: SEV_COLOR[r.sev], dash: '3,3', width: 1.3, label: 'cross-pair ' + x.n,
+            tip: [r.id + ': ' + x.n + ' link(s) between documents that are not paired (they do not count)', shortDoc(x.s, self.project) + ' ' + ARROW + ' ' + shortDoc(x.t, self.project)],
+            onClick: function () { self.showDetails({ o: r.to, c: r.from, rules: [r] }); } });
+        });
+      } else if (r.from !== r.to) {
+        m.byKey[r.from].docs.forEach(function (d) {
+          if (!d.found) { return; }
+          var b = {};
+          count(b, 'from', d.key, r.fsev);
+          add({ f: r.from, d: d.key }, { f: r.to }, b);
+        });
+      }
+    });
+    return { frames: frames, arrows: arrows };
   };
 
   Widget.prototype.ruleSummary = function (r) {

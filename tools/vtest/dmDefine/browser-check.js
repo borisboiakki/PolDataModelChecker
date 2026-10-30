@@ -160,6 +160,32 @@ async function clickNode(p, key) {
   expect(JSON.stringify(cats) === JSON.stringify(['satisfies', 'has parent']), 'legend: link roles of the drawn rules only');
   await p.screenshot({ path: dir + '/shot-errors.png', fullPage: true });
 
+  // ---------------------------------------------------------------- exploded view (D16)
+  await p.goto('file://' + dir + '/paired.html');
+  await p.waitForTimeout(300);
+  expect((await p.$$('.bw-viewsw button')).length === 2 && (await p.$$('.bw-frame')).length === 0, 'exploded view: switch offered, collapsed by default');
+  await p.click('.bw-viewsw button:has-text("Exploded")');
+  await p.waitForTimeout(200);
+  const xl = await p.$$eval('.bw-edge-label', ls => ls.map(l => l.textContent));
+  expect((await p.$$('.bw-frame')).length === 3 && (await p.$$('.bw-doc')).length === 5 &&
+    JSON.stringify(xl) === JSON.stringify(['L1 satisfies', 'L2 verifies', 'L2 verifies']), 'exploded view: 3 role frames, 5 documents, pooled L1 to the frame, one L2 arrow per pair');
+  expect((await p.$$('.bw-edge path:first-child')).length === 4, 'exploded view: 2 pooled arrows (one per source document) and 2 pair arrows');
+  await p.evaluate(() => Array.from(document.querySelectorAll('.bw-edge-label')).find(l => l.textContent === 'L2 verifies').dispatchEvent(new MouseEvent('click', { bubbles: true })));
+  await p.waitForTimeout(100);
+  expect((await p.textContent('.bw-details')).indexOf('L2') > 0, 'exploded view: click on an arrow shows the rule');
+  await p.screenshot({ path: dir + '/shot-exploded.png', fullPage: true });
+  await p.goto('file://' + dir + '/paired-exploded.html');
+  await p.waitForTimeout(300);
+  expect((await p.$$('.bw-frame')).length === 3, 'exploded view: parameter Initial view = exploded opens it directly');
+  await p.goto('file://' + dir + '/pair-errors.html');
+  await p.waitForTimeout(300);
+  await p.click('.bw-viewsw button:has-text("Exploded")');
+  await p.waitForTimeout(200);
+  const pe = await p.$$eval('.bw-doc', ds => ds.map(d => d.textContent));
+  console.log('pair-errors docs:', JSON.stringify(pe));
+  expect(pe.some(t => t.indexOf('in no pair of V1') > 0), 'exploded view: document in no pair marked');
+  await p.goto('file://' + dir + '/browser.html');
+
   // ---------------------------------------------------------------- paired rule
   await p.goto('file://' + dir + '/paired.html');
   await p.waitForTimeout(300);

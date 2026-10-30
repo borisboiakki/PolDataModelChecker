@@ -5,7 +5,7 @@ Polarion instance**. Run the checks in this order when you have time; for each o
 screenshots or PDF exports: the repository is public). Findings are then recorded in the specification and in
 `tests/dmSpike-v0.1.x/spike-tests.md`.
 
-Last update: 2026-10-30 (open: dmCheck 0.2.0 checks 3.7–3.12; severity per side: 2.21 and 3.14 open; starter generator: 2.22–2.25), dmDefine 0.5.0, dmCheck 0.1.0, dmSpike S7 and S10; §1 done; §1–§4 done (dmDefine 0.5.0 and dmCheck 0.1.0 verified, decisions agreed); §5 later.
+Last update: 2026-10-30 (open: dmCheck 0.2.0 checks 3.7–3.12; severity per side: 2.21 and 3.14 open; starter generator: 2.22–2.25; exploded view: 2.26–2.28, 3.15–3.16), dmDefine 0.5.0, dmCheck 0.1.0, dmSpike S7 and S10; §1 done; §1–§4 done (dmDefine 0.5.0 and dmCheck 0.1.0 verified, decisions agreed); §5 later.
 
 ## 1. Spike widget dmSpike (upload `tests/dmSpike-v0.1.x/spike-widget/dmSpike.zip`)
 
@@ -49,6 +49,9 @@ Use a model with the names of your project (start from `test-data/vcycle-model.y
 | 2.23 | Untick the documents that are not part of the data model, *Propose* | one role per ticked document (its types, `min: 1`, heading ignored); one rule per link role found between them (e.g. `satisfies`, `verifies`), minimums 0; no problem listed under the forms | 0.7.0 |
 | 2.24 | Correct the proposal (e.g. move two solution specifications into one role, set `from_min` / `to_min`), *Generate YAML*, paste into a new Text item (or *Save to Polarion* after creating the item), *Reload page* | the model is shown with no problem | 0.7.0 |
 | 2.25 | A page with a model: *Edit model* | no *Propose* button (offered on an empty model only) | 0.7.0 |
+| 2.26 | **dmDefine 0.8.0** (upload the new zip) on the model of use case 3 (or the dmCheck test model): *View: Exploded* | one frame per role, one box per document; L1 (pooled) arrows from each solution spec to the CustomerSpec frame; L2 one arrow per pair; click an arrow: the rule; click a document: the role | 0.8.0 |
+| 2.27 | Leave a document out of the pairs (e.g. remove the STD B pair) | that document outlined in orange, "in no pair of L2" | 0.8.0 |
+| 2.28 | Widget parameter *Graph view when the page opens* = Exploded; and a model with one document per role and no pair | opens in the exploded view; no *View* switch for the simple model | 0.8.0 |
 
 ## 3. dmCheck (upload `widgets/dmCheck/dist/dmCheck.zip`)
 
@@ -68,6 +71,8 @@ Use a model with the names of your project (start from `test-data/vcycle-model.y
 | 3.12 | Optional: a rule with `from_min: 2` (or `to_min: 2`); its drill-down link | Polarion accepts the query (it adds `GROUP BY … HAVING` in the sub-select, not verified yet) and lists the items with fewer than 2 links | dmCheck 0.2.0 |
 | 3.13 | ✅ **Done 2026-10-30** (as expected). **dmCheck 0.3.0** (upload the new zip) with the model of 2.19 (L1 `from_severity: info`), then also `to_severity: error` under L2 | first: summary 2 errors, 7 warnings, 2 info (SPA-4 and SPB-3 *missing link* L1 become info; CUS-5 stays an error); with both: **5 errors, 4 warnings, 2 info**, line labels "errors 1 + info 2" (L1) and "errors 3 + warnings 3" (L2), both lines red; L1 details "(sources: info, targets: error)" and "1 error, 2 info" | dmCheck 0.3.0 |
 | 3.14 | *Show*: untick *Errors* | the L1 line stays (its info violations), the error ones are hidden | dmCheck 0.3.0 |
+| 3.15 | **dmCheck 0.4.0** (upload the new zip) on the test structure: *View: Exploded* | as the mockup: L1 arrows "L1 errors 1" from Solution Spec A and B to the CustomerSpec frame; "L2 warnings 4" (STD A → Solution Spec A), "L2 warnings 1" (STD B → Solution Spec B); dotted "cross-pair 1" (STD A → Solution Spec B); STD B green (100%), Customer Specification "L1: 1 not covered" | 0.4.0 |
+| 3.16 | *Show*: untick *Warnings* | only the two L1 arrows remain | 0.4.0 |
 
 ## 4. Decisions to confirm (dmCheck, proposed in `widgets/dmCheck/SPECIFICATION.md` §7)
 

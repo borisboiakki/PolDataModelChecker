@@ -44,7 +44,7 @@ The model is stored in Polarion (SPEC §6) and read by **dmCheck** (`widgets/dmC
 | D14 | **Pairs** (`pairs:` section, dmCheck K15): validate it (the rule id exists; each pair is `[source document, target document]`; the source document is declared for the rule's `from` role and the target for its `to` role) and show it (rule details, table, Excel). Documents of the two roles in no pair: warning | Should (done, 0.2.0) | 2 |
 | D13 | **Model text** view with line numbers (problem lines marked, a click on a problem shows its line) and **Copy YAML** (copies the text, e.g. to reuse the model in another project) | Should (done) | 1 |
 | D17 | **Severity per side** of a link rule (PO 2026-10-30, decision 10): optional `from_severity` / `to_severity` (error, warning, info; default = the rule's `severity`) validated, shown in the rule details, tooltip, table and Excel, edited in the forms (two pickers per rule, empty = rule severity), written by the YAML writer and kept by the round trip | Should (done, 0.6.0; verified on 2512: PO_CHECKS 2.19–2.20) | 0.6.0 |
-| D16 | **Exploded view** of the graph (PO 2026-10-30, decision 9): a switch *Collapsed / Exploded*. Collapsed = today's graph (one box per role, one arrow per rule). Exploded = one box per declared document inside a frame per role; **paired** rules drawn document to document (one arrow per pair); **pooled** rules drawn from each document of the `from` role to the **frame** of the `to` role ("any document of this role"), not one arrow per document combination; pair problems (documents of the rule's roles in no pair, pairs naming undeclared documents) outlined in orange. Shown when a role has more than one document. Parameter *Initial view* (collapsed by default) also chooses the static PDF graph. Table and Excel unchanged (the *Document pairs* sheet already lists the pairs) | Should | later (after the starter generator) |
+| D16 | **Exploded view** of the graph (PO 2026-10-30, decision 9): a switch *Collapsed / Exploded*. Collapsed = today's graph (one box per role, one arrow per rule). Exploded = one box per declared document inside a frame per role; **paired** rules drawn document to document (one arrow per pair); **pooled** rules drawn from each document of the `from` role to the **frame** of the `to` role ("any document of this role"), not one arrow per document combination; pair problems (documents of the rule's roles in no pair, pairs naming undeclared documents) outlined in orange. Shown when a role has more than one document. Shown when a role has more than one document or a rule is paired. Parameter *Initial view* (collapsed by default). The PDF view has no graph (tables only, in both views), so the parameter applies to the browser view. Table and Excel unchanged (the *Document pairs* sheet already lists the pairs). Mockup agreed by the PO 2026-10-30. A pooled rule inside one role is listed in the role details, not drawn | Should (done, 0.8.0) | 0.8.0 |
 
 ## 4. Non-functional requirements
 
@@ -149,7 +149,7 @@ PO 2026-10-30: dmDefine is completed before dmCheck is started.
 5. **0.5.0** (done) *Save to Polarion* through the REST API (D10); checks on 2512 in `docs/PO_CHECKS.md` 2.14–2.18.
 6. **0.6.0** (done) severity per side (D17).
 7. **0.7.0** (done) starter generator (D8, spike S7 run 4); checks on 2512: `docs/PO_CHECKS.md` 2.22–2.25.
-8. Next: exploded view of the graph (D16).
+8. **0.8.0** (done) exploded view of the graph (D16); shared drawing in `shared/js/core.js` (`viewSwitch`, `drawExploded`).
 
 ## 9. Open checks on 2512
 

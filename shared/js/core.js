@@ -480,7 +480,7 @@
     this.viewBtn.textContent = st.view === 'graph' ? 'Table' : 'Graph';
     this.view.style.display = st.view === 'graph' ? '' : 'none';
     this.table.style.display = st.view === 'table' ? '' : 'none';
-    this.drawGraph();
+    if (st.exploded && this.explodedModel) { this.drawExploded(this.explodedModel()); } else { this.drawGraph(); }
     this.drawTable();
     if (refit) { this.fit(); } else { this.applyZoom(); }
   };
@@ -591,6 +591,178 @@
       });
       svg('title', null, a, self.docLabel(n) + ' ' + DASH + ' ' + n.title);
       if (self.onNode) { self.onNode(a, n); }
+    });
+  };
+
+  // ------------------------------------------------------------------ exploded view (dmDefine D16, dmCheck K17)
+  // The widget gives explodedModel() = { frames: [...], arrows: [...] }:
+  //   frame = { key (role, positioned like its collapsed box), lines: [{ text, weight, color }] (header), search (text),
+  //             docs: [{ key, lines, stroke, sw, tip }], onClick(), onDoc(doc) }
+  //   arrow = { from: { f, d } (frame key, document key), to: { f, d } or { f } (frame), color, dash, width, label,
+  //             tip: [lines], onClick() }
+  // Frames take the columns and order of the collapsed layout (target roles on the left); documents are stacked inside.
+  var FRAME_PAD = 10;
+  var FRAME_HEAD = 44;
+  var DOC_GAP = 12;
+
+  Base.viewSwitch = function (bar, available) {
+    var self = this;
+    if (!available) { this.state.exploded = false; return; }
+    var w = el('span', { 'class': 'bw-btns bw-viewsw' }, bar);
+    el('span', { 'class': 'bw-muted' }, w, 'View:');
+    var c = this.button(w, 'Collapsed', 'One box per document role', function () { set(false); });
+    var x = this.button(w, 'Exploded', 'One box per document, inside a frame per role; pairs drawn document to document', function () { set(true); });
+    function mark() { c.classList.toggle('bw-on', !self.state.exploded); x.classList.toggle('bw-on', !!self.state.exploded); }
+    function set(on) { self.state.exploded = on; mark(); self.hideTip(); self.render(true); }
+    mark();
+  };
+
+  Base.drawExploded = function (xm) {
+    var self = this;
+    var lay = this.lay;
+    var root = this.svgEl;
+    while (root.firstChild) { root.removeChild(root.firstChild); }
+    var fw = NODE_W + 2 * FRAME_PAD;
+    var maxLines = 1;
+    xm.frames.forEach(function (f) { f.docs.forEach(function (d) { maxLines = Math.max(maxLines, d.lines.length); }); });
+    var docH = PAD * 2 + LINE_H * maxLines;
+    // Columns from the collapsed layout; roles without rules in a row below.
+    var colOf = {};
+    var cols = [];
+    var below = [];
+    xm.frames.forEach(function (f) {
+      var p = lay.pos[f.key];
+      if (!p) { return; }
+      if (lay.linked.some(function (n) { return n.key === f.key; })) {
+        var ci = Math.round((p.x - MARGIN) / (NODE_W + COL_GAP));
+        (cols[ci] = cols[ci] || []).push({ f: f, y: p.y });
+      } else {
+        below.push(f);
+      }
+    });
+    var pos = {};
+    var frames = {};
+    var width = MARGIN;
+    var height = MARGIN;
+    function frameH(f) { return FRAME_HEAD + Math.max(1, f.docs.length) * (docH + DOC_GAP) + FRAME_PAD - DOC_GAP + 4; }
+    function place(f, x, y) {
+      var h = frameH(f);
+      frames[f.key] = { x: x, y: y, w: fw, h: h, f: f };
+      f.docs.forEach(function (d, i) {
+        pos[f.key + '|' + d.key] = { x: x + FRAME_PAD, y: y + FRAME_HEAD + i * (docH + DOC_GAP), w: NODE_W, h: docH };
+      });
+      width = Math.max(width, x + fw + MARGIN);
+      height = Math.max(height, y + h + MARGIN);
+      return h;
+    }
+    for (var ci = 0; ci < cols.length; ci++) {
+      var list = (cols[ci] || []).sort(function (a, b) { return a.y - b.y; });
+      var y = MARGIN + 10;
+      for (var k = 0; k < list.length; k++) { y += place(list[k].f, MARGIN + ci * (fw + COL_GAP), y) + ROW_GAP; }
+    }
+    if (below.length) {
+      var top = height + (cols.length ? 10 : 0);
+      var x0 = MARGIN;
+      var rowH = 0;
+      var perRow = Math.max(3, cols.length);
+      below.forEach(function (f, i) {
+        if (i && i % perRow === 0) { top += rowH + ROW_GAP; rowH = 0; x0 = MARGIN; }
+        rowH = Math.max(rowH, place(f, x0, top + 24));
+        x0 += fw + 40;
+      });
+      this.belowTop = top;
+    }
+    this.lay = { pos: lay.pos, width: Math.max(width, 200), height: Math.max(height, 80), nodeH: lay.nodeH, linked: lay.linked, isolated: lay.isolated, isoTop: lay.isoTop, topPad: lay.topPad };
+    svg('rect', { x: 0, y: 0, width: this.lay.width, height: this.lay.height, fill: 'rgb(255,255,255)' }, root);
+    if (!xm.frames.length) {
+      svg('text', { x: MARGIN, y: MARGIN + 14, 'font-family': FONT, 'font-size': 13, fill: 'rgb(90,90,90)' }, root, this.emptyText);
+      return;
+    }
+    if (below.length && cols.length) {
+      svg('text', { x: MARGIN, y: this.belowTop + 16, 'font-family': FONT, 'font-size': 12, fill: 'rgb(110,110,110)' }, root,
+        this.isolatedText || 'Without relations');
+    }
+    var gFrames = svg('g', null, root);
+    var gArrows = svg('g', null, root);
+    var gDocs = svg('g', null, root);
+    var gLabels = svg('g', null, root);
+    var filter = this.state.filter;
+    Object.keys(frames).forEach(function (key) {
+      var fr = frames[key];
+      var f = fr.f;
+      var match = !filter || (f.search || f.key).toLowerCase().indexOf(filter) >= 0;
+      var g = svg('g', { 'class': 'bw-frame', opacity: match ? 1 : 0.3 }, gFrames);
+      svg('rect', { x: fr.x, y: fr.y, width: fr.w, height: fr.h, rx: 10, fill: 'rgb(243,245,250)',
+        stroke: filter && match ? 'rgb(230,126,34)' : 'rgb(170,178,195)', 'stroke-width': filter && match ? 2.5 : 1.2 }, g);
+      f.lines.forEach(function (ln, i) {
+        svg('text', { x: fr.x + 12, y: fr.y + 19 + i * 16, 'font-family': FONT, 'font-size': i ? 12 : 13, 'font-weight': ln.weight, fill: ln.color },
+          g, trunc(ln.text, 40));
+      });
+      if (!f.docs.length) {
+        svg('text', { x: fr.x + 12, y: fr.y + FRAME_HEAD + 16, 'font-family': FONT, 'font-size': 12, fill: 'rgb(198,40,40)' }, g, 'No document');
+      }
+      if (f.onClick) {
+        g.style.cursor = 'pointer';
+        g.addEventListener('click', function () { f.onClick(); });
+      }
+      f.docs.forEach(function (d) {
+        var p = pos[key + '|' + d.key];
+        var dg = svg('g', { 'class': 'bw-doc', opacity: match ? 1 : 0.3 }, gDocs);
+        svg('rect', { x: p.x, y: p.y, width: p.w, height: p.h, rx: 6, fill: 'rgb(255,255,255)', stroke: d.stroke || 'rgb(120,130,150)',
+          'stroke-width': d.sw || 1.2 }, dg);
+        d.lines.forEach(function (ln, i) {
+          svg('text', { x: p.x + PAD, y: p.y + PAD + 11 + i * LINE_H, 'font-family': FONT, 'font-size': 12, 'font-weight': ln.weight,
+            fill: ln.color }, dg, trunc(ln.text, 36));
+        });
+        if (d.tip) {
+          dg.addEventListener('mousemove', function (ev) { self.showTip(ev, d.tip); });
+          dg.addEventListener('mouseleave', function () { self.hideTip(); });
+        }
+        if (f.onDoc) {
+          dg.style.cursor = 'pointer';
+          dg.addEventListener('click', function () { f.onDoc(d); });
+        }
+      });
+    });
+    xm.arrows.forEach(function (a) {
+      var s = pos[a.from.f + '|' + a.from.d];
+      var t = a.to.d !== undefined ? pos[a.to.f + '|' + a.to.d] : frames[a.to.f];
+      if (!s || !t) { return; }
+      var sy = s.y + s.h / 2;
+      var ty = a.to.d !== undefined ? t.y + t.h / 2 : Math.min(Math.max(sy, t.y + FRAME_HEAD), t.y + t.h - 12);
+      var x1, x2, c1x, c2x, dir;
+      if (t.x + t.w <= s.x) { x1 = s.x; x2 = t.x + t.w; dir = -1; } else if (t.x >= s.x + s.w) { x1 = s.x + s.w; x2 = t.x; dir = 1; } else {
+        // Same column: loop out on the left.
+        x1 = s.x; x2 = t.x; dir = 0;
+      }
+      if (dir === 0) { c1x = x1 - 60; c2x = x2 - 60; } else { var m = (x1 + x2) / 2; c1x = m; c2x = m; }
+      var d = 'M' + x1 + ',' + sy + ' C' + c1x + ',' + sy + ' ' + c2x + ',' + ty + ' ' + x2 + ',' + ty;
+      var g = svg('g', { 'class': 'bw-edge' }, gArrows);
+      svg('path', { d: d, fill: 'none', stroke: a.color, 'stroke-width': a.width || 1.8, 'stroke-dasharray': a.dash || null }, g);
+      var hd = dir === -1 ? 1 : -1;
+      svg('polygon', { points: (x2 + 10 * hd) + ',' + (ty - 5) + ' ' + x2 + ',' + ty + ' ' + (x2 + 10 * hd) + ',' + (ty + 5), fill: a.color }, g);
+      var hit = svg('path', { d: d, fill: 'none', stroke: 'rgb(0,0,0)', 'stroke-opacity': 0, 'stroke-width': 12, 'class': 'bw-hit' }, g);
+      var targets = [hit];
+      if (a.label) {
+        var lt = 0.5;
+        var lx = bez(x1, c1x, c2x, x2, lt);
+        var ly = bez(sy, sy, ty, ty, lt) - 3;
+        var lg = svg('g', { 'class': 'bw-edge-label' }, gLabels);
+        var bg = svg('rect', { fill: 'rgb(255,255,255)', stroke: a.color, 'stroke-width': 0.8, rx: 3 }, lg);
+        var tx = svg('text', { x: lx, y: ly + 4, 'text-anchor': 'middle', 'font-family': FONT, 'font-size': 11, fill: a.color }, lg, a.label);
+        try {
+          var bb = tx.getBBox();
+          setAttrs(bg, { x: bb.x - 4, y: bb.y - 2, width: bb.width + 8, height: bb.height + 4 });
+        } catch (err) { /* not rendered yet */ }
+        targets.push(lg);
+      }
+      targets.forEach(function (target) {
+        if (a.tip) {
+          target.addEventListener('mousemove', function (ev) { self.showTip(ev, a.tip); });
+          target.addEventListener('mouseleave', function () { self.hideTip(); });
+        }
+        if (a.onClick) { target.addEventListener('click', function () { a.onClick(); }); }
+      });
     });
   };
 

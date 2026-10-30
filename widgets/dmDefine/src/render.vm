@@ -59,6 +59,12 @@
 ## BW_SHARED dm-yaml.vm
 ## BW_SHARED dm-model.vm
 
+#set($initialView = "collapsed")
+#set($tmp = "")
+#set($tmp = $parameters.initialView.singleValue())
+#if("$tmp" == "exploded")
+  #set($initialView = "exploded")
+#end
 #set($restSave = "auto")
 #set($tmp = "")
 #set($tmp = $parameters.restSave.singleValue())
@@ -227,7 +233,7 @@
   #end
   #set($void = $roleData.add([$r, $ts, $ds, $b]))
 #end
-<div class="dd-root" data-project="$esc.html($dmProjectId)" data-version="$bwVersion" data-height="$graphHeight" data-item="$esc.html($dmItemId)" data-item-project="$esc.html($dmItemProject)" data-rev="$esc.html($dmItemRev)" data-doc="$esc.html($dmDocKey)" data-name="$esc.html($dmName)" data-unexp="$dmUnexpLinks" data-errors="$dmErrors" data-text="$hasText" data-uses="$esc.html($dmUses)" data-uses-raw="$esc.html($dmUsesRaw)" data-uses-rev="$esc.html($dmUsesRev)" data-rest="$restSave">
+<div class="dd-root" data-project="$esc.html($dmProjectId)" data-version="$bwVersion" data-height="$graphHeight" data-item="$esc.html($dmItemId)" data-item-project="$esc.html($dmItemProject)" data-rev="$esc.html($dmItemRev)" data-doc="$esc.html($dmDocKey)" data-name="$esc.html($dmName)" data-unexp="$dmUnexpLinks" data-errors="$dmErrors" data-text="$hasText" data-uses="$esc.html($dmUses)" data-uses-raw="$esc.html($dmUsesRaw)" data-uses-rev="$esc.html($dmUsesRev)" data-rest="$restSave" data-view="$initialView">
 <div class="dd-head"><b>Data Model Definition</b>#if($dmName != "") &mdash; $esc.html($dmName)#end &mdash; model $esc.html($itemLabel) <span class="bw-muted">(widget v$bwVersion)</span></div>
 <div class="bw-model" style="display:none">
 #foreach($rd in $roleData)

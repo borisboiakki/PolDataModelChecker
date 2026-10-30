@@ -41,7 +41,7 @@ Same as dmDefine (C1–C8), plus:
 | K16 | **Model problems first**: when the model has errors (dmDefine validation, same pipeline), dmCheck lists them and checks nothing; warnings are shown and the checks run | Must (done, 0.1.0) | 1 |
 | K14 | Item cap per violation list (e.g. 500 per rule in the page model, full count always shown), as docCoverage | Must (done, 0.1.0) | 1 |
 | K18 | **Severity per side** (PO 2026-10-30, dmDefine D17): `from` violations (missing links) take `from_severity`, `to` violations (not covered) `to_severity`, default the rule's `severity`; cross-pair and unpaired keep `severity`; summary counts, graph line colour (worst severity found), details, table and Excel follow; the rules table shows both severities | Must (done, 0.3.0; verified on 2512: PO_CHECKS 3.13) | 3 |
-| K17 | **Exploded view** (PO 2026-10-30, as dmDefine D16): switch *Collapsed / Exploded*; in the exploded view one box per declared document inside its role frame, coloured by the document's compliance; paired rules drawn per pair and coloured by that pair's compliance (counts per pair), pooled rules from each document to the target role's frame; cross-pair links and unpaired documents highlighted. Same *Initial view* parameter (collapsed by default, used by the PDF) | Should | after dmDefine D16 |
+| K17 | **Exploded view** (PO 2026-10-30, as dmDefine D16): switch *Collapsed / Exploded*; in the exploded view one box per declared document inside its role frame, coloured by the document's compliance; paired rules drawn per pair and coloured by that pair's compliance (counts per pair), pooled rules from each document to the target role's frame; cross-pair links and unpaired documents highlighted. Same *Initial view* parameter (collapsed by default; the PDF has no graph). As built: a document box shows its items, the share without violation and up to 3 violation lines (rule and check, coloured by severity); a pair arrow counts the missing links of its source document and the targets not covered of its target document; a pooled arrow the missing links of its source document; cross-pair links dotted, with their count per pair; *Show* filters arrows and lines by severity | Should (done, 0.4.0) | 0.4.0 |
 
 ## 4. Non-functional requirements
 
@@ -101,4 +101,4 @@ PO 2026-10-30: dmCheck is started after dmDefine is completed.
    by the widget. A faster evaluation through set queries stays possible if a larger project needs it.
 3. Later: collection context (K11); orphans, wrong document, field rules.
 4. **0.3.0** (done) severity per side (K18). The collection context moves to a later increment.
-5. Later: exploded view (K17), after dmDefine D16.
+5. **0.4.0** (done) exploded view (K17), with dmDefine 0.8.0 (D16).

@@ -84,6 +84,23 @@ async function readBook(p, path) {
   expect(book[3].rows.length === 13 && book[3].rows.filter(r => String(r[4]).indexOf('SQL:(') > 0).length === 12, 'Excel: 12 drill-down queries');
   expect(book[1].rows.length === 12 && book[0].rows.length === 4 && book[2].rows.length === 6, 'Excel: 11 violations, 3 rules, 5 documents');
 
+  // Exploded view (K17): documents in role frames, pooled L1 arrows to the CustomerSpec frame, L2 per pair, cross-pair dotted.
+  await p.goto('file://' + dir + '/browser.html');
+  await p.waitForTimeout(300);
+  await p.click('.bw-viewsw button:has-text("Exploded")');
+  await p.waitForTimeout(200);
+  const xlab = await p.$$eval('.bw-edge-label', ls => ls.map(l => l.textContent).sort());
+  console.log('exploded labels:', JSON.stringify(xlab));
+  expect(JSON.stringify(xlab) === JSON.stringify(['L1 errors 1', 'L1 errors 1', 'L2 warnings 1', 'L2 warnings 4', 'cross-pair 1']), 'exploded view: arrows per document / pair with their violations (structure.md)');
+  const xdocs = await p.$$eval('.bw-doc', ds => ds.map(d => d.textContent));
+  expect(xdocs.length === 5 && xdocs.some(t => t.indexOf('STD B') === 0 && t.indexOf('without violation: 100%') > 0) &&
+    xdocs.some(t => t.indexOf('Customer Specification') === 0 && t.indexOf('L1: 1 not covered') > 0), 'exploded view: documents with their counts and violations');
+  await p.screenshot({ path: dir + '/shot-exploded.png', fullPage: true });
+  await p.evaluate(() => { const l = Array.from(document.querySelectorAll('.bw-toolbar label')).find(x => x.textContent.indexOf('Warnings') >= 0); l.querySelector('input').click(); });
+  await p.waitForTimeout(200);
+  const xlab2 = await p.$$eval('.bw-edge-label', ls => ls.map(l => l.textContent).sort());
+  expect(JSON.stringify(xlab2) === JSON.stringify(['L1 errors 1', 'L1 errors 1']), 'exploded view: Show filters the arrows (warnings hidden)');
+
   // Severity per side (K18): L1 sources info / targets error, L2 targets error / sources warning.
   await p.goto('file://' + dir + '/sides.html');
   await p.waitForTimeout(300);

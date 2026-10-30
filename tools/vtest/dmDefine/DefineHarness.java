@@ -277,6 +277,11 @@ public class DefineHarness {
         DmMocks.check(h.contains("<td>paired: Tests/STD A -&gt; Specs/Solution Spec A; Tests/STD B -&gt; Specs/Solution Spec B</td>") && h.contains("<td> pooled</td>"), "PDF paired: documents column");
         DmMocks.check(h.contains("<td>error (sources: info, targets: error)</td>"), "PDF: severity per side in the rules table");
 
+        Map<String, DmMocks.Param> ex = params(pairedDoc, "");
+        ex.put("initialView", new DmMocks.Param("exploded", null));
+        h = run(dir, out, "paired-exploded", ex, false);
+        DmMocks.check(h.contains("data-view=\"exploded\"") && run(dir, out, "paired-collapsed", params(pairedDoc, ""), false).contains("data-view=\"collapsed\""), "initial view parameter (D16): exploded / collapsed by default");
+
         h = run(dir, out, "pair-errors", params(pairErrDoc, ""), false);
         String[] pairExpected = {
             "data-sev=\"warning\" data-line=\"22\" data-msg=\"Pair [Tests/STD A, Specs/Solution Spec A] of V1 is listed twice.\"",
