@@ -1,0 +1,490 @@
+## Shared snippet dm-model.vm (shared/vm), inlined by tools/build-widget.py at "## BW_SHARED dm-model.vm".
+## Normalizes and validates the parsed model and resolves the declared documents (docs/DATA_MODEL_FORMAT.md,
+## docs/ARCHITECTURE.md 3.4-3.6). Needs dm-read.vm and dm-yaml.vm ($dmKind, $dmVal, $dmKeys, $dmCnt, $dmLine, $dmProbs).
+## Output:
+##   $dmRoles  list of maps: key, title, line, unexp (error|warning|ignore), types (list of maps: type, min, max (Integer,
+##             -1 = none), ignored (true/false), line), decl (declared documents, text), docs (list of maps: decl, key,
+##             project, space, name, title, found), bound (true when the bindings name the role)
+##   $dmRoleByKey  role key -> role map
+##   $dmRules  list of maps: id, from, ft, role, rname, to, tt, fmin, tmin (Integer), sev, line
+##   $dmUnexpLinks  severity of links that match no rule (error|warning|info|ignore, default ignore)
+##   $dmName, $dmVersion, $dmErrors, $dmWarnings (counts of $dmProbs)
+##   $dmTypeNames / $dmRoleNames  id -> name from the project configuration (verified on 2512, dmSpike S6)
+## Project-specific names (types, link roles, documents) come only from the model and the project configuration.
+
+#macro(dmGet $dmGp)
+  #set($dmGv = "")
+  #set($dmGv = $dmVal.get($dmGp))
+  #set($dmGv = "$dmGv")
+#end
+#macro(dmKindOf $dmKp2)
+  #set($dmKo = "")
+  #set($dmKo = $dmKind.get($dmKp2))
+  #set($dmKo = "$dmKo")
+#end
+#macro(dmLineOf $dmLp)
+  #set($dmLo = 0)
+  #set($dmLo = $dmLine.get($dmLp))
+#end
+## Integer value of path $dmIp into $dmIv (default $dmIdef); a problem when it is not a whole number.
+#macro(dmIntOf $dmIp $dmIdef)
+  #set($dmIv = $dmIdef)
+  #dmKindOf($dmIp)
+  #if($dmKo == "scalar")
+    #dmGet($dmIp)
+    #if($dmGv.matches("[0-9]{1,6}"))
+      #set($dmIv = $dmInt.parseInt($dmGv))
+    #else
+      #dmLineOf($dmIp)
+      #set($void = $dmProbs.add(["error", $dmLo, "$dmIp must be a whole number (found: $dmGv)."]))
+    #end
+  #elseif($dmKo != "" && $dmKo != "null")
+    #dmLineOf($dmIp)
+    #set($void = $dmProbs.add(["error", $dmLo, "$dmIp must be a whole number."]))
+  #end
+#end
+## Unknown keys of the map at path $dmUp (allowed: list $dmAllowed) are warnings.
+#macro(dmUnknownKeys $dmUp $dmAllowed)
+  #set($dmUk = false)
+  #set($dmUk = $dmKeys.get($dmUp))
+  #if($dmUk)
+    #foreach($dmK2 in $dmUk)
+      #if(!$dmAllowed.contains($dmK2))
+        #set($dmUpp = $dmK2)
+        #if($dmUp != "")
+          #set($dmUpp = "${dmUp}.${dmK2}")
+        #end
+        #dmLineOf($dmUpp)
+        #set($void = $dmProbs.add(["warning", $dmLo, "Unknown key $dmUpp (ignored)."]))
+      #end
+    #end
+  #end
+#end
+
+## ---------------------------------------------------------------- project configuration
+#set($dmTypeNames = $objectFactory.newMap())
+#set($dmRoleNames = $objectFactory.newMap())
+#set($dmTp = false)
+#set($dmTp = $trackerService.getTrackerProject($dmProjectId))
+#if($dmTp)
+  #set($dmE = false)
+  #set($dmE = $dmTp.getWorkItemTypeEnum())
+  #if($dmE)
+    #foreach($dmO in $dmE.getAllOptions())
+      #set($void = $dmTypeNames.put("$dmO.getId()", "$dmO.getName()"))
+    #end
+  #end
+  #set($dmE = false)
+  #set($dmE = $dmTp.getWorkItemLinkRoleEnum())
+  #if($dmE)
+    #foreach($dmO in $dmE.getAllOptions())
+      #set($void = $dmRoleNames.put("$dmO.getId()", "$dmO.getName()"))
+    #end
+  #end
+#end
+#set($dmMinus1 = -1)
+#set($dmSev3 = ["error", "warning", "ignore"])
+#set($dmSevR = ["error", "warning", "info"])
+#set($dmSev4 = ["error", "warning", "info", "ignore"])
+#set($dmCheckTypes = $dmTypeNames.size() > 0)
+#set($dmCheckRoles = $dmRoleNames.size() > 0)
+
+## ---------------------------------------------------------------- top level
+#set($dmRoles = [])
+#set($dmRoleByKey = $objectFactory.newMap())
+#set($dmRules = [])
+#set($dmUnexpLinks = "ignore")
+#dmGet("name")
+#set($dmName = $dmGv)
+#dmGet("version")
+#set($dmVersion = $dmGv)
+#set($dmHasText = $dmLines.size() > 0)
+#if($dmHasText && $dmStarted)
+  #dmUnknownKeys("" ["version", "name", "description", "model", "bindings", "uses"])
+  #dmKindOf("uses")
+  #if($dmKo != "")
+    #dmLineOf("uses")
+    #set($void = $dmProbs.add(["error", $dmLo, "uses: (reuse of a model of another project by reference) is not supported by this version. Copy or branch the model document instead."]))
+  #end
+  #if($dmVersion == "")
+    #set($void = $dmProbs.add(["warning", 0, "version: missing (version 1 assumed)."]))
+  #elseif($dmVersion != "1")
+    #dmLineOf("version")
+    #set($void = $dmProbs.add(["warning", $dmLo, "version: $dmVersion is not known by this widget (version 1 expected)."]))
+  #end
+  #dmKindOf("model")
+  #if($dmKo != "map")
+    #set($void = $dmProbs.add(["error", 0, "model: missing or not a block of keys (roles, links)."]))
+  #end
+  #dmUnknownKeys("model" ["roles", "links", "unexpected_links", "description"])
+#end
+
+## ---------------------------------------------------------------- roles
+#dmKindOf("model.roles")
+#if($dmKo == "map")
+  #foreach($dmRk in $dmKeys.get("model.roles"))
+    #set($dmRp = "model.roles.${dmRk}")
+    #set($dmR = $objectFactory.newMap())
+    #set($void = $dmR.put("key", $dmRk))
+    #dmLineOf($dmRp)
+    #set($void = $dmR.put("line", $dmLo))
+    #set($dmRtypes = [])
+    #set($void = $dmR.put("types", $dmRtypes))
+    #set($void = $dmR.put("decl", []))
+    #set($void = $dmR.put("docs", []))
+    #set($void = $dmR.put("bound", false))
+    #set($dmPt = "${dmRp}.title")
+    #dmGet($dmPt)
+    #if($dmGv == "")
+      #set($dmGv = $dmRk)
+    #end
+    #set($void = $dmR.put("title", $dmGv))
+    #set($dmPu = "${dmRp}.unexpected_types")
+    #dmGet($dmPu)
+    #if($dmGv == "")
+      #set($dmGv = "warning")
+    #elseif(!$dmSev3.contains($dmGv))
+      #dmLineOf($dmPu)
+      #set($void = $dmProbs.add(["error", $dmLo, "$dmPu must be error, warning or ignore (found: $dmGv)."]))
+      #set($dmGv = "warning")
+    #end
+    #set($void = $dmR.put("unexp", $dmGv))
+    #dmKindOf($dmRp)
+    #if($dmKo != "map")
+      #set($void = $dmProbs.add(["error", $dmLo, "Role $dmRk must be a block of keys (title, items)."]))
+    #else
+      #dmUnknownKeys($dmRp ["title", "items", "unexpected_types", "description"])
+      #set($dmPi = "${dmRp}.items")
+      #dmKindOf($dmPi)
+      #if($dmKo == "list")
+        #set($dmNi = $dmCnt.get($dmPi))
+        #set($dmNi = $dmNi - 1)
+        #if($dmNi >= 0)
+          #foreach($dmI in [0..$dmNi])
+            #set($dmIp = "${dmPi}[${dmI}]")
+            #dmLineOf($dmIp)
+            #set($dmIl = $dmLo)
+            #dmKindOf($dmIp)
+            #if($dmKo != "map")
+              #set($void = $dmProbs.add(["error", $dmIl, "$dmIp must be a block or { } with type (and min, max, ignored)."]))
+            #else
+              #dmUnknownKeys($dmIp ["type", "min", "max", "ignored", "description"])
+              #set($dmTyp = "${dmIp}.type")
+              #dmGet($dmTyp)
+              #set($dmTyv = $dmGv)
+              #if($dmTyv == "")
+                #set($void = $dmProbs.add(["error", $dmIl, "$dmIp has no type."]))
+              #else
+                #if($dmCheckTypes && !$dmTypeNames.containsKey($dmTyv))
+                  #set($void = $dmProbs.add(["error", $dmIl, "Work item type $dmTyv does not exist in project $dmProjectId."]))
+                #end
+                #set($dmT = $objectFactory.newMap())
+                #set($void = $dmT.put("type", $dmTyv))
+                #set($void = $dmT.put("line", $dmIl))
+                #set($dmMp = "${dmIp}.min")
+                #dmIntOf($dmMp $dmMinus1)
+                #set($void = $dmT.put("min", $dmIv))
+                #set($dmMp = "${dmIp}.max")
+                #dmIntOf($dmMp $dmMinus1)
+                #set($void = $dmT.put("max", $dmIv))
+                #set($dmMin = $dmT.get("min"))
+                #if($dmIv >= 0 && $dmMin > $dmIv)
+                  #set($void = $dmProbs.add(["error", $dmIl, "$dmIp: min is greater than max."]))
+                #end
+                #set($dmMp = "${dmIp}.ignored")
+                #dmGet($dmMp)
+                #set($dmIg = false)
+                #if($dmGv == "true")
+                  #set($dmIg = true)
+                #end
+                #set($void = $dmT.put("ignored", $dmIg))
+                #if($dmGv != "" && $dmGv != "true" && $dmGv != "false")
+                  #set($void = $dmProbs.add(["error", $dmIl, "$dmMp must be true or false."]))
+                #end
+                #set($dmDup = false)
+                #foreach($dmT2 in $dmRtypes)
+                  #if($dmT2.get("type") == $dmTyv)
+                    #set($dmDup = true)
+                  #end
+                #end
+                #if($dmDup)
+                  #set($void = $dmProbs.add(["warning", $dmIl, "Type $dmTyv is listed twice in role $dmRk."]))
+                #else
+                  #set($void = $dmRtypes.add($dmT))
+                #end
+              #end
+            #end
+          #end
+        #end
+      #elseif($dmKo == "" || $dmKo == "null")
+        #set($void = $dmProbs.add(["warning", $dmLo, "Role $dmRk lists no work item type (items:)."]))
+      #else
+        #dmLineOf($dmPi)
+        #set($void = $dmProbs.add(["error", $dmLo, "$dmPi must be a list (one - entry per type)."]))
+      #end
+    #end
+    #set($void = $dmRoles.add($dmR))
+    #set($void = $dmRoleByKey.put($dmRk, $dmR))
+  #end
+#elseif($dmHasText && $dmStarted)
+  #set($void = $dmProbs.add(["error", 0, "model.roles: missing (the document roles of the model)."]))
+#end
+
+## ---------------------------------------------------------------- link rules
+## Role and type of one end ($dmEp = model.links[i].from or .to) into $dmEr / $dmEt.
+#macro(dmLinkEnd $dmEp)
+  #set($dmEr = "")
+  #set($dmEt = "")
+  #dmKindOf($dmEp)
+  #if($dmKo != "map")
+    #set($void = $dmProbs.add(["error", $dmLl, "$dmEp must be { role: ..., type: ... } or a block with role (and type)."]))
+  #else
+    #dmUnknownKeys($dmEp ["role", "type"])
+    #set($dmEpr = "${dmEp}.role")
+    #dmGet($dmEpr)
+    #set($dmEr = $dmGv)
+    #set($dmEpt = "${dmEp}.type")
+    #dmGet($dmEpt)
+    #set($dmEt = $dmGv)
+    #if($dmEr == "")
+      #set($void = $dmProbs.add(["error", $dmLl, "$dmEp has no role."]))
+    #elseif(!$dmRoleByKey.containsKey($dmEr))
+      #set($void = $dmProbs.add(["error", $dmLl, "$dmEp: role $dmEr is not defined in model.roles."]))
+    #elseif($dmEt != "")
+      #set($dmFoundT = false)
+      #foreach($dmT2 in $dmRoleByKey.get($dmEr).get("types"))
+        #if($dmT2.get("type") == $dmEt)
+          #set($dmFoundT = true)
+        #end
+      #end
+      #if(!$dmFoundT)
+        #set($void = $dmProbs.add(["warning", $dmLl, "$dmEp: type $dmEt is not listed in the items of role $dmEr."]))
+      #end
+    #end
+    #if($dmEt != "" && $dmCheckTypes && !$dmTypeNames.containsKey($dmEt))
+      #set($void = $dmProbs.add(["error", $dmLl, "Work item type $dmEt does not exist in project $dmProjectId."]))
+    #end
+  #end
+#end
+#set($dmRuleIds = [])
+#dmKindOf("model.links")
+#if($dmKo == "list")
+  #set($dmNl = $dmCnt.get("model.links"))
+  #set($dmNl = $dmNl - 1)
+  #if($dmNl >= 0)
+    #foreach($dmI in [0..$dmNl])
+      #set($dmLp = "model.links[${dmI}]")
+      #dmLineOf($dmLp)
+      #set($dmLl = $dmLo)
+      #dmKindOf($dmLp)
+      #if($dmKo != "map")
+        #set($void = $dmProbs.add(["error", $dmLl, "$dmLp must be a block (id, from, link_role, to, ...)."]))
+      #else
+        #dmUnknownKeys($dmLp ["id", "from", "link_role", "to", "from_min", "to_min", "severity", "description"])
+        #set($dmRu = $objectFactory.newMap())
+        #set($void = $dmRu.put("line", $dmLl))
+        #set($dmPp = "${dmLp}.id")
+        #dmGet($dmPp)
+        #set($dmNo = $dmI + 1)
+        #if($dmGv == "")
+          #set($dmGv = "L${dmNo}")
+          #set($void = $dmProbs.add(["warning", $dmLl, "$dmLp has no id (named $dmGv)."]))
+        #end
+        #if($dmRuleIds.contains($dmGv))
+          #set($void = $dmProbs.add(["error", $dmLl, "Rule id $dmGv is used twice."]))
+        #end
+        #set($void = $dmRuleIds.add($dmGv))
+        #set($void = $dmRu.put("id", $dmGv))
+        #set($dmPp = "${dmLp}.from")
+        #dmLinkEnd($dmPp)
+        #set($void = $dmRu.put("from", $dmEr))
+        #set($void = $dmRu.put("ft", $dmEt))
+        #set($dmPp = "${dmLp}.to")
+        #dmLinkEnd($dmPp)
+        #set($void = $dmRu.put("to", $dmEr))
+        #set($void = $dmRu.put("tt", $dmEt))
+        #set($dmPp = "${dmLp}.link_role")
+        #dmGet($dmPp)
+        #set($dmLr = $dmGv)
+        #set($dmLrn = $dmGv)
+        #if($dmLr == "")
+          #set($void = $dmProbs.add(["error", $dmLl, "$dmLp has no link_role."]))
+        #elseif($dmCheckRoles && !$dmRoleNames.containsKey($dmLr))
+          #set($void = $dmProbs.add(["error", $dmLl, "Link role $dmLr does not exist in project $dmProjectId."]))
+        #elseif($dmCheckRoles)
+          #set($dmLrn = $dmRoleNames.get($dmLr))
+        #end
+        #set($void = $dmRu.put("role", $dmLr))
+        #set($void = $dmRu.put("rname", $dmLrn))
+        #set($dmPp = "${dmLp}.from_min")
+        #dmIntOf($dmPp 0)
+        #set($void = $dmRu.put("fmin", $dmIv))
+        #set($dmPp = "${dmLp}.to_min")
+        #dmIntOf($dmPp 0)
+        #set($void = $dmRu.put("tmin", $dmIv))
+        #set($dmPp = "${dmLp}.severity")
+        #dmGet($dmPp)
+        #if($dmGv == "")
+          #set($dmGv = "error")
+        #elseif(!$dmSevR.contains($dmGv))
+          #set($void = $dmProbs.add(["error", $dmLl, "$dmPp must be error, warning or info (found: $dmGv)."]))
+          #set($dmGv = "error")
+        #end
+        #set($void = $dmRu.put("sev", $dmGv))
+        #set($void = $dmRules.add($dmRu))
+      #end
+    #end
+  #end
+#elseif($dmKo != "" && $dmKo != "null")
+  #dmLineOf("model.links")
+  #set($void = $dmProbs.add(["error", $dmLo, "model.links must be a list (one - entry per rule)."]))
+#end
+#dmGet("model.unexpected_links")
+#if($dmGv != "")
+  #if($dmSev4.contains($dmGv))
+    #set($dmUnexpLinks = $dmGv)
+  #else
+    #dmLineOf("model.unexpected_links")
+    #set($void = $dmProbs.add(["error", $dmLo, "model.unexpected_links must be error, warning, info or ignore (found: $dmGv)."]))
+  #end
+#end
+
+## ---------------------------------------------------------------- bindings (explicit documents, PO 2026-10-30)
+## Forms: "name" (default space of the current project), "space/name", "project/space/name".
+#set($dmDeclSql = "")
+#set($dmAllDocs = [])
+#dmKindOf("bindings")
+#if($dmKo == "map")
+  #foreach($dmBk in $dmKeys.get("bindings"))
+    #set($dmBp = "bindings.${dmBk}")
+    #dmLineOf($dmBp)
+    #set($dmBl = $dmLo)
+    #set($dmVals = [])
+    #dmKindOf($dmBp)
+    #if($dmKo == "list")
+      #set($dmNb = $dmCnt.get($dmBp))
+      #set($dmNb = $dmNb - 1)
+      #if($dmNb >= 0)
+        #foreach($dmI in [0..$dmNb])
+          #set($dmBe = "${dmBp}[${dmI}]")
+          #dmKindOf($dmBe)
+          #if($dmKo == "scalar")
+            #dmGet($dmBe)
+            #set($void = $dmVals.add($dmGv))
+          #else
+            #set($void = $dmProbs.add(["error", $dmBl, "$dmBe must be a document (space/name)."]))
+          #end
+        #end
+      #end
+    #elseif($dmKo == "scalar")
+      #dmGet($dmBp)
+      #set($void = $dmVals.add($dmGv))
+    #elseif($dmKo == "map")
+      #set($void = $dmProbs.add(["error", $dmBl, "$dmBp must be a document or a list of documents."]))
+    #end
+    #if(!$dmRoleByKey.containsKey($dmBk))
+      #set($void = $dmProbs.add(["error", $dmBl, "bindings: $dmBk is not a role of model.roles."]))
+    #else
+      #set($dmR = $dmRoleByKey.get($dmBk))
+      #set($void = $dmR.put("bound", true))
+      #set($dmRdocs = $dmR.get("docs"))
+      #foreach($dmDv in $dmVals)
+        #set($dmDt = $dmDv.trim())
+        #if($dmDt != "")
+          #set($dmSegs = [])
+          #foreach($dmS in $dmDt.split("/"))
+            #set($void = $dmSegs.add($dmS.trim()))
+          #end
+          #set($dmD = $objectFactory.newMap())
+          #set($void = $dmD.put("decl", $dmDt))
+          #set($void = $dmD.put("line", $dmBl))
+          #set($void = $dmD.put("found", false))
+          #set($void = $dmD.put("title", ""))
+          #set($dmDp = $dmProjectId)
+          #set($dmDs = "_default")
+          #set($dmDn = "")
+          #if($dmSegs.size() == 1)
+            #set($dmDn = $dmSegs.get(0))
+          #elseif($dmSegs.size() == 2)
+            #set($dmDs = $dmSegs.get(0))
+            #set($dmDn = $dmSegs.get(1))
+          #elseif($dmSegs.size() == 3)
+            #set($dmDp = $dmSegs.get(0))
+            #set($dmDs = $dmSegs.get(1))
+            #set($dmDn = $dmSegs.get(2))
+          #end
+          #if($dmDn == "" || $dmDs == "" || $dmDp == "")
+            #set($void = $dmProbs.add(["error", $dmBl, "Document $dmDt: write name, space/name or project/space/name."]))
+          #else
+            #set($dmDk = "${dmDp}/${dmDs}/${dmDn}")
+            #set($void = $dmD.put("key", $dmDk))
+            #set($void = $dmD.put("project", $dmDp))
+            #set($void = $dmD.put("space", $dmDs))
+            #set($void = $dmD.put("name", $dmDn))
+            #set($dmDupDoc = false)
+            #foreach($dmD2 in $dmAllDocs)
+              #if($dmD2.get("key") == $dmDk)
+                #set($dmDupDoc = true)
+              #end
+            #end
+            #if($dmDupDoc)
+              #set($void = $dmProbs.add(["warning", $dmBl, "Document $dmDk is declared more than once."]))
+            #end
+            #set($void = $dmRdocs.add($dmD))
+            #set($void = $dmAllDocs.add($dmD))
+            #set($dmDpQ = $dmDp.replace("'", "''"))
+            #set($dmDsQ = $dmDs.replace("'", "''"))
+            #set($dmDnQ = $dmDn.replace("'", "''"))
+            #if($dmDeclSql != "")
+              #set($dmDeclSql = "${dmDeclSql} OR ")
+            #end
+            #set($dmDeclSql = "${dmDeclSql}(p.c_id = '${dmDpQ}' AND m.c_modulefolder = '${dmDsQ}' AND m.c_id = '${dmDnQ}')")
+          #end
+        #end
+      #end
+    #end
+  #end
+#elseif($dmKo != "" && $dmKo != "null")
+  #dmLineOf("bindings")
+  #set($void = $dmProbs.add(["error", $dmLo, "bindings must be a block: role: [documents]."]))
+#end
+## One SQL query for all declared documents (verified on 2512, dmSpike S5).
+#if($dmDeclSql != "")
+  #set($dmFound = $objectFactory.newMap())
+  #set($dmMods = $trackerService.getDataService().sqlSearch("SELECT m.c_uri FROM module m INNER JOIN project p ON p.c_uri = m.fk_uri_project WHERE ${dmDeclSql}"))
+  #foreach($dmM in $dmMods)
+    #if(!$dmM.isUnresolvable())
+      #set($void = $dmFound.put("$dmM.getProjectId()/$dmM.getModuleFolder()/$dmM.getId()", $dmM))
+    #end
+  #end
+  #foreach($dmD in $dmAllDocs)
+    #set($dmM = false)
+    #set($dmM = $dmFound.get($dmD.get("key")))
+    #if($dmM)
+      #set($void = $dmD.put("found", true))
+      #set($dmTmp = "")
+      #set($dmTmp = $dmM.getTitle())
+      #set($void = $dmD.put("title", "$dmTmp"))
+    #else
+      #set($dmDk = $dmD.get("key"))
+      #set($void = $dmProbs.add(["error", $dmD.get("line"), "Document $dmDk not found (or not readable)."]))
+    #end
+  #end
+#end
+#foreach($dmR in $dmRoles)
+  #if(!$dmR.get("bound"))
+    #set($dmRk = $dmR.get("key"))
+    #set($void = $dmProbs.add(["warning", $dmR.get("line"), "Role $dmRk has no document in bindings."]))
+  #end
+#end
+
+## ---------------------------------------------------------------- counts
+#set($dmErrors = 0)
+#set($dmWarnings = 0)
+#foreach($dmP in $dmProbs)
+  #if($dmP.get(0) == "error")
+    #set($dmErrors = $dmErrors + 1)
+  #elseif($dmP.get(0) == "warning")
+    #set($dmWarnings = $dmWarnings + 1)
+  #end
+#end

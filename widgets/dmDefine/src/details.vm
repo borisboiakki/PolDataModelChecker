@@ -1,0 +1,1 @@
+Shows the project data model (document roles, work item types, link rules, documents) written as YAML in a work item of a LiveDoc, and checks the model against the project configuration.

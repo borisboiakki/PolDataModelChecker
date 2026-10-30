@@ -1,0 +1,195 @@
+## Shared snippet dm-read.vm (shared/vm), inlined by tools/build-widget.py at "## BW_SHARED dm-read.vm".
+## Locates the model work item and reads its description as text lines (docs/ARCHITECTURE.md 3.2, 3.3).
+## Needs the parameters doc (@document, single), itemTypes (workitem-type, multi) and itemId (string).
+## Verified on 2512 (dmSpike run 1): items().contained() of the @document option in document order, Open API item with
+## getOldApi(), description HTML with getDescription().getContent() (one span per line, br separators, indentation as
+## spaces and U+00A0), getLastRevision() (getRevision() is empty on HEAD), backslash from the EscapeTool.
+## Output: $dmProjectId, $dmItem (Open API work item or false), $dmItemId, $dmItemProject, $dmItemTitle, $dmItemRev,
+## $dmDocKey, $dmDocSpace, $dmDocName, $dmLines (text lines of the description), $dmProbs (list of [severity, line, message],
+## line 0 = not tied to a line), $bs (backslash or empty).
+#set($dmInt = 0)
+#set($dmProbs = [])
+#set($dmProjectId = "")
+#set($dmProjectId = $page.getReference().projectId())
+#set($dmProjectId = "$dmProjectId")
+
+## Backslash from the EscapeTool: regexes that need one are built at run time (no backslash in Velocity 1.4 literals).
+#set($bs = "")
+#set($dmTmp = "")
+#set($dmTmp = $esc.b)
+#set($dmTmpS = "$dmTmp")
+#if($dmTmpS.length() == 1)
+  #set($bs = $dmTmpS)
+#else
+  #set($dmTmp = "")
+  #set($dmTmp = $esc.backslash)
+  #set($dmTmpS = "$dmTmp")
+  #if($dmTmpS.length() == 1)
+    #set($bs = $dmTmpS)
+  #end
+#end
+
+## Model item types (multi-select read like bwOptionIds; default text).
+#set($dmTypes = [])
+#set($dmTv = false)
+#set($dmTv = $parameters.itemTypes.values())
+#if($dmTv)
+  #foreach($dmV in $dmTv)
+    #set($dmId = "")
+    #set($dmId = $dmV.id())
+    #set($dmIdS = "$dmId")
+    #if($dmIdS.matches("[A-Za-z0-9_.-]+") && !$dmTypes.contains($dmIdS))
+      #set($void = $dmTypes.add($dmIdS))
+    #end
+  #end
+#end
+#if($dmTypes.size() == 0)
+  #set($void = $dmTypes.add("text"))
+#end
+#set($dmItemIdP = "")
+#set($dmTmp = "")
+#set($dmTmp = $parameters.itemId.value())
+#set($dmTmpS = "$dmTmp")
+#set($dmItemIdP = $dmTmpS.trim())
+
+## Model document (single select, current project).
+#set($dmDoc = false)
+#set($dmDocKey = "")
+#set($dmDocSpace = "")
+#set($dmDocName = "")
+#set($dmOpt = false)
+#set($dmOpt = $parameters.doc.singleValue())
+#if($dmOpt)
+  #set($dmMo = false)
+  #set($dmMo = $dmOpt.getModelObject())
+  #set($dmUr = "unknown")
+  #if($dmMo)
+    #set($dmUr = $dmMo.isUnresolvable())
+  #end
+  #if("$dmUr" == "false")
+    #set($dmDoc = $dmMo)
+    #set($dmMod = $dmMo.getOldApi())
+    #set($dmDocSpace = "$dmMod.getModuleFolder()")
+    #set($dmDocName = "$dmMod.getId()")
+    #set($dmDocKey = "${dmProjectId}/${dmDocSpace}/${dmDocName}")
+  #else
+    #set($void = $dmProbs.add(["error", 0, "The model document cannot be read (deleted or no permission)."]))
+  #end
+#end
+
+## Model item: the id parameter, or the first item of the types in the document with a line starting with a model key.
+#set($dmItem = false)
+#if($dmItemIdP != "")
+  #if($dmItemIdP.matches("[A-Za-z0-9_.-]+"))
+    #set($dmGw = false)
+    #set($dmGw = $trackerService.getWorkItem($dmProjectId, $dmItemIdP))
+    #if($dmGw && !$dmGw.isUnresolvable())
+      #set($dmItem = $dmGw)
+    #else
+      #set($void = $dmProbs.add(["error", 0, "Model item $dmItemIdP not found in project $dmProjectId."]))
+    #end
+  #else
+    #set($void = $dmProbs.add(["error", 0, "Model item id $dmItemIdP is not a work item id."]))
+  #end
+#elseif($dmDoc)
+  #set($dmCt = false)
+  #set($dmCt = $dmDoc.items().contained())
+  #set($dmFirst = false)
+  #if($dmCt)
+    #foreach($dmRi in $dmCt)
+      #if(!$dmItem)
+        #set($dmOi = false)
+        #set($dmOi = $dmRi.getOldApi())
+        #set($dmTy = "")
+        #if($dmOi && !$dmOi.isUnresolvable())
+          #set($dmTmp = "")
+          #set($dmTmp = $dmOi.getType().getId())
+          #set($dmTy = "$dmTmp")
+        #end
+        #if($dmTypes.contains($dmTy))
+          #if(!$dmFirst)
+            #set($dmFirst = $dmOi)
+          #end
+          #set($dmH = "")
+          #set($dmDo = false)
+          #set($dmDo = $dmOi.getDescription())
+          #if($dmDo)
+            #set($dmTmp = "")
+            #set($dmTmp = $dmDo.getContent())
+            #set($dmH = "$dmTmp")
+          #end
+          #set($dmPl = $dmH.replaceAll("(?i)<br[^>]*>", "@NL@").replaceAll("(?i)</(p|div|li|pre)>", "@NL@").replaceAll("<[^>]*>", ""))
+          #set($dmPl = "@NL@${dmPl}")
+          #if($dmPl.contains("@NL@version:") || $dmPl.contains("@NL@model:") || $dmPl.contains("@NL@uses:"))
+            #set($dmItem = $dmOi)
+          #end
+        #end
+      #end
+    #end
+  #end
+  #if(!$dmItem && $dmFirst)
+    #set($dmItem = $dmFirst)
+    #set($void = $dmProbs.add(["warning", 0, "No item of the model type has a line starting with version:, model: or uses:. The first one is read."]))
+  #end
+  #if(!$dmItem)
+    #set($void = $dmProbs.add(["error", 0, "The model document has no work item of type $dmTypes."]))
+  #end
+#end
+
+#set($dmItemId = "")
+#set($dmItemProject = "")
+#set($dmItemTitle = "")
+#set($dmItemRev = "")
+#set($dmHtml = "")
+#if($dmItem)
+  #set($dmItemId = "$dmItem.getId()")
+  #set($dmTmp = "")
+  #set($dmTmp = $dmItem.getProjectId())
+  #set($dmItemProject = "$dmTmp")
+  #set($dmTmp = "")
+  #set($dmTmp = $dmItem.getTitle())
+  #set($dmItemTitle = "$dmTmp")
+  #set($dmTmp = "")
+  #set($dmTmp = $dmItem.getLastRevision())
+  #set($dmItemRev = "$dmTmp")
+  #set($dmDo = false)
+  #set($dmDo = $dmItem.getDescription())
+  #if($dmDo)
+    #set($dmTmp = "")
+    #set($dmTmp = $dmDo.getContent())
+    #set($dmHtml = "$dmTmp")
+  #end
+#end
+
+## Description HTML -> text lines: br and block ends are line breaks, other tags removed, U+00A0 -> space, entities decoded.
+## Source newlines (pre blocks) are line breaks when the backslash is available.
+#set($dmLines = [])
+#if($dmHtml != "")
+  #set($dmT = $dmHtml)
+  #if($bs != "")
+    #set($dmRe = "${bs}r?${bs}n")
+    #set($dmT = $dmT.replaceAll($dmRe, "@NL@"))
+    #set($dmRe = "${bs}u00A0")
+    #set($dmT = $dmT.replaceAll($dmRe, " "))
+  #end
+  ## An empty line is stored as a span holding only a br, followed by the br that ends the line (2512, dmSpike run 1:
+  ## 48 lines read for a 45-line model): drop the inner br so that line numbers match the editor.
+  #set($dmT = $dmT.replaceAll("(?i)<span[^>]*>[ ]*<br[^>]*>[ ]*</span>", ""))
+  #set($dmT = $dmT.replaceAll("(?i)<br[^>]*>", "@NL@"))
+  #set($dmT = $dmT.replaceAll("(?i)</(p|div|li|pre|h[1-6]|tr)>", "@NL@"))
+  #set($dmT = $dmT.replaceAll("<[^>]*>", ""))
+  #set($dmT = $dmT.replace("&nbsp;", " ").replace("&#160;", " ").replace("&lt;", "<").replace("&gt;", ">"))
+  #set($dmT = $dmT.replace("&quot;", '"').replace("&#34;", '"').replace("&#39;", "'").replace("&apos;", "'"))
+  #set($dmT = $dmT.replace("&amp;", "&"))
+  #foreach($dmL in $dmT.split("@NL@"))
+    #set($void = $dmLines.add($dmL))
+  #end
+  ## The last br of the description ends the last line: drop the empty tail.
+  #set($dmLast = $dmLines.size() - 1)
+  #if($dmLast >= 0)
+    #set($dmLt = $dmLines.get($dmLast))
+    #if($dmLt.trim() == "")
+      #set($void = $dmLines.remove($dmLast))
+    #end
+  #end
+#end

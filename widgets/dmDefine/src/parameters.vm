@@ -1,0 +1,4 @@
+$parameters.put("doc", $factory.enumeration("Model document (LiveDoc holding the model work item)", "@document").allowNoValue(true).allowMultipleValues(false).build())
+$parameters.put("itemTypes", $factory.enumeration("Model work item type", "workitem-type").allowNoValue(true).allowMultipleValues(true).values(["text"]).build())
+$parameters.put("itemId", $factory.string("Model work item id (optional; empty = first item of the type holding the model)").value("").build())
+$parameters.put("height", $factory.integer("Graph height in pixels").value(500).build())

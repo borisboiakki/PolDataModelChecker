@@ -1,5 +1,6 @@
   /*
-   * Shared client core of the document widgets (docBranches, docCoverage).
+   * Shared client core of the widgets (copied from the sister repository's docBranches / docCoverage core;
+   * used here by dmDefine; optional widget fields: isolatedText, searchText).
    *
    * tools/build-widget.py places this fragment inside each widget's IIFE, before the widget's own
    * graph.js code, so nothing is global. Velocity parses the result: no dollar sign, hash sign,
@@ -425,7 +426,7 @@
 
   Base.searchBox = function (bar) {
     var self = this;
-    var search = el('input', { 'class': 'bw-ctl bw-search', type: 'search', placeholder: 'Highlight documents' + ELLIPSIS }, bar);
+    var search = el('input', { 'class': 'bw-ctl bw-search', type: 'search', placeholder: (this.searchText || 'Highlight documents') + ELLIPSIS }, bar);
     search.addEventListener('input', function () { self.state.filter = search.value.trim().toLowerCase(); self.render(false); });
     return search;
   };
@@ -513,7 +514,7 @@
     }
     if (lay.isolated.length && lay.linked.length) {
       svg('text', { x: MARGIN, y: lay.isoTop + 14, 'font-family': FONT, 'font-size': 12, fill: 'rgb(110,110,110)' }, root,
-        'Documents without relations');
+        this.isolatedText || 'Documents without relations');
     }
     var gEdges = svg('g', null, root);
     var gNodes = svg('g', null, root);

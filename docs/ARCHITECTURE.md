@@ -1,6 +1,6 @@
 # Architecture of the data model widgets (preliminary)
 
-**Status:** preliminary, v0.1, 2026-10-30. Written after the specifications were agreed with the product owner (PO).
+**Status:** v0.2, 2026-10-30: §3 and §5–§8 describe dmDefine 0.1.0 as built; §4 (dmCheck) is still preliminary. Written after the specifications were agreed with the product owner (PO).
 Requirements: `widgets/dmDefine/SPECIFICATION.md`, `widgets/dmCheck/SPECIFICATION.md`. Model format:
 `docs/DATA_MODEL_FORMAT.md`. Polarion facts verified on 2512 (in the sister repo) are listed in `CLAUDE.md`.
 Everything marked **[S…]/[T…]** depends on a spike that has not run yet. The architecture is revised after the spikes.
@@ -57,22 +57,21 @@ which is simpler than parsing. The specs are updated accordingly.
 ## 3. The model pipeline (shared by both widgets)
 
 ```
- parameters ─► locate model item ─► description HTML ─► text lines ─► YAML subset parser ─► tree
-            ─► uses: merge (one level) ─► schema validation ─► config validation ─► binding resolution
-            ─► $dmModel (normalized lists/maps) + $dmProblems (severity, line, message)
+ parameters ─► locate model item ─► description HTML ─► text lines ─► YAML subset parser ─► path maps
+            ─► schema validation ─► config validation ─► binding resolution
+            ─► $dmRoles / $dmRules (normalized lists of maps) + $dmProbs (severity, line, message)
 ```
 
-Shared snippets, inlined at build time (`## BW_SHARED <file>`), each with its own `dm` prefix:
+Shared snippets, inlined at build time (`## BW_SHARED <file>`), variables prefixed `dm`:
 
 | Snippet | Role |
 |---|---|
-| `shared/vm/dm-params.vm` | Parameter reading common to both widgets (§3.1) |
-| `shared/vm/dm-locate.vm` | Finds the model item and reads its description (§3.2) |
-| `shared/vm/dm-yaml.vm` | HTML → lines, YAML subset parser → tree of `newMap()` / lists (§3.3) |
-| `shared/vm/dm-model.vm` | `uses:` merge, schema and configuration validation, normalization (§3.4, §3.5) |
-| `shared/vm/dm-bind.vm` | Resolves each role's declared documents to `IModule`s, keys `project/space/name` (§3.6) |
-| `shared/vm/dm-pagemodel.vm` | Writes the model and problems as hidden `<i>` elements (§5) |
-| existing `style.vm`, `common.vm` | Reused; `bwKey`, `bwOptionIds` and the project helpers as they are |
+| `shared/vm/dm-read.vm` | Parameters `doc`, `itemTypes`, `itemId`; finds the model item; description HTML → `$dmLines` (§3.2, §3.3) |
+| `shared/vm/dm-yaml.vm` | YAML subset parser → path maps `$dmKind`, `$dmVal`, `$dmKeys`, `$dmCnt`, `$dmLine` (§3.3) |
+| `shared/vm/dm-model.vm` | Project configuration, schema and configuration validation, roles/rules, binding resolution (§3.5, §3.6) |
+| existing `style.vm` | Reused (root classes `dd-root`, `dc-root` added) |
+
+`uses:` (§3.4) is not implemented yet: dmDefine 0.1.0 reports it as an error.
 
 ### 3.1 Parameters (both widgets)
 
@@ -117,11 +116,16 @@ Design:
   so the newline regex must come from `$esc.b`; `"#"` and `'#'` are accepted in string literals; `$list.remove($i)`
   with an Integer removes by index; ranges `[1..$n]` work. The prototype parser is in the spike widget
   (`tests/dmSpike-v0.1.x/`), with 48 harness checks on mocks.
-- **Tokens**: each non-empty line gives `[lineNo, indent, isListItem, key, value]`. The indent is computed with Integer
-  arithmetic (`length()` before and after `replaceAll("^ +", "")`). Tuples are stored as lists, because Java arrays
-  have no methods in Velocity 1.4.
-- **Tree**: a stack-based builder (lists used as stacks) produces `$objectFactory.newMap()` and lists. It has no
-  recursion (`#macro` recursion is fragile in 1.4). Every node remembers its line number for messages.
+- **Lines**: the indent is computed with Integer arithmetic (`length()` before and after `replaceAll("^ +", "")`);
+  `- ` starts a list entry; `key: value` or `key:` (block follows); end-of-line comments ` #` outside quotes.
+- **Path maps instead of a tree** (as built): a stack of frames (lists used as stacks, no recursion: `#macro` recursion
+  is fragile in 1.4) records each value by its path (`model.roles.SystemSpec.items[0].type`): kind, scalar value,
+  map keys in source order, list length, line number. The validator reads paths, so it never needs to tell a Java
+  map from a list, and the key order does not depend on the map implementation of `$objectFactory.newMap()`.
+- **Error recovery**: a wrongly indented line is reported and skipped without closing the blocks around it, so one
+  mistake gives one problem (the stack changes only when the line fits).
+- **Empty lines**: Polarion stores an empty line as a span holding only a `<br/>` followed by the line's own `<br/>`;
+  the inner one is dropped so that line numbers match the editor (run 1 read 48 lines for a 45-line model).
 - Every problem is collected as `[severity, line, message]`. The parser never stops the page: the widget shows the
   problems instead of failing.
 - Size: a model is expected to be a few hundred lines, so the cost is negligible next to the SQL.
@@ -197,23 +201,29 @@ values escaped with `$esc.html`, separators replaced inside values, caps with wa
 
 | Element | Attributes | Widgets |
 |---|---|---|
-| root `dd-root` / `dc-root` | `data-project`, `data-version`, `data-height`, `data-model-item` (`project/id`), `data-model-rev`, `data-model-uses` | both |
-| `dm-r` (role) | `data-k` (role key), `data-title`, `data-types` (`type:min:max:flags;…`), `data-unexp` (severity), `data-docs` (bound keys `;`), `data-miss` (declared but not found) | both |
-| `dm-l` (link rule) | `data-id`, `data-from`, `data-ft`, `data-role`, `data-to`, `data-tt`, `data-fmin`, `data-tmin`, `data-sev`, `data-other` | both |
-| `dm-p` (problem) | `data-sev`, `data-line`, `data-msg` | both |
-| `dm-y` | `data-text`: the model text as lines (for display and the editor) | dmDefine |
-| `dm-c` (rule result) | `data-id` (rule id or `types:<role>`), `data-kind`, `data-n` (checked), `data-ok`, `data-vn` (full count), `data-v` (`id|docKey|type|msg;…` capped), `data-q` (drill-down query) | dmCheck |
-| `dm-d` (document) | `data-k`, `data-role`, `data-title`, `data-items`, counts per type | dmCheck |
+| root `dd-root` | `data-project`, `data-version`, `data-height`, `data-item` (model item id), `data-item-project`, `data-rev` (`getLastRevision()`), `data-doc` (model document key), `data-name`, `data-unexp` (unexpected links severity) | dmDefine |
+| `dm-r` (role) | `data-k` (role key), `data-title`, `data-line`, `data-unexp` (other types), `data-bound` (1/0), `data-types` (`type|min|max|ignored;…`, -1 = none), `data-docs` (`declared|project|space|name|found|title;…`) | dmDefine (dmCheck: same) |
+| `dm-l` (link rule) | `data-id`, `data-from`, `data-ft`, `data-role`, `data-rn` (role name), `data-to`, `data-tt`, `data-fmin`, `data-tmin`, `data-sev`, `data-line` | dmDefine (dmCheck: same) |
+| `dm-p` (problem) | `data-sev`, `data-line` (0 = not tied to a line), `data-msg` | dmDefine (dmCheck: same) |
+| `dm-y` | `data-t`: one element per line of the model text | dmDefine |
+| `dm-c` (rule result) | `data-id` (rule id or `types:<role>`), `data-kind`, `data-n` (checked), `data-ok`, `data-vn` (full count), `data-v` (`id|docKey|type|msg;…` capped), `data-q` (drill-down query) | dmCheck (planned) |
+| `dm-d` (document) | `data-k`, `data-role`, `data-title`, `data-items`, counts per type | dmCheck (planned) |
+
+`|` and `;` inside values are replaced by a space.
 
 Any field added must be changed on both sides (Velocity output and `readModel` in the widget's `graph.js`) and in the
 harness checks.
 
 ## 6. Client side
 
-`shared/js/core.js` is reused unchanged at first: layered layout, SVG drawing, toolbar, tooltip, zoom, table, SVG/Excel/CSV
-export. Widget code:
-- **dmDefine `graph.js`**: nodes = roles (title, types), edges = link rules (role, `from_min`/`to_min`); bindings panel;
-  problems panel with line numbers next to the model text; Excel sheets Roles, Types, Rules, Bindings, Problems.
+`shared/js/core.js` is reused (layered layout, SVG drawing, toolbar, tooltip, zoom, table, SVG/Excel/CSV export), with two
+optional widget fields added: `isolatedText` and `searchText`. Widget code:
+- **dmDefine `graph.js`** (0.1.0): nodes = roles (key, title, counted types, documents found, rules inside the role
+  marked with a loop sign); edges = rules between two roles grouped per pair, o = target role on the left, arrow in the
+  link direction; one line style per link role with a filter checkbox; a click on a role shows its types, documents
+  (links) and rules, a click on a line its rules. Problems box above the toolbar (errors first, line numbers open the
+  *Model text* view with the line highlighted); *Copy YAML*; *Open model item*; table view (roles, rules, documents,
+  problems); Excel sheets Roles, Item types, Link rules, Documents, Problems, Model text.
   From 0.2: starter generator (data from Velocity: item types per declared document and observed link roles), editor
   forms on the structured model, YAML serializer and **Copy** button. From 0.3: **Save to Polarion** through REST, shown
   only after a successful probe (S4: `top.getRestApiToken` is a function and a GET of the model item with header
@@ -232,7 +242,7 @@ choices use buttons or checkboxes, not `<select>` (guide §11.7).
 
 ## 7. Static view (PDF / print)
 
-No JavaScript. dmDefine prints the table of roles, types, rules, bindings and problems. dmCheck prints the summary per
+No JavaScript. dmDefine prints the problems, the table of roles (types, documents) and the table of rules. dmCheck prints the summary per
 rule, the violation table (full or summary depending on the parameter) and a static SVG of the model graph with
 integer geometry, as the sister widgets do.
 
@@ -240,13 +250,15 @@ integer geometry, as the sister widgets do.
 
 - `tools/build-widget.py` (copied) builds each `widgets/<w>/` into `dist/<w>/` and `<w>.zip`, inlines `shared/vm/*`
   and the JS, and checks with Velocity 1.4. Entry names ≤ 30, ≤ 30 entries.
-- `tools/vtest/<w>/` gets a harness on the copied mocks (`tools/vtest/mocks/`), extended with:
-  a model item whose description is HTML (variants observed in S1), a second project with a referenced model (`uses:`),
-  and declared documents with known items and links.
+- `tools/vtest/dmmocks/DmMocks.java`: mocks of the Polarion objects as observed in dmSpike (stored HTML form, revisions,
+  enumerations, module SQL; `newMap()` is a `HashMap`). `tools/vtest/dmDefine/DefineHarness.java` renders the widget on
+  the sample model, a model with problems (15 kinds) and a syntax-error model, in browser and PDF mode;
+  `browser-check.js` tests the page in Chromium (graph, details, model text, table, Excel/SVG export, filters, problems).
+  `tools/test-widget.sh all` runs them and the spike smoke tests; CI (`.github/workflows/ci.yml`) runs it on every push.
 - **Test data** (`test-data/`): an invented V-cycle model (`vcycle-model.yaml`) and a structure with known expected
   violations, covering every rule kind. It is the regression set for dmCheck (PO C9). A parser test runs the
   `dm-yaml.vm` snippet on fixture YAML files (valid and invalid) and compares the tree with an expected JSON.
-- `tools/test-widget.sh` and the CI workflow are adapted from the sister repo with the first widget.
+- The copied sister mocks (`tools/vtest/mocks/`) are kept for reference; dmCheck will add the link data to `DmMocks`.
 
 ## 9. Spikes before implementation
 
@@ -273,7 +285,7 @@ T1) there.
 
 | Version | dmDefine | dmCheck |
 |---|---|---|
-| 0.1.0 | Pipeline §3 (without `uses:`), graph, table, bindings, problems, exports, PDF | — (spike T1–T3 on the dummy model) |
+| 0.1.0 | **Built**: pipeline §3 (without `uses:`), graph, table, documents, problems, exports, PDF | — (spike T1–T3 on the dummy model) |
 | 0.2.0 | `uses:` reference, starter generator, editor + Copy | 0.1.0: three v1 checks, report, Excel, coloured graph, PDF |
 | 0.3.0 | REST save (if S4 positive), cross-project bindings | drill-down, cross-project documents |
 | later | — | collection context, orphans, wrong document, field rules |

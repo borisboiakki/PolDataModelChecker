@@ -1,0 +1,282 @@
+## Shared snippet dm-yaml.vm (shared/vm), inlined by tools/build-widget.py at "## BW_SHARED dm-yaml.vm".
+## YAML subset parser in Velocity 1.4 (docs/DATA_MODEL_FORMAT.md 2, docs/ARCHITECTURE.md 3.3). Prototype verified on 2512
+## (dmSpike run 1: the stored model parsed with 0 problems in about 4 ms).
+## Input: $dmLines (text lines), $dmProbs. Lines before the first top-level key (version, name, model, uses, bindings,
+## description) are skipped. Keys: letters, digits, _ and - only.
+## Output, by path ("model.roles.SystemSpec.items[0].type"; root = ""):
+##   $dmKind  path -> "map" | "list" | "scalar" | "null" (key without value)
+##   $dmVal   path -> scalar text (unquoted)
+##   $dmKeys  path of a map -> keys in source order
+##   $dmCnt   path of a list -> number of entries
+##   $dmLine  path -> line number (1-based, in $dmLines)
+## Problems are added to $dmProbs as [severity, line, message]; the parser never stops the page.
+#set($dmKind = $objectFactory.newMap())
+#set($dmVal = $objectFactory.newMap())
+#set($dmKeys = $objectFactory.newMap())
+#set($dmCnt = $objectFactory.newMap())
+#set($dmLine = $objectFactory.newMap())
+#set($void = $dmKind.put("", "map"))
+#set($void = $dmKeys.put("", []))
+#set($dmKeyRe = "[A-Za-z0-9_-]+:( .*)?")
+
+## Unquote a scalar: 'x' or "x" -> x (no escape sequences in the subset).
+#macro(dmUnq $dmU)
+  #set($dmUq = "$dmU")
+  #set($dmUq = $dmUq.trim())
+  #set($dmUl = $dmUq.length())
+  #if($dmUl >= 2)
+    #set($dmUe = $dmUl - 1)
+    #if(($dmUq.startsWith('"') && $dmUq.endsWith('"')) || ($dmUq.startsWith("'") && $dmUq.endsWith("'")))
+      #set($dmUq = $dmUq.substring(1, $dmUe))
+    #end
+  #end
+#end
+
+## Value $dmSv at path $dmSp: scalar, or one-level flow list [a, b] / flow map {k: v}.
+#macro(dmScalar)
+  #set($dmSv = $dmSv.trim())
+  #set($dmSl = $dmSv.length())
+  #set($dmSe = $dmSl - 1)
+  #if($dmSv.startsWith("&") || $dmSv.startsWith("*") || $dmSv.startsWith("|") || $dmSv.startsWith(">") || $dmSv.startsWith("!"))
+    #set($void = $dmProbs.add(["error", $dmLn, "Not in the YAML subset (anchor, alias, tag or multi-line text): $dmSv"]))
+    #set($void = $dmKind.put($dmSp, "scalar"))
+    #set($void = $dmVal.put($dmSp, $dmSv))
+  #elseif($dmSv.startsWith("[") && $dmSv.endsWith("]"))
+    #set($void = $dmKind.put($dmSp, "list"))
+    #set($dmIn = $dmSv.substring(1, $dmSe))
+    #set($dmIn = $dmIn.trim())
+    #set($dmN = 0)
+    #if($dmIn.indexOf("[") >= 0 || $dmIn.indexOf("{") >= 0)
+      #set($void = $dmProbs.add(["error", $dmLn, "Nested [ ] or { } are not in the YAML subset."]))
+    #elseif($dmIn != "")
+      #foreach($dmP in $dmIn.split(","))
+        #set($dmEp = "${dmSp}[${dmN}]")
+        #dmUnq($dmP)
+        #set($void = $dmKind.put($dmEp, "scalar"))
+        #set($void = $dmVal.put($dmEp, $dmUq))
+        #set($void = $dmLine.put($dmEp, $dmLn))
+        #set($dmN = $dmN + 1)
+      #end
+    #end
+    #set($void = $dmCnt.put($dmSp, $dmN))
+  #elseif($dmSv.startsWith("{") && $dmSv.endsWith("}"))
+    #set($void = $dmKind.put($dmSp, "map"))
+    #set($dmFk = [])
+    #set($void = $dmKeys.put($dmSp, $dmFk))
+    #set($dmIn = $dmSv.substring(1, $dmSe))
+    #set($dmIn = $dmIn.trim())
+    #if($dmIn.indexOf("[") >= 0 || $dmIn.indexOf("{") >= 0)
+      #set($void = $dmProbs.add(["error", $dmLn, "Nested [ ] or { } are not in the YAML subset."]))
+    #elseif($dmIn != "")
+      #foreach($dmP in $dmIn.split(","))
+        #set($dmCi = $dmP.indexOf(":"))
+        #if($dmCi < 1)
+          #set($dmPt = $dmP.trim())
+          #set($void = $dmProbs.add(["error", $dmLn, "Entry without key in { }: $dmPt"]))
+        #else
+          #set($dmK = $dmP.substring(0, $dmCi))
+          #set($dmK = $dmK.trim())
+          #set($dmC1 = $dmCi + 1)
+          #set($dmVv = $dmP.substring($dmC1))
+          #dmUnq($dmVv)
+          #if($dmFk.contains($dmK))
+            #set($void = $dmProbs.add(["error", $dmLn, "Duplicate key ${dmSp}.${dmK}"]))
+          #else
+            #set($void = $dmFk.add($dmK))
+          #end
+          #set($dmEp = "${dmSp}.${dmK}")
+          #set($void = $dmKind.put($dmEp, "scalar"))
+          #set($void = $dmVal.put($dmEp, $dmUq))
+          #set($void = $dmLine.put($dmEp, $dmLn))
+        #end
+      #end
+    #end
+  #else
+    #dmUnq($dmSv)
+    #set($void = $dmKind.put($dmSp, "scalar"))
+    #set($void = $dmVal.put($dmSp, $dmUq))
+  #end
+#end
+
+## "key: value" (line content $dmC) into the map at path $dmKvPath whose keys start at column $dmKvInd.
+#macro(dmKv)
+  #set($dmKci = $dmC.indexOf(":"))
+  #set($dmK = $dmC.substring(0, $dmKci))
+  #set($dmKv1 = $dmKci + 1)
+  #set($dmV = $dmC.substring($dmKv1))
+  #set($dmV = $dmV.trim())
+  #set($dmKp = $dmK)
+  #if($dmKvPath != "")
+    #set($dmKp = "${dmKvPath}.${dmK}")
+  #end
+  #set($dmKl = $dmKeys.get($dmKvPath))
+  #if($dmKl.contains($dmK))
+    #set($void = $dmProbs.add(["error", $dmLn, "Duplicate key $dmKp"]))
+  #else
+    #set($void = $dmKl.add($dmK))
+  #end
+  #set($void = $dmLine.put($dmKp, $dmLn))
+  #if($dmV == "")
+    #set($void = $dmKind.put($dmKp, "null"))
+    #set($dmPf = $objectFactory.newMap())
+    #set($void = $dmPf.put("p", "1"))
+    #set($void = $dmPf.put("kI", $dmKvInd))
+    #set($void = $dmPf.put("path", $dmKp))
+    #set($void = $dmStack.add($dmPf))
+  #else
+    #set($dmSv = $dmV)
+    #set($dmSp = $dmKp)
+    #dmScalar()
+  #end
+#end
+
+#set($dmStack = [])
+#set($dmRf = $objectFactory.newMap())
+#set($void = $dmRf.put("p", "0"))
+#set($void = $dmRf.put("ind", 0))
+#set($void = $dmRf.put("kind", "map"))
+#set($void = $dmRf.put("path", ""))
+#set($void = $dmStack.add($dmRf))
+#set($dmLn = 0)
+#set($dmStarted = false)
+#foreach($dmRawL in $dmLines)
+  #set($dmLn = $dmLn + 1)
+  #set($dmRaw = "$dmRawL")
+  #set($dmTr = $dmRaw.trim())
+  #if(!$dmStarted && $dmRaw.matches("(version|name|model|uses|bindings|description):( .*)?"))
+    #set($dmStarted = true)
+  #end
+  #if($dmStarted && $dmTr != "" && !$dmTr.startsWith("#"))
+    #set($dmOk = true)
+    #set($dmNoInd = $dmRaw.replaceAll("^ +", ""))
+    #set($dmInd = $dmRaw.length() - $dmNoInd.length())
+    #set($dmC = $dmNoInd.trim())
+    ## Comment at the end of the line: " #" with no quote before it.
+    #set($dmCi = $dmC.indexOf(" #"))
+    #if($dmCi > 0)
+      #set($dmCb = $dmC.substring(0, $dmCi))
+      #if($dmCb.indexOf('"') < 0 && $dmCb.indexOf("'") < 0)
+        #set($dmC = $dmCb.trim())
+      #end
+    #end
+    #set($dmDash = false)
+    #if($dmC == "-")
+      #set($void = $dmProbs.add(["error", $dmLn, "Empty list entry: write the entry on the same line as the dash."]))
+      #set($dmOk = false)
+    #elseif($dmC.startsWith("- "))
+      #set($dmDash = true)
+      #set($dmC = $dmC.substring(2))
+      #set($dmC = $dmC.trim())
+    #end
+    #if($dmOk && !$dmNoInd.equals($dmRaw.trim()) && $dmNoInd.length() > 0)
+      ## A tab or another blank before the content (not a space): indentation cannot be read.
+      #set($dmFc = $dmNoInd.substring(0, 1))
+      #if($dmFc.trim() == "")
+        #set($void = $dmProbs.add(["error", $dmLn, "Indent with spaces only (tab or other blank found)."]))
+        #set($dmOk = false)
+      #end
+    #end
+    #if($dmOk)
+      ## Container of the line: close deeper blocks, open the block of a pending "key:". The stack is changed only when
+      ## the line fits (a wrongly indented line does not close the blocks around it).
+      #set($dmRes = "")
+      #set($dmGuard = $dmStack.size())
+      #set($dmTi = $dmGuard - 1)
+      #foreach($dmG in [1..$dmGuard])
+        #if($dmRes == "")
+          #set($dmTop = $dmStack.get($dmTi))
+          #if($dmTop.get("p") == "1")
+            #set($dmKI = $dmTop.get("kI"))
+            #if($dmInd > $dmKI || ($dmDash && $dmInd == $dmKI))
+              #set($dmRes = "open")
+            #else
+              #set($dmTi = $dmTi - 1)
+            #end
+          #elseif($dmTop.get("ind") == $dmInd)
+            #set($dmRes = "ok")
+          #elseif($dmTop.get("ind") > $dmInd && $dmTi > 0)
+            #set($dmTi = $dmTi - 1)
+          #else
+            #set($dmRes = "bad")
+          #end
+        #end
+      #end
+      #if($dmRes == "ok" || $dmRes == "open")
+        #set($dmTi1 = $dmTi + 1)
+        #foreach($dmG in [1..$dmGuard])
+          #if($dmStack.size() > $dmTi1)
+            #set($dmSl = $dmStack.size() - 1)
+            #set($void = $dmStack.remove($dmSl))
+          #end
+        #end
+      #end
+      #if($dmRes == "open")
+        #set($dmTop = $dmStack.get($dmTi))
+        #set($dmTp = $dmTop.get("path"))
+        #if($dmDash)
+          #set($void = $dmTop.put("kind", "list"))
+          #set($void = $dmKind.put($dmTp, "list"))
+          #set($void = $dmCnt.put($dmTp, 0))
+        #else
+          #set($void = $dmTop.put("kind", "map"))
+          #set($void = $dmKind.put($dmTp, "map"))
+          #set($void = $dmKeys.put($dmTp, []))
+        #end
+        #set($void = $dmTop.put("ind", $dmInd))
+        #set($void = $dmTop.put("p", "0"))
+        #set($void = $dmTop.put("n", 0))
+        #set($dmRes = "ok")
+      #end
+      #if($dmRes != "ok")
+        #set($void = $dmProbs.add(["error", $dmLn, "Unexpected indentation ($dmInd spaces)."]))
+      #else
+        #set($dmSl = $dmStack.size() - 1)
+        #set($dmTop = $dmStack.get($dmSl))
+        #set($dmTPath = $dmTop.get("path"))
+        #if($dmDash)
+          #if($dmTop.get("kind") != "list")
+            #set($void = $dmProbs.add(["error", $dmLn, "List entry (-) where a key was expected."]))
+          #else
+            #set($dmIdx = $dmTop.get("n"))
+            #set($dmNn = $dmIdx + 1)
+            #set($void = $dmTop.put("n", $dmNn))
+            #set($void = $dmCnt.put($dmTPath, $dmNn))
+            #set($dmItPath = "${dmTPath}[${dmIdx}]")
+            #set($void = $dmLine.put($dmItPath, $dmLn))
+            #if($dmC.matches($dmKeyRe))
+              #set($void = $dmKind.put($dmItPath, "map"))
+              #set($void = $dmKeys.put($dmItPath, []))
+              #set($dmMi = $dmInd + 2)
+              #set($dmMf = $objectFactory.newMap())
+              #set($void = $dmMf.put("p", "0"))
+              #set($void = $dmMf.put("ind", $dmMi))
+              #set($void = $dmMf.put("kind", "map"))
+              #set($void = $dmMf.put("path", $dmItPath))
+              #set($void = $dmStack.add($dmMf))
+              #set($dmKvPath = $dmItPath)
+              #set($dmKvInd = $dmMi)
+              #dmKv()
+            #else
+              #set($dmSv = $dmC)
+              #set($dmSp = $dmItPath)
+              #dmScalar()
+            #end
+          #end
+        #else
+          #if($dmTop.get("kind") != "map")
+            #set($void = $dmProbs.add(["error", $dmLn, "Key where a list entry (-) was expected."]))
+          #elseif(!$dmC.matches($dmKeyRe))
+            #set($void = $dmProbs.add(["error", $dmLn, "Cannot read the line (expected key: value; keys use letters, digits, _ and -): $dmC"]))
+          #else
+            #set($dmKvPath = $dmTPath)
+            #set($dmKvInd = $dmInd)
+            #dmKv()
+          #end
+        #end
+      #end
+    #end
+  #end
+#end
+#if(!$dmStarted && $dmLines.size() > 0)
+  #set($void = $dmProbs.add(["error", 0, "No line starts with version:, name:, model:, uses: or bindings: (no model found in the description)."]))
+#end

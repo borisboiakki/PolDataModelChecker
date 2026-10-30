@@ -1,8 +1,8 @@
-# Data model format (draft v0.1)
+# Data model format (version 1)
 
 Contract between **dmDefine** (reads, shows, validates, helps to write the model) and **dmCheck** (checks the data
-against it). Status: **draft for discussion**, nothing here is verified on Polarion yet (see the spikes in the widget
-specifications). Decisions of the PO (2026-10-30): YAML text block, stored in the description of a work item of a
+against it). Status: **version 1**, implemented by dmDefine 0.1.0 (`shared/vm/dm-yaml.vm` parses it, `shared/vm/dm-model.vm`
+validates it). Storage and parsing verified on 2512 (dmSpike run 1). Decisions of the PO (2026-10-30): YAML text block, stored in the description of a work item of a
 dedicated LiveDoc, documents referred to by logical role plus binding, one project with optional cross-project documents.
 
 ## 1. Storage
@@ -12,14 +12,16 @@ dedicated LiveDoc, documents referred to by logical role plus binding, one proje
   widget parameter). The widget finds it by the document and the type, and optionally an id or title.
 - **Decided (PO, 2026-10-30)**: one work item of type `text` holds the whole model, in a dedicated LiveDoc (baselines of
   the LiveDoc version the model). No restriction on who edits it for now.
-- The description is rich text (HTML). The widget extracts the text of the YAML block (spike S1).
-  To stay editable by hand, the YAML must be tolerant to what the editor does to it (line breaks, `&nbsp;`, quotes).
+- The description is rich text (HTML). Paste the YAML as plain text (one line per line); Polarion stores it as one
+  `<span>` per line with `<br/>` separators and keeps the indentation (verified on 2512, dmSpike run 1). The widget
+  turns it back into text lines; an empty line counts once, so line numbers match the editor.
 
-## 2. Draft schema
+## 2. Schema
 
 The text is a **YAML subset** (valid YAML): block maps and lists indented with spaces, plain or quoted scalars,
 one-level flow lists `[a, b]` and flow maps `{k: v}` of scalars, `#` comments, `null`/`true`/`false`/integers. No tabs,
-anchors, multi-line scalars or nested flow collections. Keys are plain words (`A-Z a-z 0-9 _ . -`). Text before the
+anchors, multi-line scalars or nested flow collections. Keys are plain words (`A-Z a-z 0-9 _ -`, no dot: role names
+are keys). Text before the
 first top-level key (a title, an explanation) is ignored. It is parsed by the widgets in Velocity (ARCHITECTURE §3.3).
 A complete example: `test-data/vcycle-model.yaml`.
 
@@ -71,6 +73,27 @@ bindings:
   SubsystemReq: ["Specs/Subsystem A Requirements"]
 ```
 
+### Keys, defaults and validation (dmDefine 0.1.0)
+
+| Path | Value | Default | Checked |
+|---|---|---|---|
+| `version` | `1` | 1 (warning when missing) | other values: warning |
+| `name`, `description` | text | — | — |
+| `model.roles.<Role>` | block: `title`, `items`, `unexpected_types`, `description` | — | required: at least one role |
+| `…title` | text | the role key | — |
+| `…items[]` | `type` (required), `min`, `max` (whole numbers), `ignored` (`true`/`false`), `description` | min/max: none | type exists in the project; min ≤ max; type listed once |
+| `…unexpected_types` | `error`, `warning`, `ignore` | `warning` | value |
+| `model.links[]` | `id`, `from`, `link_role`, `to`, `from_min`, `to_min`, `severity`, `description` | id: `L<n>` (warning) | id unique |
+| `…from`, `…to` | `{ role: R, type: T }` (type optional = any type of the role) | — | role defined; type listed in the role (warning) and in the project |
+| `…link_role` | link role id | — | exists in the project; the graph shows its name |
+| `…from_min`, `…to_min` | whole numbers | 0 | value |
+| `…severity` | `error`, `warning`, `info` | `error` | value |
+| `model.unexpected_links` | `error`, `warning`, `info`, `ignore` | `ignore` | value |
+| `bindings.<Role>` | document or list of documents: `name` (default space), `space/name`, `project/space/name` | — | role defined; document exists; declared once; a role without document: warning |
+| `uses` | — | — | not supported in 0.1.0 (error) |
+
+Unknown keys are warnings (ignored). Problems carry the line of the model text.
+
 ## 3. Rules for the checker (v1)
 
 | Check | Meaning |
@@ -90,4 +113,6 @@ Link direction follows Polarion: the link is stored on the source item and point
 - Reuse: `uses:` one level, no local override of `model` keys in v0.2; pinning a revision (`PROJ/ID@rev`) later.
 - Versioning of the model: baselines/revisions of the model LiveDoc give it for free; the checker should show the
   revision of the model it used.
-- Schema evolution: `model:` number; unknown keys are warnings, not errors.
+- Schema evolution: the `version:` number; unknown keys are warnings, not errors.
+- Documents of another project in `bindings` (`project/space/name`) are resolved by the same SQL query, but this form
+  is not verified on 2512 yet (dmSpike S5 run 3), and their types are validated against the current project only.

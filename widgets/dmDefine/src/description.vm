@@ -1,0 +1,7 @@
+<p><b>Data Model Definition</b> reads the data model of the project from the description of a work item (type <code>text</code> by default) in a LiveDoc chosen in the parameters. The model is a YAML text: the <b>document roles</b> (e.g. system specification, subsystem requirements) with the work item types they contain, the <b>link rules</b> between their items (e.g. subsystem requirement <code>satisfies</code> system requirement, at least one link per item) and the <b>documents</b> of the project that fill each role.</p>
+<ul>
+  <li>The graph shows one box per role and one line per pair of roles connected by rules; the arrow follows the link direction. Click a role or a line for the details.</li>
+  <li>The widget checks the model: YAML syntax, known keys, roles used by the rules, work item types and link roles of the project configuration, documents that exist. Problems are listed with their line in the model text.</li>
+  <li>Table view, SVG and Excel export; <i>Model text</i> shows the YAML with line numbers, <i>Copy YAML</i> copies it (e.g. to reuse it in another project).</li>
+</ul>
+<p>To change the model, edit the description of the model work item and reload the page. The format is described in the repository (docs/DATA_MODEL_FORMAT.md). In PDF export the widget renders the tables of the model.</p>

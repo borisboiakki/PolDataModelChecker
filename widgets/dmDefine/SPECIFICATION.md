@@ -1,7 +1,8 @@
 # Specification — Data model definition widget (dmDefine)
 
-**Status:** v0.1 draft, 2026-10-30, written with the product owner (PO) from the kick-off Q&A. Nothing is implemented or
-verified yet. Items marked `[?]` are open or need verification on a Polarion instance.
+**Status:** v0.2, 2026-10-30. Spike dmSpike runs 1–2 done on 2512 (`tests/dmSpike-v0.1.x/spike-tests.md`). Widget
+**0.1.0 implemented** (`widgets/dmDefine/src`: D1–D7, D11), tested with Velocity 1.4 on mocks and in Chromium; open checks
+on the instance in §9. Items marked `[?]` are open or need verification on a Polarion instance.
 
 ## 1. Goal
 
@@ -23,22 +24,23 @@ The model is stored in Polarion (SPEC §6) and read by **dmCheck** (`widgets/dmC
 | C7 | Editing: copy/paste into the work item first; REST write-back later, always with the manual fallback | PO |
 | C8 | Same workflow and Polarion knowledge as the sister repo: spec → architecture → spikes → code | PO |
 
-## 3. Functional requirements (proposal)
+## 3. Functional requirements
 
 | ID | Requirement | Priority | Increment |
 |---|---|---|---|
-| D1 | Parameters: model LiveDoc (`@document`), model work item type (`workitem-type` single), optional model item id | Must | 1 |
-| D2 | Read the YAML from the description of the model item(s) and parse it | Must | 1 |
-| D3 | **Validate** the model: syntax (YAML), schema (keys, types, severities), references (every role used in a rule is defined; link roles and item types exist in the project configuration; documents of each binding resolve). Show the problems with line numbers | Must | 1 |
-| D4 | **Graph** of the model: documents (roles) as boxes with their item types, link rules as arrows labelled with role and cardinality (client-side SVG from `shared/js/core.js`) | Must | 1 |
-| D5 | **Table** of the model: documents, types, link rules; bound real documents per role | Must | 1 |
-| D6 | **Bindings view**: for each role, the real documents it resolves to (or "not found") | Must | 1 |
-| D7 | Excel and SVG export of the model; PDF/print static view | Should | 1 |
+| D1 | Parameters: model LiveDoc (`@document`, single), model work item type (`workitem-type`, multi with `text` preselected: verified preselection form), optional model item id, graph height | Must (done) | 1 |
+| D2 | Read the YAML from the description of the model item(s) and parse it | Must (done) | 1 |
+| D3 | **Validate** the model: syntax (YAML), schema (keys, types, severities), references (every role used in a rule is defined; link roles and item types exist in the project configuration; documents of each binding resolve). Show the problems with line numbers | Must (done) | 1 |
+| D4 | **Graph** of the model: documents (roles) as boxes with their item types, link rules as arrows labelled with the link role, cardinalities in the tooltip and details (client-side SVG from `shared/js/core.js`) | Must (done) | 1 |
+| D5 | **Table** of the model: documents, types, link rules; bound real documents per role | Must (done) | 1 |
+| D6 | **Bindings view**: for each role, the real documents it resolves to (or "not found") | Must (done) | 1 |
+| D7 | Excel and SVG export of the model; PDF/print static view | Should (done) | 1 |
 | D8 | **Starter generator**: propose a model skeleton from the real data (documents, item types per document, observed link roles between documents, as in docCoverage), to be corrected by the user and pasted into the model item | Should | 2 |
 | D9 | **In-widget editor** (forms or graph edits) producing the YAML text, with a Copy button to paste it into the model item | Should | 2 |
 | D10 | **REST write-back**: "Save to Polarion" updates the description of the model item from the browser; hidden when the REST API is unreachable | Could | 3 (after spike S4) |
-| D11 | Show the revision of the model LiveDoc / item used; link to open the model item for editing | Should | 1 |
-| D12 | Cross-project documents in bindings (`project/space/document`) | Should | 2 |
+| D11 | Show the revision of the model LiveDoc / item used; link to open the model item for editing | Should (done: item revision from `getLastRevision()`) | 1 |
+| D12 | Cross-project documents in bindings (`project/space/document`) | Should (form accepted by 0.1.0, not verified on 2512) | 2 |
+| D13 | **Model text** view with line numbers (problem lines marked, a click on a problem shows its line) and **Copy YAML** (copies the text, e.g. to reuse the model in another project) | Should (done) | 1 |
 
 ## 4. Non-functional requirements
 
@@ -101,3 +103,17 @@ Decided by the PO (2026-10-30):
    Reuse by copying/branching the model LiveDoc.
 2. **0.2.0** `uses:` reference, starter generator and in-widget editor with copy/paste output.
 3. **0.3.0** REST write-back (if S4 is positive), cross-project bindings.
+
+## 9. Open checks for 0.1.0 on 2512
+
+Only verifiable on the instance (the harness uses mocks):
+
+a. Upload of `dmDefine.zip` (entries ≤ 30 characters: `dmDefine/resources/xlsx.js` = 26) and the widget icon.
+b. Model document selector and default type `text`; the model item found without the id parameter (the model text
+   starts with comment lines in the sample).
+c. The sample model (`test-data/vcycle-model.yaml`, names adapted to the project) shows no problem; the graph, details,
+   *Model text* (line numbers equal to the editor's lines), table, Excel and SVG export.
+d. A model with mistakes (unknown type or link role, missing document, wrong indentation) lists the problems with the
+   right lines.
+e. PDF export: problems, roles and rules tables.
+f. Optional: a binding to a document of another project (`project/space/name`).

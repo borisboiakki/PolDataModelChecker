@@ -1,6 +1,6 @@
 # Build and test every widget on every push and pull request.
-# Runs tools/test-widget.sh (Velocity 1.4 render on mock Polarion data + Chromium check) and
-# verifies that the committed widgets/*/dist match the sources.
+# Runs tools/test-widget.sh all (Velocity 1.4 render on mock Polarion data + Chromium check, then the spike widgets)
+# and verifies that the committed widgets/*/dist and spike zips match the sources.
 name: CI
 
 on:
@@ -48,8 +48,8 @@ jobs:
       - name: Check that widgets/*/dist are up to date with the sources
         run: |
           git add -N widgets
-          if ! git diff --exit-code -- 'widgets/*/dist' ':(exclude)widgets/*/dist/*.zip'; then
-            echo "::error::widgets/*/dist differ from a fresh build. Run python3 tools/build-widget.py and commit widgets/*/dist."
+          if ! git diff --exit-code -- 'widgets/*/dist' ':(exclude)widgets/*/dist/*.zip' 'tests/*/spike-widget/*.zip'; then
+            echo "::error::widgets/*/dist or a spike zip differ from a fresh build. Run tools/test-widget.sh all and commit the results."
             exit 1
           fi
 
