@@ -152,6 +152,25 @@ Findings:
 Decision proposed for the starter generator (D8): **variant B** (nested; A also works as a fallback);
 full scan not used.
 
+### Run 5 on 2512 (2026-10-30, PO; S10 summaries read from photos, not committed)
+
+Pairs of documents of one space, role `satisfies`, small and large documents; the three variants.
+
+| Variant | Accepted | Same as the reference | Example (181 source items, 181 target items, 181 link sources) |
+|---|---|---|---|
+| NOT IN (`sqlSearch`) | ✅ no error | yes | reference queries 12 ms + evaluation 23 ms; NOT IN: items without link 3 ms, items not covered 2 ms |
+| NOT EXISTS, correlated (`sqlSearch`) | ✅ no error | yes | reference 8 + 15 ms; NOT EXISTS 3 ms + 2 ms |
+| Lucene `queryWorkItems` with `SQL:(…)` holding the set query | ✅ no error | yes | reference 9 + 15 ms; Lucene 3 ms + 1 ms |
+
+Findings:
+- `sqlSearch` accepts `NOT IN (SELECT …)` and correlated `NOT EXISTS (SELECT …)`; `queryWorkItems` accepts an
+  `SQL:(…)` restriction holding such a query (drill-down K9). Each set query takes 1–3 ms against ≈ 25–35 ms for the
+  reference (SQL + Velocity scan) on this pair; no visible difference on large documents (PO).
+- **Limit**: in the runs shown, all counts were **0** (every item linked, every target covered), so "same as the
+  reference" compares empty results. That the set queries return the **right non-empty lists** is not shown yet:
+  one run on a pair with missing links (e.g. the dmCheck test structure of `test-data/vcycle-check/`, PO_CHECKS 3.1,
+  or a link removed for the test) closes it. Until then dmCheck keeps the 0.1.0 method as the reference.
+
 ### Run 3: S9 editor controls (for dmDefine 0.3.0)
 
 Upload the rebuilt `dmSpike.zip` (browser view, any test). In section **S9**: type several lines with leading spaces in
