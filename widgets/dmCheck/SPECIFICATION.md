@@ -1,8 +1,9 @@
 # Specification — Data model check widget (dmCheck)
 
 **Status:** v0.3, 2026-10-30. **dmCheck 0.1.0 implemented** (`widgets/dmCheck/src`, shared `dm-check.vm`: K1, K3–K8,
-K10, K12, K14–K16), tested with Velocity 1.4 on mocks built from `test-data/vcycle-check/` and in Chromium; not run on
-2512 yet (`docs/PO_CHECKS.md` §3). Spike S10 (T1, T3) prepared. Proposed answers to the open questions are marked *proposed* (§7,
+K10, K12, K14–K16), tested with Velocity 1.4 on mocks built from `test-data/vcycle-check/` and in Chromium; **verified by the PO
+on 2512 (2026-10-30, `docs/PO_CHECKS.md` 3.1–3.6: test structure with the expected violations, details, table, Excel,
+PDF, a real model of the largest project, a model with an error)**. Spike S10 (T1, T3) prepared. Proposed answers to the open questions are marked *proposed* (§7,
 to confirm by the PO: `docs/PO_CHECKS.md` §4). Items marked `[?]` are open or need verification on a Polarion instance.
 
 ## 1. Goal

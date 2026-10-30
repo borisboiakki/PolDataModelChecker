@@ -15,7 +15,7 @@ requirements linked with `satisfies` → tests linked with `verifies`). Two widg
   to validate on 2512: `docs/PO_CHECKS.md`, keep it up to date with every new feature).
   PO 2026-10-30: dmDefine is completed before dmCheck is started.
 - **dmCheck** (`widgets/dmCheck/`): reads the same model, checks the real documents/items/links, reports violations
-  (table, Excel, graph coloured by compliance, Lucene drill-down later). **0.1.0 built** (`shared/vm/dm-check.vm`,
+  (table, Excel, graph coloured by compliance, Lucene drill-down later). **0.1.0 built and verified on 2512 (PO_CHECKS §3)** (`shared/vm/dm-check.vm`,
   verified SQL forms only; harness `tools/vtest/dmCheck/` builds its mock project from
   `test-data/vcycle-check/structure.md` and expects exactly the violations listed there: keep both in line).
 
@@ -171,8 +171,8 @@ root classes `dd-root`/`dc-root`; `core.js` optional widget fields `isolatedText
 
 ## Where the work stands (read first in a new session)
 
-- Pending checks of the PO on 2512, in order: `docs/PO_CHECKS.md` (dmSpike all done, dmDefine §2 all done, dmCheck 0.1,
-  decisions to confirm). Record each result in the spec / `tests/dmSpike-v0.1.x/spike-tests.md`, then tick it there.
+- Pending checks of the PO on 2512, in order: `docs/PO_CHECKS.md` (dmSpike all done, dmDefine §2 and dmCheck §3 all done;
+  open: decisions to confirm §4). Record each result in the spec / `tests/dmSpike-v0.1.x/spike-tests.md`, then tick it there.
 - Next increments: dmDefine starter generator (S7 done: nested `IN (SELECT MIN(c_uri) … GROUP BY …)` form, run 4), dmCheck 0.2 (faster set queries, drill-down: S10 run 5
   and 5b: NOT IN, also inside Lucene SQL:(…), gives the reference's non-empty lists). Later: exploded view of the graph (dmDefine D16, then dmCheck K17; PO-agreed design in the specs).
   Specs §8 of each widget list them.
