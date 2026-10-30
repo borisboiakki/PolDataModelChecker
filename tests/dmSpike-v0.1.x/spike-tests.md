@@ -110,7 +110,15 @@ an instance with the REST token disabled (no `top.getRestApiToken`, or 401) → 
 
 Still open from run 1 (optional): S5 with a named space, another project and a missing document.
 
-### Run 3 (optional)
+### Run 3: S9 editor controls (for dmDefine 0.3.0)
+
+Upload the rebuilt `dmSpike.zip` (browser view, any test). In section **S9**: type several lines with leading spaces in
+the text area, press Tab, Enter, Backspace and Ctrl+Z; type in the input; choose "two" in the drop-down; click
+*Copy (navigator.clipboard)* and paste somewhere; click *Copy (execCommand)* and paste; click *Download a .yaml file*;
+click *Show the values*. Report the text of the grey box (it lists the key events received, whether the page blocked
+any, where Tab moves the focus, whether the drop-down change arrived, the copy and download results).
+
+### Run 3 (optional, S5)
 
 Upload the rebuilt `dmSpike.zip`, then: S4 buttons 2 and 4 (PATCH unchanged; report the HTTP status and whether a new
 revision appears in the item history); S5 with a named space, another project and a missing document; S3 on a code block

@@ -36,7 +36,7 @@ The model is stored in Polarion (SPEC §6) and read by **dmCheck** (`widgets/dmC
 | D6 | **Bindings view**: for each role, the real documents it resolves to (or "not found") | Must (done) | 1 |
 | D7 | Excel and SVG export of the model; PDF/print static view | Should (done) | 1 |
 | D8 | **Starter generator**: propose a model skeleton from the real data (documents, item types per document, observed link roles between documents, as in docCoverage), to be corrected by the user and pasted into the model item | Should | 2 |
-| D9 | **In-widget editor** (forms or graph edits) producing the YAML text, with a Copy button to paste it into the model item | Should | 2 |
+| D9 | **In-widget editor** producing the YAML text to copy into the model item (details and decisions: §7.8, PO 2026-10-30): a **form editor** (general settings, roles with their item types, link rules, documents per role, pairs) whose lists come from the project configuration and the project's documents, and a **YAML text editor**; *Copy* and *Download* of the generated YAML; start from an empty model when the project has none | Should | 0.3.0 |
 | D10 | **REST write-back**: "Save to Polarion" updates the description of the model item from the browser; hidden when the REST API is unreachable | Could | 3 (after spike S4) |
 | D11 | Show the revision of the model LiveDoc / item used; link to open the model item for editing | Should (done: item revision from `getLastRevision()`) | 1 |
 | D12 | Cross-project documents in bindings (`project/space/document`) | Should (form accepted by 0.1.0, not verified on 2512) | 2 |
@@ -76,6 +76,7 @@ referenced object, Velocity 1.4-safe templates, PDF/print without JS, no custome
 | S5 | Document binding: by `space/name`, document type, name pattern, custom document field; what is available in SQL (`MODULE` columns) |
 | S6 | Validation sources: reading the project's work item types, link roles (name, opposite name), custom document types from the project configuration |
 | S7 | Starter generator data: item types per document, observed link roles between documents (reuse docCoverage queries), timing on a large project |
+| S9 | **Editor controls in a Polarion page** (browser only): typing in a `textarea` and an `input` (spaces, Tab, Enter, Backspace, Ctrl+Z not taken by Polarion), a `<select>` not wrapped in a `<label>` (guide §11.7: one wrapped in a label did not react on 2512), `navigator.clipboard.writeText` and the `execCommand('copy')` fallback, download of a generated file. The editor does not depend on the `<select>` result (it uses button pickers, verified pattern) |
 | S8 | Read a work item of another project (`$trackerService.getWorkItem`), optionally at a revision (`uses:` reference) |
 
 ## 7. Decisions and open questions
@@ -98,6 +99,24 @@ Decided by the PO (2026-10-30):
    (PDF export has no JavaScript, no server call from the browser), so one Velocity parser is shared by both widgets.
    The browser only serializes YAML (editor). Replaces option (a) of §5.
 
+8. **In-widget editor (D9)**, PO 2026-10-30:
+   - **Forms + text**: a form editor and a YAML text editor. The forms start from the model read by the server (the
+     path maps of `dm-yaml.vm`, written to the page model: no second YAML parser in the browser) and regenerate the
+     YAML; the text editor shows the generated (or current) YAML, editable, to copy. Text edits are not read back into
+     the forms (that would need a browser parser): the editor says so.
+   - **Comments**: the comment lines above the first key (title, explanations) and the `description:` fields are kept;
+     comments inside the model and unknown keys are dropped when the forms regenerate the YAML, after a warning that
+     names them. The text editor keeps everything.
+   - **Documents**: chosen in a search-and-pick list of the current project's documents (one SQL query on the modules,
+     capped); documents of other projects can be typed as `project/space/name`.
+   - **Start from an empty model** when the model document has no model item, or no model document is selected: the
+     forms open on an empty model, to be copied into a new `text` work item.
+   - **A model with errors**: the forms are not offered (they would silently drop what the parser could not read); the
+     text editor is, with the problems listed (PO did not choose "edit a model with errors" in the forms).
+   - Pickers are buttons with a search-and-pick panel (guide §11.7), not `<select>` elements.
+   - Client-side checks in the forms (required fields, role keys unique and made of letters, digits, `_` and `-`, whole
+     numbers, references to existing roles / rules); the full validation runs again when the pasted model is read.
+
 ## 8. Increments
 
 PO 2026-10-30: dmDefine is completed before dmCheck is started.
@@ -105,9 +124,10 @@ PO 2026-10-30: dmDefine is completed before dmCheck is started.
 1. **0.1.0** (done) read + validate + show: parameters, YAML read (spike S1–S3), validation, graph + table + documents,
    model text, Copy YAML. Reuse by copying/branching the model LiveDoc.
 2. **0.2.0** (done) pairs (D14).
-3. Next increments (order to confirm with the PO): `uses:` reference (§3.4 of the architecture, S8 verified) and
-   cross-project documents (D12, S5 run 3); starter generator (D8, spike S7); in-widget editor with Copy (D9);
-   REST write-back (D10, checks of spike S4 listed in `tests/dmSpike-v0.1.x/spike-tests.md`).
+3. **0.3.0** (in progress, PO 2026-10-30: item 2 of the list first) in-widget editor with Copy (D9), spike S9.
+4. Next increments: `uses:` reference (§3.4 of the architecture, S8 verified) and cross-project documents (D12, S5
+   run 3); REST write-back (D10, checks of spike S4 listed in `tests/dmSpike-v0.1.x/spike-tests.md`); starter generator
+   (D8, spike S7).
 
 ## 9. Open checks for 0.1.0 / 0.2.0 on 2512
 

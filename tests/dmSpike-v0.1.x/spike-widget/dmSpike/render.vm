@@ -965,5 +965,78 @@
   });
 })();
 </script>
+<h4>S9 Editor controls (browser only): try each control, then copy the grey box</h4>
+<div class="dms-ui">
+<p>1. Type in the text area: several lines, leading spaces, Tab, Enter, Backspace, Ctrl+Z. 2. Type in the input. 3. Pick a value in the drop-down. 4. Click the buttons.</p>
+<textarea class="dms-ta" rows="6" cols="70" spellcheck="false">version: 1
+model:
+  roles:
+    A:
+      title: type here</textarea>
+<div><input class="dms-in" type="text" size="40" value="input: type here"> <select class="dms-sel"><option value="one">one</option><option value="two">two</option><option value="three">three</option></select></div>
+<div><button type="button" data-u="clip">Copy (navigator.clipboard)</button><button type="button" data-u="exec">Copy (execCommand)</button><button type="button" data-u="dl">Download a .yaml file</button><button type="button" data-u="state">Show the values</button></div>
+<pre class="dms-uout">S9 log</pre>
+</div>
+<script>
+(function () {
+  var roots = document.querySelectorAll('.dms-ui');
+  var root = roots[roots.length - 1];
+  var out = root.querySelector('.dms-uout');
+  var ta = root.querySelector('.dms-ta');
+  var inp = root.querySelector('.dms-in');
+  var sel = root.querySelector('.dms-sel');
+  var NL = String.fromCharCode(10);
+  var keys = {};
+  function log(t) { out.textContent = out.textContent + NL + t; }
+  function keyLog(name, el) {
+    el.addEventListener('keydown', function (ev) {
+      var k = (ev.ctrlKey ? 'Ctrl+' : '') + ev.key;
+      if (!keys[name + k]) { keys[name + k] = true; log(name + ' keydown ' + k + (ev.defaultPrevented ? ' (prevented by the page)' : '')); }
+      if (ev.key === 'Tab' && name === 'textarea') {
+        setTimeout(function () { log('after Tab, focus is on: ' + (document.activeElement === ta ? 'the text area' : (document.activeElement ? document.activeElement.tagName : 'nothing'))); }, 0);
+      }
+    });
+    el.addEventListener('input', function () { if (!keys[name + 'input']) { keys[name + 'input'] = true; log(name + ' input event received'); } });
+  }
+  keyLog('textarea', ta);
+  keyLog('input', inp);
+  sel.addEventListener('change', function () { log('select change event: ' + sel.value); });
+  sel.addEventListener('input', function () { log('select input event: ' + sel.value); });
+  function copyExec(text) {
+    var t = document.createElement('textarea');
+    t.value = text;
+    document.body.appendChild(t);
+    t.select();
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { log('execCommand error: ' + e); }
+    document.body.removeChild(t);
+    return ok;
+  }
+  root.addEventListener('click', function (ev) {
+    var a = ev.target.getAttribute && ev.target.getAttribute('data-u');
+    if (!a) { return; }
+    if (a === 'clip') {
+      if (!navigator.clipboard || !navigator.clipboard.writeText) { log('navigator.clipboard.writeText: not available'); return; }
+      navigator.clipboard.writeText(ta.value).then(function () { log('navigator.clipboard.writeText: ok (paste somewhere to check)'); }, function (e) { log('navigator.clipboard.writeText: refused: ' + e); });
+    } else if (a === 'exec') {
+      log('execCommand copy: ' + copyExec(ta.value));
+    } else if (a === 'dl') {
+      try {
+        var url = URL.createObjectURL(new Blob([ta.value + NL], { type: 'text/plain' }));
+        var link = document.createElement('a');
+        link.href = url;
+        link.download = 'model-spike.yaml';
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(function () { URL.revokeObjectURL(url); document.body.removeChild(link); }, 1000);
+        log('download started (check the browser downloads)');
+      } catch (e) { log('download error: ' + e); }
+    } else if (a === 'state') {
+      log('text area lines: ' + ta.value.split(NL).length + '; first indented line: [' + (ta.value.split(NL)[2] || '') + ']');
+      log('input value: [' + inp.value + ']; select value: ' + sel.value);
+    }
+  });
+})();
+</script>
 #end
 </div>

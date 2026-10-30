@@ -337,6 +337,7 @@ public class DmSpikeHarness {
         check(h.contains("<td>systemRequirement</td><td>System Requirement</td>"), "S6: types listed");
         check(h.contains("SYSENG/SE-12 read"), "S8: work item of another project read");
         check(h.contains("<script>") && h.contains("X-Polarion-REST-Token"), "S4: REST probe script in the browser view");
+        check(h.contains("class=\"dms-ta\"") && h.contains("navigator.clipboard.writeText(ta.value)") && h.contains("select change event"), "S9: editor controls test in the browser view");
 
         h = render(dir, out, "yaml-spans", params("yaml", spanDoc, "item", "", ""), false, new Esc());
         checkModel(h, "S3 2512 form (spans, br, no-break space characters)");
