@@ -126,6 +126,7 @@ span holding only a `<br/>` plus the line's own `<br/>`; `dm-read.vm` drops the 
 Verified by the PO with dmDefine 0.5.0 (PO_CHECKS 2.14): *Save to Polarion* PATCHes a changed model and the reloaded page
 shows it; the description keeps the indentation and the PATCH creates a new revision in the item history (2.15).
 A user without edit rights sees no Save button (2.17: no token or GET refused for that user; copy/paste remains); conflict warning (2.16); parameter Off hides Save (2.18).
+`uses:` (model of another project, local bindings, its errors, editor local-part mode) verified (2.10–2.12).
 NOT verified for this project: behaviour with the REST token disabled; 2612 for everything.
 
 ## Repository layout
@@ -170,7 +171,7 @@ root classes `dd-root`/`dc-root`; `core.js` optional widget fields `isolatedText
 
 ## Where the work stands (read first in a new session)
 
-- Pending checks of the PO on 2512, in order: `docs/PO_CHECKS.md` (dmSpike all done, dmDefine 2.1-2.9 and 2.14-2.18 done, 2.10-2.13 open, dmCheck 0.1,
+- Pending checks of the PO on 2512, in order: `docs/PO_CHECKS.md` (dmSpike all done, dmDefine all done except 2.13, dmCheck 0.1,
   decisions to confirm). Record each result in the spec / `tests/dmSpike-v0.1.x/spike-tests.md`, then tick it there.
 - Next increments: dmDefine starter generator (S7 done: nested `IN (SELECT MIN(c_uri) … GROUP BY …)` form, run 4), dmCheck 0.2 (faster set queries, drill-down: S10 run 5
   and 5b: NOT IN, also inside Lucene SQL:(…), gives the reference's non-empty lists). Later: exploded view of the graph (dmDefine D16, then dmCheck K17; PO-agreed design in the specs).

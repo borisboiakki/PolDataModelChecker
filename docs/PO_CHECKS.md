@@ -5,7 +5,7 @@ Polarion instance**. Run the checks in this order when you have time; for each o
 screenshots or PDF exports: the repository is public). Findings are then recorded in the specification and in
 `tests/dmSpike-v0.1.x/spike-tests.md`.
 
-Last update: 2026-10-30, dmDefine 0.5.0, dmCheck 0.1.0, dmSpike S7 and S10; §1 done; 2.1–2.9, 2.14–2.18 done.
+Last update: 2026-10-30, dmDefine 0.5.0, dmCheck 0.1.0, dmSpike S7 and S10; §1 done; 2.1–2.12, 2.14–2.18 done.
 
 ## 1. Spike widget dmSpike (upload `tests/dmSpike-v0.1.x/spike-widget/dmSpike.zip`)
 
@@ -33,9 +33,9 @@ Use a model with the names of your project (start from `test-data/vcycle-model.y
 | 2.7 | ✅ **Done 2026-10-30** (editor round trip works). **Editor**: *Edit model* on your model: forms prefilled; change something with the pickers (type, link role, document), *Generate YAML*, *Copy*; paste into the model item as plain text (Ctrl+Shift+V), save, *Reload page* | the change is shown, no problem | 0.3.0 |
 | 2.8 | ✅ **Done 2026-10-30** (new model from the empty editor works). Editor with no model: a page with the widget and no model document selected (or an empty model document): *Edit model*, add a role, a type, a document, *Generate YAML*, paste into a new Text item, select that document in the parameters | the new model is shown | 0.3.0 |
 | 2.9 | ✅ **Done 2026-10-30** (as expected). Editor on a model with an error: only the *YAML text* tab | forms disabled, text shown | 0.3.0 |
-| 2.10 | **uses:** in project B, a Text item with `version: 1`, `uses: "A/ID"` (ID = the model item of project A) and `bindings:` with documents of project B | roles and rules of A, documents of B, header "roles and rules from A/ID (revision …)", link *Open referenced model* | 0.4.0 |
-| 2.11 | uses: mistakes: a wrong id; `uses:` together with a local `model:` part | an error each | 0.4.0 |
-| 2.12 | uses: *Edit model*: roles and rules read only, documents and pairs editable; *Generate YAML* keeps `uses:` | as described | 0.4.0 |
+| 2.10 | ✅ **Done 2026-10-30** (as expected). **uses:** in project B, a Text item with `version: 1`, `uses: "A/ID"` (ID = the model item of project A) and `bindings:` with documents of project B | roles and rules of A, documents of B, header "roles and rules from A/ID (revision …)", link *Open referenced model* | 0.4.0 |
+| 2.11 | ✅ **Done 2026-10-30** (an error each). uses: mistakes: a wrong id; `uses:` together with a local `model:` part | an error each | 0.4.0 |
+| 2.12 | ✅ **Done 2026-10-30** (as expected). uses: *Edit model*: roles and rules read only, documents and pairs editable; *Generate YAML* keeps `uses:` | as described | 0.4.0 |
 | 2.13 | A binding to a document of another project (`PROJECT/Space/Name`) | found, link opens it | 0.4.0 |
 | 2.14 | ✅ **Done 2026-10-30** (changed model saved and shown after reload). **Save to Polarion**: *Edit model* → *YAML text*: the button *Save to Polarion* is shown and the line below names the model item. Change something (e.g. the name), *Save to Polarion*, accept; then *Reload page* | "Saved to P/ID"; after reload the change is shown, no problem | 0.5.0 |
 | 2.15 | ✅ **Done 2026-10-30** (indentation kept, new revision in the history). After 2.14: open the model work item: the description shows the YAML with its indentation; its **history** shows a new revision | indentation kept, new revision | 0.5.0 |
