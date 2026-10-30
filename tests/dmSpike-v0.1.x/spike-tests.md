@@ -80,6 +80,22 @@ Consequences (see `docs/ARCHITECTURE.md` §3.2, §3.3, §6):
   probe GET returning 200. The HTML to write must follow the same storage (one line per `<br/>`, leading spaces as
   U+00A0 or `&nbsp;`, `&quot;`) [to verify with the PATCH re-run].
 
+### REST call checked against the instance's OpenAPI definition (2026-10-30, PO)
+
+The PO provided the instance's `openapi.json` (Polarion REST API v1, 156 paths; not committed: Siemens document,
+1.9 MB). For `/projects/{projectId}/workitems/{workItemId}`:
+- **GET** `getWorkItem`: query parameters `fields` (deepObject, e.g. `fields[workitems]=title,description`), `include`,
+  `revision` (read the item at a given revision); response `application/json`.
+- **PATCH** `patchWorkItem`: query parameters only `workflowAction` and `changeTypeTo` (hence the 400 on `fields[workitems]`
+  in run 1); body `workitemsSinglePatchRequest` =
+  `{"data":{"type":"workitems","id":"<project>/<id>","attributes":{"description":{"type":"text/html","value":"…"}}}}`
+  (`description.type` is `text/html` or `text/plain`), `Content-Type: application/json`; success = **204 No Content**
+  (empty body); errors 400, 401, 403, 404, 409, 413, 415.
+- Authentication in the definition: bearer JWT; from a widget the session token goes in `X-Polarion-REST-Token`
+  (guide §8.2, verified by the GET of run 1).
+The fixed spike PATCH (URL without query parameter, body above, JSON content type) matches the definition. Expected in
+run 2: HTTP 204.
+
 ### Run 2 (to do)
 
 Upload the rebuilt `dmSpike.zip`, then: S4 buttons 2 and 4 (PATCH unchanged; report the HTTP status and whether a new

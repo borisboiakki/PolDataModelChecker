@@ -219,6 +219,9 @@ export. Widget code:
   only after a successful probe (S4: `top.getRestApiToken` is a function and a GET of the model item with header
   `X-Polarion-REST-Token` returns 200; without the token 401), with copy/paste as fallback. The written HTML follows the
   storage seen in S1 (one line per `<br/>`, leading spaces kept as U+00A0 / `&nbsp;`) [PATCH to verify, run 2].
+  Call (checked against the instance's OpenAPI definition): `PATCH /polarion/rest/v1/projects/{p}/workitems/{id}` without
+  query parameter, body `{"data":{"type":"workitems","id":"p/id","attributes":{"description":{"type":"text/html","value":…}}}}`,
+  success 204. Optional later: GET with `revision=` to show or compare a past revision of the model in the browser.
 - **dmCheck `graph.js`**: same graph, coloured by compliance (green = all compliant, orange = warnings only, red =
   errors; counts on edges and nodes); a click lists the violations; a report table filtered by severity, rule and
   document; Excel sheets Summary, Item types, Required links, Unexpected links, Model.
