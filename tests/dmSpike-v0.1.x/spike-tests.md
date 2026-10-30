@@ -139,6 +139,20 @@ Questions answered by the run: does `sqlSearch` accept `MIN(c_uri)` with `GROUP 
 (B)? Is the representative scan fast and complete on a large project? Is a Lucene count method available
 (`searchInstancesCount`)? Is one role per document, one rule per observed combination, a good starter?
 
+### Run 5: S10 dmCheck queries (spikes T1, T3 of dmCheck)
+
+Test **S10** (not part of *All*). Parameters: *S10 source document* (space/name of the documents holding the links,
+e.g. a solution specification), *S10 target document* (e.g. the customer specification), *S10 link role id* (e.g.
+`satisfies`), optional source / target types. The widget always computes the result with the method of dmCheck 0.1.0
+(reference, SQL forms already verified), then runs the selected set query and compares. Run it with each *S10 set
+query*: **NOT IN**, **NOT EXISTS**, **Lucene** (drill-down: `queryWorkItems` with `SQL:(…)`), first on a small pair of
+documents, then on the largest ones.
+
+Report for each variant: whether the page renders (or the SQL / query error text), the line "same as the reference:
+yes/no", the counts, and the time stamps (reference vs variant). Questions answered: are `NOT IN` and correlated
+`NOT EXISTS` sub-selects accepted by `sqlSearch` (faster checks)? Does a Lucene `SQL:(…)` restriction accept them
+(drill-down links listing the violating items in Polarion's table)?
+
 ### Run 3 (optional, S5)
 
 Upload the rebuilt `dmSpike.zip`, then: S4 buttons 2 and 4 (PATCH unchanged; report the HTTP status and whether a new

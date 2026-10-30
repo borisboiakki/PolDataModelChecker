@@ -5,7 +5,7 @@ Polarion instance**. Run the checks in this order when you have time; for each o
 screenshots or PDF exports: the repository is public). Findings are then recorded in the specification and in
 `tests/dmSpike-v0.1.x/spike-tests.md`.
 
-Last update: 2026-10-30, dmDefine 0.5.0, dmSpike S7.
+Last update: 2026-10-30, dmDefine 0.5.0, dmSpike S7 and S10, dmCheck started.
 
 ## 1. Spike widget dmSpike (upload `tests/dmSpike-v0.1.x/spike-widget/dmSpike.zip`)
 
@@ -14,6 +14,7 @@ Last update: 2026-10-30, dmDefine 0.5.0, dmSpike S7.
 | 1.1 | **S9 editor controls**, browser view, section S9: type several lines with leading spaces in the text area, press Tab, Enter, Backspace, Ctrl+Z; type in the input; choose "two" in the drop-down; click both Copy buttons (paste somewhere each time), *Download a .yaml file*, *Show the values* | The text of the grey S9 box | dmDefine 0.3.0 editor |
 | 1.2 | **S5 other forms** (test *S5*): in *Documents to resolve*, a document of a named space (`Space/Name`), a document of **another project** (`PROJECT/Space/Name`) and a document that does not exist | Found yes/no per document | bindings to documents of other projects (0.4.0) |
 | 1.3 | **S7 starter generator data** (test *S7*, three runs: variant C, then A, then B; see run 4 of `tests/dmSpike-v0.1.x/spike-tests.md`) on your largest project | Page renders or SQL error; summary line; time stamps; same types and link combinations for A/B as for C; the proposed starter model opened in dmDefine (problems, usefulness) | dmDefine starter generator |
+| 1.4 | **S10 dmCheck queries** (test *S10*; run 5 of `tests/dmSpike-v0.1.x/spike-tests.md`): source document, target document, link role; variants NOT IN, NOT EXISTS, Lucene | Page renders or error text; "same as the reference: yes/no"; counts; time stamps | dmCheck (faster checks 0.2, drill-down K9) |
 
 ## 2. dmDefine (upload `widgets/dmDefine/dist/dmDefine.zip`)
 
@@ -41,7 +42,22 @@ Use a model with the names of your project (start from `test-data/vcycle-model.y
 | 2.17 | With a user who can read but not edit the model item | Save shown, then "Not saved: no permission …" (or Save not shown) | 0.5.0 |
 | 2.18 | Widget parameter *Save to Polarion* = Off | no Save button, "switched off in the widget parameters" | 0.5.0 |
 
-## 3. Later (not needed now)
+## 3. dmCheck (when its package exists: `widgets/dmCheck/dist/dmCheck.zip`)
+
+| # | Check | Expected | Version |
+|---|---|---|---|
+| 3.1 | In the sandbox project, create the test structure of `test-data/vcycle-check/structure.md` (5 documents, ~20 items, links; adapt the type and role names) and a model item with `test-data/vcycle-check/model.yaml` (adapted) | dmDefine shows the model with no problem | dmCheck 0.1.0 |
+| 3.2 | dmCheck on that model | the 11 expected violations of `structure.md` (and nothing else), counters as listed there | dmCheck 0.1.0 |
+
+## 4. Decisions to confirm (dmCheck, proposed in `widgets/dmCheck/SPECIFICATION.md` §7)
+
+| # | Question | Proposal |
+|---|---|---|
+| 4.1 | Items not counted (headings…) | no extra parameter: types with `ignored: true` in the model are not counted; types not listed are "unexpected types"; a rule end without type counts the listed, not ignored types |
+| 4.2 | Severity and score | the model's severities; compliance % per rule (per side) and per document; graph red / orange / green |
+| 4.3 | Storable report | live report + Excel + PDF export of the page; no snapshot work item in v1 |
+
+## 5. Later (not needed now)
 
 - On an instance where the REST API token is disabled: no Save button, "no REST token in this session".
 - Polarion 2612: repeat 1.1, 2.2, 2.3, 2.7 and the dmSpike runs 1–2 (S1, S3, S4).

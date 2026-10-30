@@ -86,8 +86,8 @@
 #set($isPdf = false)
 #set($isPdf = $widgetContext.target().isPdf())
 #set($run = $objectFactory.newMap())
-#foreach($t in ["locate", "desc", "yaml", "bind", "config", "remote", "starter"])
-  #if(($test == "all" && $t != "starter") || $test == $t)
+#foreach($t in ["locate", "desc", "yaml", "bind", "config", "remote", "starter", "checks"])
+  #if(($test == "all" && $t != "starter" && $t != "checks") || $test == $t)
     #set($void = $run.put($t, "1"))
   #end
 #end
@@ -974,6 +974,174 @@
   #set($void = $s7Ts.add(["starter YAML", $date.systemTime]))
   #set($void = $sum.add(["S7", "Starter generator data (variant $s7Variant)", "$s7Docs.size() documents, $s7Types.size() with items, $s7Combos.size() link combinations from $s7Reps link sources", "info"]))
 #end
+## ---------------------------------------------------------------- S10 dmCheck queries (spikes T1, T3)
+## One rule: source document --role--> target document (optional types). Reference = the method of dmCheck 0.1.0
+## (verified SQL forms: items of a document, link sources as in docCoverage, links scanned in Velocity). The selected
+## set query (NOT IN, NOT EXISTS, Lucene SQL:(...)) is compared with it. A refused SQL stops the page: report the text.
+## Text parameter value, trimmed, quotes doubled for SQL.
+#macro(s10Clean)
+  #set($s10V = "$tmp")
+  #set($s10V = $s10V.trim().replace("'", "''"))
+#end
+#set($s10Ts = [])
+#set($s10Ref = [])
+#set($s10RefT = [])
+#set($s10Var = [])
+#set($s10VarT = [])
+#set($s10Sqls = [])
+#set($s10Variant = "none")
+#set($s10Ok = false)
+#if($run.containsKey("checks"))
+  #set($tmp = "")
+  #set($tmp = $parameters.s10Variant.singleValue())
+  #if("$tmp" != "")
+    #set($s10Variant = "$tmp")
+  #end
+  #set($tmp = "")
+  #set($tmp = $parameters.s10Src.value())
+  #s10Clean()
+  #set($s10Src = $s10V)
+  #set($tmp = "")
+  #set($tmp = $parameters.s10Tgt.value())
+  #s10Clean()
+  #set($s10Tgt = $s10V)
+  #set($tmp = "")
+  #set($tmp = $parameters.s10Role.value())
+  #s10Clean()
+  #set($s10Role = $s10V)
+  #set($tmp = "")
+  #set($tmp = $parameters.s10SrcType.value())
+  #s10Clean()
+  #set($s10St = $s10V)
+  #set($tmp = "")
+  #set($tmp = $parameters.s10TgtType.value())
+  #s10Clean()
+  #set($s10Tt = $s10V)
+  #if($s10Src.indexOf("/") > 0 && $s10Tgt.indexOf("/") > 0 && $s10Role != "")
+    #set($s10Ok = true)
+    #set($i = $s10Src.indexOf("/"))
+    #set($s10Sf = $s10Src.substring(0, $i))
+    #set($i = $i + 1)
+    #set($s10Sn = $s10Src.substring($i))
+    #set($i = $s10Tgt.indexOf("/"))
+    #set($s10Tf = $s10Tgt.substring(0, $i))
+    #set($i = $i + 1)
+    #set($s10Tn = $s10Tgt.substring($i))
+    #set($s10SrcCond = "p.c_id = '${projectQ}' AND m.c_modulefolder = '${s10Sf}' AND m.c_id = '${s10Sn}'")
+    #set($s10TgtCond = "pt.c_id = '${projectQ}' AND mt.c_modulefolder = '${s10Tf}' AND mt.c_id = '${s10Tn}'")
+    #set($s10SrcTy = "")
+    #if($s10St != "")
+      #set($s10SrcTy = " AND w.c_type = '${s10St}'")
+    #end
+    #set($s10TgtTy = "")
+    #if($s10Tt != "")
+      #set($s10TgtTy = " AND t.c_type = '${s10Tt}'")
+    #end
+    ## Reference: items of both documents, link sources between them, links scanned.
+    #set($void = $s10Ts.add(["start", $date.systemTime]))
+    #set($q1 = "SELECT w.c_uri FROM workitem w INNER JOIN module m ON m.c_uri = w.fk_uri_module INNER JOIN project p ON p.c_uri = m.fk_uri_project WHERE ${s10SrcCond}${s10SrcTy}")
+    #set($q2 = "SELECT t.c_uri FROM workitem t INNER JOIN module mt ON mt.c_uri = t.fk_uri_module INNER JOIN project pt ON pt.c_uri = mt.fk_uri_project WHERE ${s10TgtCond}${s10TgtTy}")
+    #set($q3 = "SELECT DISTINCT w.c_uri FROM workitem w INNER JOIN struct_workitem_linkedworkitems l ON l.fk_uri_p_workitem = w.c_uri INNER JOIN workitem t ON t.c_uri = l.fk_uri_workitem INNER JOIN module m ON m.c_uri = w.fk_uri_module INNER JOIN project p ON p.c_uri = m.fk_uri_project INNER JOIN module mt ON mt.c_uri = t.fk_uri_module INNER JOIN project pt ON pt.c_uri = mt.fk_uri_project WHERE l.c_role = '${s10Role}' AND ${s10SrcCond}${s10SrcTy} AND ${s10TgtCond}${s10TgtTy}")
+    #set($void = $s10Sqls.add($q1))
+    #set($void = $s10Sqls.add($q2))
+    #set($void = $s10Sqls.add($q3))
+    #set($srcItems = $ds.sqlSearch($q1))
+    #set($tgtItems = $ds.sqlSearch($q2))
+    #set($linkSrc = $ds.sqlSearch($q3))
+    #set($void = $s10Ts.add(["reference queries ($srcItems.size() source items, $tgtItems.size() target items, $linkSrc.size() link sources)", $date.systemTime]))
+    #set($tgtIds = [])
+    #foreach($w in $tgtItems)
+      #set($void = $tgtIds.add("$w.getId()"))
+    #end
+    #set($withLink = [])
+    #set($covered = [])
+    #foreach($w in $linkSrc)
+      #set($wid = "$w.getId()")
+      #foreach($lk in $w.getLinkedWorkItemsStructsDirect())
+        #set($tw = false)
+        #set($tw = $lk.getLinkedItem())
+        #if($tw && !$tw.isUnresolvable() && "$lk.getLinkRole().getId()" == $s10Role)
+          #set($tid = "$tw.getId()")
+          #if($tgtIds.contains($tid))
+            #if(!$withLink.contains($wid))
+              #set($void = $withLink.add($wid))
+            #end
+            #if(!$covered.contains($tid))
+              #set($void = $covered.add($tid))
+            #end
+          #end
+        #end
+      #end
+    #end
+    #foreach($w in $srcItems)
+      #set($wid = "$w.getId()")
+      #if(!$withLink.contains($wid))
+        #set($void = $s10Ref.add($wid))
+      #end
+    #end
+    #foreach($tid in $tgtIds)
+      #if(!$covered.contains($tid))
+        #set($void = $s10RefT.add($tid))
+      #end
+    #end
+    #set($void = $s10Ts.add(["reference evaluated", $date.systemTime]))
+    ## Set queries.
+    #set($inSrc = "SELECT l.fk_uri_p_workitem FROM struct_workitem_linkedworkitems l INNER JOIN workitem t ON t.c_uri = l.fk_uri_workitem INNER JOIN module mt ON mt.c_uri = t.fk_uri_module INNER JOIN project pt ON pt.c_uri = mt.fk_uri_project WHERE l.c_role = '${s10Role}' AND ${s10TgtCond}${s10TgtTy}")
+    #set($inTgt = "SELECT l.fk_uri_workitem FROM struct_workitem_linkedworkitems l INNER JOIN workitem w ON w.c_uri = l.fk_uri_p_workitem INNER JOIN module m ON m.c_uri = w.fk_uri_module INNER JOIN project p ON p.c_uri = m.fk_uri_project WHERE l.c_role = '${s10Role}' AND ${s10SrcCond}${s10SrcTy}")
+    #set($qa = "")
+    #set($qb = "")
+    #if($s10Variant == "notin" || $s10Variant == "lucene")
+      #set($qa = "SELECT w.c_uri FROM workitem w INNER JOIN module m ON m.c_uri = w.fk_uri_module INNER JOIN project p ON p.c_uri = m.fk_uri_project WHERE ${s10SrcCond}${s10SrcTy} AND w.c_uri NOT IN (${inSrc})")
+      #set($qb = "SELECT t.c_uri FROM workitem t INNER JOIN module mt ON mt.c_uri = t.fk_uri_module INNER JOIN project pt ON pt.c_uri = mt.fk_uri_project WHERE ${s10TgtCond}${s10TgtTy} AND t.c_uri NOT IN (${inTgt})")
+    #elseif($s10Variant == "notexists")
+      #set($qa = "SELECT w.c_uri FROM workitem w INNER JOIN module m ON m.c_uri = w.fk_uri_module INNER JOIN project p ON p.c_uri = m.fk_uri_project WHERE ${s10SrcCond}${s10SrcTy} AND NOT EXISTS (SELECT l.c_role FROM struct_workitem_linkedworkitems l INNER JOIN workitem t ON t.c_uri = l.fk_uri_workitem INNER JOIN module mt ON mt.c_uri = t.fk_uri_module INNER JOIN project pt ON pt.c_uri = mt.fk_uri_project WHERE l.fk_uri_p_workitem = w.c_uri AND l.c_role = '${s10Role}' AND ${s10TgtCond}${s10TgtTy})")
+      #set($qb = "SELECT t.c_uri FROM workitem t INNER JOIN module mt ON mt.c_uri = t.fk_uri_module INNER JOIN project pt ON pt.c_uri = mt.fk_uri_project WHERE ${s10TgtCond}${s10TgtTy} AND NOT EXISTS (SELECT l.c_role FROM struct_workitem_linkedworkitems l INNER JOIN workitem w ON w.c_uri = l.fk_uri_p_workitem INNER JOIN module m ON m.c_uri = w.fk_uri_module INNER JOIN project p ON p.c_uri = m.fk_uri_project WHERE l.fk_uri_workitem = t.c_uri AND l.c_role = '${s10Role}' AND ${s10SrcCond}${s10SrcTy})")
+    #end
+    #if($qa != "")
+      #if($s10Variant == "lucene")
+        #set($qa = "project.id:${projectS} AND SQL:(${qa})")
+        #set($qb = "project.id:${projectS} AND SQL:(${qb})")
+        #set($void = $s10Sqls.add($qa))
+        #set($void = $s10Sqls.add($qb))
+        #set($ra = $trackerService.queryWorkItems($qa, "id"))
+        #set($void = $s10Ts.add(["Lucene: items without link", $date.systemTime]))
+        #set($rb = $trackerService.queryWorkItems($qb, "id"))
+        #set($void = $s10Ts.add(["Lucene: items not covered", $date.systemTime]))
+      #else
+        #set($void = $s10Sqls.add($qa))
+        #set($void = $s10Sqls.add($qb))
+        #set($ra = $ds.sqlSearch($qa))
+        #set($void = $s10Ts.add(["$s10Variant: items without link", $date.systemTime]))
+        #set($rb = $ds.sqlSearch($qb))
+        #set($void = $s10Ts.add(["$s10Variant: items not covered", $date.systemTime]))
+      #end
+      #foreach($w in $ra)
+        #set($void = $s10Var.add("$w.getId()"))
+      #end
+      #foreach($w in $rb)
+        #set($void = $s10VarT.add("$w.getId()"))
+      #end
+    #end
+  #end
+  #set($s10Same = "")
+  #if($s10Ok && $s10Variant != "none")
+    #set($s10Same = "no")
+    #if($s10Var.size() == $s10Ref.size() && $s10VarT.size() == $s10RefT.size() && $s10Var.containsAll($s10Ref) && $s10VarT.containsAll($s10RefT))
+      #set($s10Same = "yes")
+    #end
+  #end
+  #if(!$s10Ok)
+    #set($void = $sum.add(["S10", "dmCheck queries", "set the source document, target document and link role", "ko"]))
+  #elseif($s10Variant == "none")
+    #set($void = $sum.add(["S10", "dmCheck queries (reference)", "$s10Ref.size() source items without link, $s10RefT.size() target items not covered", "info"]))
+  #else
+    #set($s10Cls = "ko")
+    #if($s10Same == "yes")
+      #set($s10Cls = "ok")
+    #end
+    #set($void = $sum.add(["S10", "dmCheck queries: $s10Variant same as the reference", "$s10Same (reference $s10Ref.size() / $s10RefT.size(), $s10Variant $s10Var.size() / $s10VarT.size())", $s10Cls]))
+  #end
+#end
 #set($t1 = $date.systemTime)
 
 ## ================================================================ output
@@ -1124,6 +1292,27 @@
 <tr><th>Description</th><td>$rDesc.length() characters<pre>$esc.html($rDescShown)</pre></td></tr>
 #end
 </table>
+#end
+
+#if($run.containsKey("checks"))
+<h4>S10 dmCheck queries &middot; variant $s10Variant &middot; same as the reference: $s10Same</h4>
+<table>
+<tr><th>Step</th><th>Time stamp (ms)</th></tr>
+#foreach($t in $s10Ts)
+<tr><td>$esc.html($t.get(0))</td><td>$t.get(1)</td></tr>
+#end
+</table>
+<table>
+<tr><th>Result</th><th>Count</th><th>Ids (first 50)</th></tr>
+<tr><td>Reference: source items without link</td><td>$s10Ref.size()</td><td>#foreach($x in $s10Ref)#if($velocityCount <= 50)$esc.html($x) #end#end</td></tr>
+<tr><td>Reference: target items not covered</td><td>$s10RefT.size()</td><td>#foreach($x in $s10RefT)#if($velocityCount <= 50)$esc.html($x) #end#end</td></tr>
+<tr><td>$s10Variant: source items without link</td><td>$s10Var.size()</td><td>#foreach($x in $s10Var)#if($velocityCount <= 50)$esc.html($x) #end#end</td></tr>
+<tr><td>$s10Variant: target items not covered</td><td>$s10VarT.size()</td><td>#foreach($x in $s10VarT)#if($velocityCount <= 50)$esc.html($x) #end#end</td></tr>
+</table>
+<p>Queries:</p>
+#foreach($q in $s10Sqls)
+<code>$esc.html($q)</code><br>
+#end
 #end
 
 #if($run.containsKey("starter"))

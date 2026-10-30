@@ -1,7 +1,8 @@
 # Specification — Data model check widget (dmCheck)
 
-**Status:** v0.1 draft, 2026-10-30, written with the product owner (PO) from the kick-off Q&A. Nothing is implemented or
-verified yet. Items marked `[?]` are open or need verification on a Polarion instance.
+**Status:** v0.2, 2026-10-30. dmDefine 0.5.0 done (model format, pipeline, pairs, `uses:`); dmCheck started (PO:
+"start working on dmCheck while I run the checks"). Proposed answers to the open questions are marked *proposed* (§7,
+to confirm by the PO: `docs/PO_CHECKS.md` §4). Items marked `[?]` are open or need verification on a Polarion instance.
 
 ## 1. Goal
 
@@ -18,11 +19,11 @@ Same as dmDefine (C1–C8), plus:
 | C9 | dmCheck is independent of dmDefine: it reads the same model item(s) from the same place. A dummy model written by hand (or the output of dmDefine) lets it be tested alone | PO |
 | C10 | v1 checks: required links (coverage), forbidden/unexpected links, required item types per document. Orphan items and items in the wrong document come later | PO |
 
-## 3. Functional requirements (proposal)
+## 3. Functional requirements
 
 | ID | Requirement | Priority | Increment |
 |---|---|---|---|
-| K1 | Parameters: same model location as dmDefine (model LiveDoc, item type), projects/collection scope, severities shown | Must | 1 |
+| K1 | Parameters: same model location as dmDefine (model document, model item type, model item id); severities shown by default; list cap; graph height. Projects come from the model (documents of other projects as `project/space/name`, `uses:`); collection scope later (K11) | Must | 1 |
 | K2 | **Resolve the bindings**: roles → real documents; report unbound roles and documents bound to no role (information) | Must | 1 |
 | K3 | **Required item types**: for each role, required types present (min/max); unexpected types reported with the severity of the model | Must | 1 |
 | K4 | **Required links**: for each link rule, `from` items without the required link (`from_min`) and `to` items not targeted (`to_min`), counting only links of the role between the bound documents | Must | 1 |
@@ -33,15 +34,18 @@ Same as dmDefine (C1–C8), plus:
 | K9 | **Drill-down**: each rule offers a Lucene query (and link) listing the violating items in Polarion's table view for bulk correction `[?]` how to express "items without a link of role R to document D" in Lucene on 2512 and 2612 (`linkedWorkItemsOf` follows incoming links only; SQL: `SQL:(…)` restriction) | Should | 1 or 2 |
 | K10 | PDF/print static view: summary + violation table + static graph, no JS | Must | 1 |
 | K11 | Collection context (check the model on the documents of a collection at the pinned revisions), as docCoverage F17 | Could | 3 |
-| K12 | Cross-project documents in bindings | Should | 2 |
+| K12 | Cross-project documents in bindings (as dmDefine 0.4.0: links between declared documents of different projects count) | Should | 1 |
 | K13 | Later checks: orphan items (no link at all), items in the wrong document, mandatory fields / statuses, max cardinality | Could | later |
 | K15 | **Several documents per role, pooled or paired** (PO 2026-10-30, Q2). **Pooled** (default, no `pairs:` entry for the rule): the documents of a role form one set; a link to any document of the target role counts; violations are listed per document. **Paired** (the rule has an entry in `pairs:`): only links between the documents of a declared pair count for `from_min` / `to_min`; a link between documents of the two roles that are not paired is reported as a **cross-pair link**; a document of the rule's roles without a pair is reported as **unpaired**; both with the rule's severity. A document may appear in several pairs (e.g. one test specification for two specifications). Format: `docs/DATA_MODEL_FORMAT.md` §2.1; examples: `docs/MODELING_GUIDE.md` | Must | 1 |
+| K16 | **Model problems first**: when the model has errors (dmDefine validation, same pipeline), dmCheck lists them and checks nothing; warnings are shown and the checks run | Must | 1 |
 | K14 | Item cap per violation list (e.g. 500 per rule in the page model, full count always shown), as docCoverage | Must | 1 |
 
 ## 4. Non-functional requirements
 
-As the sister widgets (10 s budget; target < 2 s). Plan the checks as **SQL set queries per rule** (items of a document
-and type with/without a link of a role to a document), not item-by-item loops in Velocity. `isUnresolvable()` guard on
+As the sister widgets (10 s budget; target < 2 s). Only the **declared documents** are read (never all the items of a
+project). 0.1.0 uses SQL forms verified on 2512 (items of the declared documents; link sources between them as in
+docCoverage; links read with `getLinkedWorkItemsStructsDirect()`), evaluated in Velocity; set queries per rule
+(`NOT EXISTS` / `NOT IN`, spike T1 = dmSpike S10) can replace parts of it once verified. `isUnresolvable()` guard on
 every referenced object. Velocity 1.4-safe. No customer data in the repository.
 
 ## 5. Technical approach (preliminary)
@@ -58,22 +62,27 @@ every referenced object. Velocity 1.4-safe. No customer data in the repository.
 
 | ID | Question |
 |---|---|
-| T1 | SQL set queries for the three v1 checks on a real project: items of a type in a document **without** a link of role R to document D (`NOT EXISTS`/`LEFT JOIN`), items **not** targeted, links between modelled documents matching no rule; accepted by `sqlSearch` on 2512 (and 2612)? Timing on the large project (~20k items) |
-| T2 | Documents bound by type / pattern / several documents per role: SQL form and result sizes |
-| T3 | Drill-down Lucene queries equivalent to each check (K9) |
-| T4 | A **dummy model**: invent a V-cycle model and test data (in the PO's sandbox project) that exercise every rule, with known expected violations; used as the regression set of the harness (`test-data/`) |
+| T1 | (dmSpike **S10**, run 5, PO_CHECKS 1.4: prepared) SQL set queries for the three v1 checks on a real project: items of a type in a document **without** a link of role R to document D (`NOT EXISTS`/`LEFT JOIN`), items **not** targeted, links between modelled documents matching no rule; accepted by `sqlSearch` on 2512 (and 2612)? Timing on the large project (~20k items) |
+| T2 | ~~Documents bound by type / pattern~~ (dropped: documents are declared explicitly, PO); several documents per role: the one `module` query of dmDefine (S5 verified) |
+| T3 | (dmSpike **S10**) Drill-down Lucene queries equivalent to each check (K9): `queryWorkItems` with an `SQL:(…)` restriction holding the T1 query |
+| T4 | (`test-data/vcycle-check/`, PO_CHECKS 3.x) A **dummy model**: invent a V-cycle model and test data (in the PO's sandbox project) that exercise every rule, with known expected violations; used as the regression set of the harness (`test-data/`) |
 | T5 | Behaviour when a viewer cannot read some documents/items (partial visibility): do the counts silently shrink? (open check also in the sister widgets) |
 
 ## 7. Open questions (to ask the PO)
 
-1. Counting of items: ignore headings and other types as in docCoverage (excluded types parameter), and do `ignored: true` types in the model take that role?
+1. Counting of items: *proposed*: no separate "excluded types" parameter; the model says it: a type with `ignored: true`
+   in a role (e.g. heading) is allowed and not counted by the rules; a type not listed in the role is an unexpected
+   type (severity `unexpected_types`). A rule end without `type` counts every listed, not ignored type of the role.
 2. ~~Several documents in one role~~ **Decided (PO, 2026-10-30)**: both, chosen per rule. By default the documents of a
    role are **pooled** (a link to any document of the target role counts). A rule listed in the local `pairs:` section
    is **paired**: only links between the declared document pairs count, cross-pair links and unpaired documents are
    reported (K15). Use case that raised it: two solution specifications satisfying one customer specification, each
    verified by its own test specification (STD). The workaround without pairs (one role per document) stays valid.
-3. Severity vocabulary (error/warning/info) and a compliance score per document: wanted?
-4. Should the report be storable (snapshot as a work item or a document) or is a live report enough?
+3. Severity and score: *proposed*: the severities of the model (error, warning, info); a compliance percentage per rule
+   (compliant items / checked items, per side) and per document (items without violation / counted items); the
+   graph is red when a rule has errors, orange for warnings only, green when compliant.
+4. Storable report: *proposed*: a live report plus the Excel export (and PDF export of the page); no snapshot work item
+   in v1.
 5. ~~Copies and branches~~ **Decided (PO, 2026-10-30)**: only the documents the user declares in the model are checked. A branch or copy is part of the model only if listed. Links from undeclared documents are ignored.
 
 ## 8. Increments
@@ -81,6 +90,7 @@ every referenced object. Velocity 1.4-safe. No customer data in the repository.
 PO 2026-10-30: dmCheck is started after dmDefine is completed.
 
 
-1. **0.1.0** Spike T1/T2/T4, then bindings, the three v1 checks, table, Excel, graph, static PDF view.
-2. **0.2.0** Drill-down queries, cross-project documents.
+1. **0.1.0** the v1 checks (K3–K5, K15) on verified SQL forms, bindings, report table, Excel, coloured graph, static PDF
+   view; dummy model and test structure (T4: `test-data/vcycle-check/`). Spike S10 (T1, T3) run in parallel.
+2. **0.2.0** Drill-down queries (K9, after T3), faster set queries if T1 confirms them.
 3. **0.3.0** Collection context; later: orphans, wrong document, field rules.

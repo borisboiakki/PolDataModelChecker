@@ -1,0 +1,52 @@
+# dmCheck regression model (invented, no customer data): see structure.md for the documents, items, links and the
+# expected violations. Adapt the type, link role and document names to the sandbox project.
+version: 1
+name: dmCheck test model
+
+model:
+  roles:
+    CustomerSpec:
+      title: Customer specification
+      items:
+        - { type: customerRequirement, min: 1 }
+        - { type: heading, ignored: true }
+      unexpected_types: error
+    SolutionSpec:
+      title: Solution specification
+      items:
+        - { type: requirement, min: 1 }
+        - { type: heading, ignored: true }
+    SolutionSTD:
+      title: Solution test description
+      items:
+        - { type: testCase, min: 1 }
+  links:
+    - id: L1
+      from: { role: SolutionSpec, type: requirement }
+      link_role: satisfies
+      to: { role: CustomerSpec, type: customerRequirement }
+      from_min: 1
+      to_min: 1
+      severity: error
+    - id: L2
+      from: { role: SolutionSTD, type: testCase }
+      link_role: verifies
+      to: { role: SolutionSpec, type: requirement }
+      from_min: 1
+      to_min: 1
+      severity: warning
+    - id: P1
+      from: { role: SolutionSpec, type: requirement }
+      link_role: parent
+      to: { role: SolutionSpec, type: requirement }
+  unexpected_links: warning
+
+bindings:
+  CustomerSpec: ["Specs/Customer Specification"]
+  SolutionSpec: ["Specs/Solution Spec A", "Specs/Solution Spec B"]
+  SolutionSTD: ["Tests/STD A", "Tests/STD B"]
+
+pairs:
+  L2:
+    - ["Tests/STD A", "Specs/Solution Spec A"]
+    - ["Tests/STD B", "Specs/Solution Spec B"]

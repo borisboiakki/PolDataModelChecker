@@ -129,6 +129,41 @@ public class DmSpikeHarness {
 
     static final List<Module> MODULES = new ArrayList<Module>();
     static final List<String> S7_SQL = new ArrayList<String>();
+
+    static String grp(String sql, String re) {
+        Matcher m = Pattern.compile(re).matcher(sql);
+        return m.find() ? m.group(1) + (m.groupCount() > 1 ? "/" + m.group(2) : "") : null;
+    }
+
+    /** S10 forms (dmCheck queries): evaluated on the mock links. null = not an S10 query. */
+    static List<Object> s10(String sql) {
+        String src = grp(sql, "m[.]c_modulefolder = '([^']*)' AND m[.]c_id = '([^']*)'");
+        String tgt = grp(sql, "mt[.]c_modulefolder = '([^']*)' AND mt[.]c_id = '([^']*)'");
+        String role = grp(sql, "l[.]c_role = '([^']*)'");
+        String st = grp(sql, "w[.]c_type = '([^']*)'");
+        String tt = grp(sql, "t[.]c_type = '([^']*)'");
+        boolean not = sql.contains("NOT IN (") || sql.contains("NOT EXISTS (");
+        List<WorkItem> srcItems = new ArrayList<WorkItem>(), tgtItems = new ArrayList<WorkItem>();
+        for (WorkItem w : ITEMS) {
+            if (w.module == null) { continue; }
+            String k = w.module.folder + "/" + w.module.name;
+            if (k.equals(src) && (st == null || w.type.equals(st))) { srcItems.add(w); }
+            if (k.equals(tgt) && (tt == null || w.type.equals(tt))) { tgtItems.add(w); }
+        }
+        Set<WorkItem> sources = new LinkedHashSet<WorkItem>(), targets = new LinkedHashSet<WorkItem>();
+        for (WorkItem w : srcItems) { for (Link l : w.links) { if (l.role.id.equals(role) && tgtItems.contains(l.target)) { sources.add(w); targets.add(l.target); } } }
+        List<Object> out = new ArrayList<Object>();
+        if (sql.startsWith("SELECT DISTINCT w.c_uri FROM workitem w INNER JOIN struct_workitem_linkedworkitems")) { out.addAll(sources); return out; }
+        if (sql.startsWith("SELECT t.c_uri FROM workitem t") && tgt != null) {
+            for (WorkItem t : tgtItems) { if (!not || !targets.contains(t)) { out.add(t); } }
+            return out;
+        }
+        if (sql.startsWith("SELECT w.c_uri FROM workitem w INNER JOIN module m") && src != null && !sql.contains("c_type IN (") && (not || st != null)) {
+            for (WorkItem w : srcItems) { if (!not || !sources.contains(w)) { out.add(w); } }
+            return out;
+        }
+        return null;
+    }
     static final List<WorkItem> ITEMS = new ArrayList<WorkItem>();
 
     public static class DataService {
@@ -136,6 +171,8 @@ public class DmSpikeHarness {
             List<Object> out = new ArrayList<Object>();
             S7_SQL.add(sql);
             String proj = "DMTEST";
+            List<Object> s10 = s10(sql);
+            if (s10 != null) { return s10; }
             // S7 forms (types per document, link sources): GROUP BY representatives (variants A, B) or everything (C).
             boolean typesRep = sql.startsWith("SELECT MIN(w.c_uri) FROM workitem w") || sql.startsWith("SELECT w.c_uri FROM workitem w WHERE w.c_uri IN (SELECT MIN(w.c_uri)");
             boolean typesAll = sql.startsWith("SELECT w.c_uri FROM workitem w INNER JOIN module m") && !sql.contains("m.c_modulefolder");
@@ -187,6 +224,12 @@ public class DmSpikeHarness {
         public WorkItem getWorkItem(String p, String id) {
             for (WorkItem w : ITEMS) { if (w.project.equals(p) && w.id.equals(id)) { return w; } }
             return null;
+        }
+        /** Lucene mock: only "project.id:P AND SQL:(<select>)" (S10 drill-down) is evaluated. */
+        public List<Object> queryWorkItems(String q, String sort) {
+            int i = q.indexOf("SQL:(");
+            if (i < 0) { throw new RuntimeException("unexpected Lucene query in the mock: " + q); }
+            return new DataService().sqlSearch(q.substring(i + 5, q.length() - 1));
         }
     }
 
@@ -358,6 +401,12 @@ public class DmSpikeHarness {
         p.put("s7Variant", new Param("min", null));
         p.put("s7Spaces", new Param("Specs, Tests", null));
         p.put("s7Max", new Param(Integer.valueOf(300), null));
+        p.put("s10Src", new Param("Specs/System Spec", null));
+        p.put("s10Tgt", new Param("Specs/Customer Spec", null));
+        p.put("s10Role", new Param("satisfies", null));
+        p.put("s10SrcType", new Param("", null));
+        p.put("s10TgtType", new Param("", null));
+        p.put("s10Variant", new Param("notin", null));
         return p;
     }
 
@@ -454,7 +503,22 @@ public class DmSpikeHarness {
             }
         }
         h = render(dir, out, "all-no-s7", params("all", modelDoc, "item", "", ""), false, new Esc());
-        check(!h.contains("S7 Starter generator data"), "S7 not run by the test All");
+        check(!h.contains("S7 Starter generator data") && !h.contains("S10 dmCheck queries"), "S7 and S10 not run by the test All");
+
+        // S10: reference (verified forms) and the set queries give the same items.
+        for (String v : new String[] { "none", "notin", "notexists", "lucene" }) {
+            Map<String, Param> p10 = params("checks", null, "item", "", "");
+            p10.put("s10Variant", new Param(v, null));
+            h = render(dir, out, "s10-" + v, p10, false, new Esc());
+            check(h.contains("<td>Reference: source items without link</td><td>1</td><td>S-3 </td>") && h.contains("<td>Reference: target items not covered</td><td>1</td><td>C-1 </td>"), "S10 " + v + ": reference results");
+            if (!v.equals("none")) {
+                check(h.contains("same as the reference: yes") && h.contains(">yes (reference 1 / 1, " + v + " 1 / 1)<"), "S10 " + v + ": same as the reference");
+            }
+        }
+        Map<String, Param> p10t = params("checks", null, "item", "", "");
+        p10t.put("s10TgtType", new Param("customerRequirement", null));
+        h = render(dir, out, "s10-types", p10t, false, new Esc());
+        check(h.contains("<td>Reference: target items not covered</td><td>0</td>") && h.contains("same as the reference: yes") && h.contains("t.c_type = 'customerRequirement'"), "S10 with a target type: heading not counted");
 
         h = render(dir, out, "pdf", params("all", modelDoc, "item", "", ""), true, new Esc());
         check(!h.contains("<script"), "PDF: no script");
