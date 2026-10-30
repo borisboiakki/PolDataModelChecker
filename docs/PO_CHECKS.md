@@ -5,7 +5,7 @@ Polarion instance**. Run the checks in this order when you have time; for each o
 screenshots or PDF exports: the repository is public). Findings are then recorded in the specification and in
 `tests/dmSpike-v0.1.x/spike-tests.md`.
 
-Last update: 2026-10-30 (open: dmCheck 0.2.0 checks 3.7–3.12; severity per side: dmDefine 0.6.0 2.19–2.21, dmCheck 0.3.0 3.13–3.14), dmDefine 0.5.0, dmCheck 0.1.0, dmSpike S7 and S10; §1 done; §1–§4 done (dmDefine 0.5.0 and dmCheck 0.1.0 verified, decisions agreed); §5 later.
+Last update: 2026-10-30 (open: dmCheck 0.2.0 checks 3.7–3.12; severity per side: 2.19, 2.20, 3.13 done, 2.21 and 3.14 open), dmDefine 0.5.0, dmCheck 0.1.0, dmSpike S7 and S10; §1 done; §1–§4 done (dmDefine 0.5.0 and dmCheck 0.1.0 verified, decisions agreed); §5 later.
 
 ## 1. Spike widget dmSpike (upload `tests/dmSpike-v0.1.x/spike-widget/dmSpike.zip`)
 
@@ -42,8 +42,8 @@ Use a model with the names of your project (start from `test-data/vcycle-model.y
 | 2.16 | ✅ **Done 2026-10-30** (warning shown). Save twice without reloading the page (or change the item in another tab first) | a warning "was changed since this page was loaded" | 0.5.0 |
 | 2.17 | ✅ **Done 2026-10-30** (user without edit rights: **no Save button**, so the token or the GET of the model item is refused for that user; the reason is the line under the YAML text, to note if seen). With a user who can read but not edit the model item | Save shown, then "Not saved: no permission …" (or Save not shown) | 0.5.0 |
 | 2.18 | ✅ **Done 2026-10-30** (no Save button). Widget parameter *Save to Polarion* = Off | no Save button, "switched off in the widget parameters" | 0.5.0 |
-| 2.19 | **dmDefine 0.6.0** (upload the new zip): in the test model (`test-data/vcycle-check/model.yaml`), add `from_severity: info` under rule L1 (after `to_min: 1`) | no problem; L1 tooltip, details and *Table*: "sources: info, targets: error"; *Excel* sheet Link rules: columns *Severity of sources* = info, *of targets* = error; PDF rules table: "error (sources: info, targets: error)" | 0.6.0 |
-| 2.20 | *Edit model*: rule L1 shows *Severity of source items without link* = info, *of target items not covered* = as the rule; change it to warning, *Generate YAML* | the YAML has `from_severity: warning`; pasted back (or *Save to Polarion*) it reads with no problem | 0.6.0 |
+| 2.19 | ✅ **Done 2026-10-30** (as expected). **dmDefine 0.6.0** (upload the new zip): in the test model (`test-data/vcycle-check/model.yaml`), add `from_severity: info` under rule L1 (after `to_min: 1`) | no problem; L1 tooltip, details and *Table*: "sources: info, targets: error"; *Excel* sheet Link rules: columns *Severity of sources* = info, *of targets* = error; PDF rules table: "error (sources: info, targets: error)" | 0.6.0 |
+| 2.20 | ✅ **Done 2026-10-30** (as expected). *Edit model*: rule L1 shows *Severity of source items without link* = info, *of target items not covered* = as the rule; change it to warning, *Generate YAML* | the YAML has `from_severity: warning`; pasted back (or *Save to Polarion*) it reads with no problem | 0.6.0 |
 | 2.21 | A wrong value, e.g. `to_severity: fatal` | an error on that line: "… must be error, warning or info" | 0.6.0 |
 
 ## 3. dmCheck (upload `widgets/dmCheck/dist/dmCheck.zip`)
@@ -62,7 +62,7 @@ Use a model with the names of your project (start from `test-data/vcycle-model.y
 | 3.10 | *Table* (section *Drill-down queries*) and *Excel* (sheet *Queries*, links in the Items column) | 12 queries; the links open the table as in 3.7 | dmCheck 0.2.0 |
 | 3.11 | On the real model of your largest project: two or three drill-down links; rendering time | Polarion's table shows the same number of items as dmCheck; rendering time as with 0.1.0 | dmCheck 0.2.0 |
 | 3.12 | Optional: a rule with `from_min: 2` (or `to_min: 2`); its drill-down link | Polarion accepts the query (it adds `GROUP BY … HAVING` in the sub-select, not verified yet) and lists the items with fewer than 2 links | dmCheck 0.2.0 |
-| 3.13 | **dmCheck 0.3.0** (upload the new zip) with the model of 2.19 (L1 `from_severity: info`), then also `to_severity: error` under L2 | first: summary 2 errors, 7 warnings, 2 info (SPA-4 and SPB-3 *missing link* L1 become info; CUS-5 stays an error); with both: **5 errors, 4 warnings, 2 info**, line labels "errors 1 + info 2" (L1) and "errors 3 + warnings 3" (L2), both lines red; L1 details "(sources: info, targets: error)" and "1 error, 2 info" | dmCheck 0.3.0 |
+| 3.13 | ✅ **Done 2026-10-30** (as expected). **dmCheck 0.3.0** (upload the new zip) with the model of 2.19 (L1 `from_severity: info`), then also `to_severity: error` under L2 | first: summary 2 errors, 7 warnings, 2 info (SPA-4 and SPB-3 *missing link* L1 become info; CUS-5 stays an error); with both: **5 errors, 4 warnings, 2 info**, line labels "errors 1 + info 2" (L1) and "errors 3 + warnings 3" (L2), both lines red; L1 details "(sources: info, targets: error)" and "1 error, 2 info" | dmCheck 0.3.0 |
 | 3.14 | *Show*: untick *Errors* | the L1 line stays (its info violations), the error ones are hidden | dmCheck 0.3.0 |
 
 ## 4. Decisions to confirm (dmCheck, proposed in `widgets/dmCheck/SPECIFICATION.md` §7)
