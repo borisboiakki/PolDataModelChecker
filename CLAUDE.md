@@ -125,7 +125,7 @@ span holding only a `<br/>` plus the line's own `<br/>`; `dm-read.vm` drops the 
 
 Verified by the PO with dmDefine 0.5.0 (PO_CHECKS 2.14): *Save to Polarion* PATCHes a changed model and the reloaded page
 shows it; the description keeps the indentation and the PATCH creates a new revision in the item history (2.15).
-A user without edit rights gets no save (2.17); conflict warning (2.16); parameter Off hides Save (2.18).
+A user without edit rights sees no Save button (2.17: no token or GET refused for that user; copy/paste remains); conflict warning (2.16); parameter Off hides Save (2.18).
 NOT verified for this project: behaviour with the REST token disabled; 2612 for everything.
 
 ## Repository layout
