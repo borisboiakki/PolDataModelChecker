@@ -122,7 +122,9 @@ without edit rights or with the REST token disabled (checks before dmDefine 0.3)
 CLAUDE.md                      this file
 README.md                      overview, build, workflow
 Polarion_Development_Guide.md  Polarion best practices (copied from the sister repo, do not edit casually)
-docs/DATA_MODEL_FORMAT.md      draft of the model YAML (contract between dmDefine and dmCheck)
+docs/DATA_MODEL_FORMAT.md      model YAML format (contract between dmDefine and dmCheck; pairs: planned, PO 2026-10-30)
+docs/MODELING_GUIDE.md         user guide: use cases with example models (keep the examples valid: they parse with no
+                               problem in dmDefine, except the documented pairs warning until pairs are implemented)
 docs/ARCHITECTURE.md           architecture of this repo (preliminary, revised after the spikes)
 docs/reference/                architecture document of the sister widgets (reference for the reused parts)
 widgets/<w>/src/               widget sources (as in the sister repo: render.vm with markers "## BW_SHARED <file>" and

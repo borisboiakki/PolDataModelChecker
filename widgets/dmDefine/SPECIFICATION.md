@@ -40,6 +40,7 @@ The model is stored in Polarion (SPEC §6) and read by **dmCheck** (`widgets/dmC
 | D10 | **REST write-back**: "Save to Polarion" updates the description of the model item from the browser; hidden when the REST API is unreachable | Could | 3 (after spike S4) |
 | D11 | Show the revision of the model LiveDoc / item used; link to open the model item for editing | Should (done: item revision from `getLastRevision()`) | 1 |
 | D12 | Cross-project documents in bindings (`project/space/document`) | Should (form accepted by 0.1.0, not verified on 2512) | 2 |
+| D14 | **Pairs** (`pairs:` section, dmCheck K15): validate it (the rule id exists; each pair is `[source document, target document]`; the source document is declared for the rule's `from` role and the target for its `to` role) and show it (rule details, table, Excel). Until then dmDefine 0.1.0 reports `pairs` as an unknown key (warning) and ignores it | Should | 2 |
 | D13 | **Model text** view with line numbers (problem lines marked, a click on a problem shows its line) and **Copy YAML** (copies the text, e.g. to reuse the model in another project) | Should (done) | 1 |
 
 ## 4. Non-functional requirements

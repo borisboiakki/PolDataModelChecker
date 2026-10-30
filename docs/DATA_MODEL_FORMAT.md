@@ -23,7 +23,7 @@ one-level flow lists `[a, b]` and flow maps `{k: v}` of scalars, `#` comments, `
 anchors, multi-line scalars or nested flow collections. Keys are plain words (`A-Z a-z 0-9 _ -`, no dot: role names
 are keys). Text before the
 first top-level key (a title, an explanation) is ignored. It is parsed by the widgets in Velocity (ARCHITECTURE §3.3).
-A complete example: `test-data/vcycle-model.yaml`.
+A complete example: `test-data/vcycle-model.yaml`; use cases with examples: `docs/MODELING_GUIDE.md`.
 
 Two parts with different scopes (PO 2026-10-30: the model must be reusable, the documents are declared by the user):
 - `model`: project-neutral (roles, item types, link rules): reusable;
@@ -73,6 +73,34 @@ bindings:
   SubsystemReq: ["Specs/Subsystem A Requirements"]
 ```
 
+### 2.1 Several documents per role: pooled or paired (planned; PO 2026-10-30)
+
+A role can hold several documents (e.g. two solution specifications, several test specifications). For each link rule
+the documents are either:
+
+- **pooled** (default): the documents of a role form one set. `from_min` / `to_min` count the links to or from **any**
+  document of the other role. Nothing to write: a rule without an entry in `pairs:` is pooled.
+- **paired**: the rule has an entry in the local `pairs:` section, a list of `[source document, target document]`
+  (source = document of the rule's `from` role, where the link is stored; target = document of its `to` role). Only the
+  links between the two documents of a pair count. A link between documents of the two roles that are not paired is a
+  **cross-pair link**; a document of the two roles that is in no pair is **unpaired**. Both are reported with the
+  rule's severity. A document may appear in several pairs.
+
+```yaml
+bindings:
+  SolutionSpec: ["Specs/Solution Spec A", "Specs/Solution Spec B"]
+  SolutionSTD: ["Tests/STD A", "Tests/STD B"]
+pairs:                         # local, like bindings; one entry per paired rule id
+  L2:                          # L2: SolutionSTD verifies SolutionSpec
+    - ["Tests/STD A", "Specs/Solution Spec A"]
+    - ["Tests/STD B", "Specs/Solution Spec B"]
+```
+
+Documents are written as in `bindings` (`name`, `space/name` or `project/space/name`) and must be declared there under
+the rule's roles. `pairs` is local to the checked project (not part of the reusable `model`). Status: format decided,
+**not implemented yet**: dmCheck 0.1.0 will evaluate it, dmDefine 0.2 will validate and show it (dmDefine 0.1.0 reports
+`pairs` as an unknown key and ignores it). Examples of the use cases: `docs/MODELING_GUIDE.md`.
+
 ### Keys, defaults and validation (dmDefine 0.1.0)
 
 | Path | Value | Default | Checked |
@@ -91,6 +119,7 @@ bindings:
 | `model.unexpected_links` | `error`, `warning`, `info`, `ignore` | `ignore` | value |
 | `bindings.<Role>` | document or list of documents: `name` (default space), `space/name`, `project/space/name` | — | role defined; document exists; declared once; a role without document: warning |
 | `uses` | — | — | not supported in 0.1.0 (error) |
+| `pairs.<rule id>[]` | `[source document, target document]` | rule pooled | planned (§2.1); 0.1.0: unknown key (warning) |
 
 Unknown keys are warnings (ignored). Problems carry the line of the model text.
 
@@ -100,7 +129,8 @@ Unknown keys are warnings (ignored). Problems carry the line of the model text.
 |---|---|
 | Required item types | Every type with `min` has at least `min` items in each bound document. |
 | Unexpected item types | An item whose type is not listed in its document role is reported with `unexpected_types`. |
-| Required links | `from_min`/`to_min` as above, counted only for links of `link_role` between the bound documents. |
+| Required links | `from_min`/`to_min` as above, counted only for links of `link_role` between the bound documents: any document of the other role (pooled) or the paired documents only (paired, §2.1). |
+| Pairs (paired rules) | Cross-pair links and unpaired documents, with the rule's severity (§2.1). |
 | Forbidden/unexpected links | A link of a role used by the model that goes between modelled documents but matches no rule (wrong direction, wrong target document or type) is reported. A role the model never mentions is ignored. |
 | Later | Orphan items (no link at all), items in the wrong document, mandatory field values, statuses, max cardinalities. |
 

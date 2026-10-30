@@ -35,6 +35,7 @@ Same as dmDefine (C1–C8), plus:
 | K11 | Collection context (check the model on the documents of a collection at the pinned revisions), as docCoverage F17 | Could | 3 |
 | K12 | Cross-project documents in bindings | Should | 2 |
 | K13 | Later checks: orphan items (no link at all), items in the wrong document, mandatory fields / statuses, max cardinality | Could | later |
+| K15 | **Several documents per role, pooled or paired** (PO 2026-10-30, Q2). **Pooled** (default, no `pairs:` entry for the rule): the documents of a role form one set; a link to any document of the target role counts; violations are listed per document. **Paired** (the rule has an entry in `pairs:`): only links between the documents of a declared pair count for `from_min` / `to_min`; a link between documents of the two roles that are not paired is reported as a **cross-pair link**; a document of the rule's roles without a pair is reported as **unpaired**; both with the rule's severity. A document may appear in several pairs (e.g. one test specification for two specifications). Format: `docs/DATA_MODEL_FORMAT.md` §2.1; examples: `docs/MODELING_GUIDE.md` | Must | 1 |
 | K14 | Item cap per violation list (e.g. 500 per rule in the page model, full count always shown), as docCoverage | Must | 1 |
 
 ## 4. Non-functional requirements
@@ -66,7 +67,11 @@ every referenced object. Velocity 1.4-safe. No customer data in the repository.
 ## 7. Open questions (to ask the PO)
 
 1. Counting of items: ignore headings and other types as in docCoverage (excluded types parameter), and do `ignored: true` types in the model take that role?
-2. When several documents fill one role (e.g. subsystem specs), is a `from_min` link required to a document of the target role as a whole or to the sibling document of the same subsystem?
+2. ~~Several documents in one role~~ **Decided (PO, 2026-10-30)**: both, chosen per rule. By default the documents of a
+   role are **pooled** (a link to any document of the target role counts). A rule listed in the local `pairs:` section
+   is **paired**: only links between the declared document pairs count, cross-pair links and unpaired documents are
+   reported (K15). Use case that raised it: two solution specifications satisfying one customer specification, each
+   verified by its own test specification (STD). The workaround without pairs (one role per document) stays valid.
 3. Severity vocabulary (error/warning/info) and a compliance score per document: wanted?
 4. Should the report be storable (snapshot as a work item or a document) or is a live report enough?
 5. ~~Copies and branches~~ **Decided (PO, 2026-10-30)**: only the documents the user declares in the model are checked. A branch or copy is part of the model only if listed. Links from undeclared documents are ignored.

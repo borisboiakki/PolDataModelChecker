@@ -184,6 +184,12 @@ Inputs: the normalized model, the module URIs per role, and the excluded types. 
 | Required links `to_min` (coverage) | same, mirrored (items targeted) | as above |
 | Unexpected links | links of the roles used by the model whose source and target are both in declared documents (one query, as the docCoverage link query) | Velocity: each link is classified against the rules (role, source role and type, target role and type). No match → violation. Roles the model never mentions are ignored. Links to undeclared documents are ignored (PO) |
 
+**Pooled or paired rules** (dmCheck K15, PO 2026-10-30): the same link data serve both. For a pooled rule the link
+counts per item use every document of the target (or source) role; for a paired rule only the links whose source and
+target documents form a declared pair are counted, and the links between documents of the two roles that are not
+paired are classified as cross-pair. Unpaired documents come from the binding resolution (no SQL). The SQL stays one
+query per rule (the pair filter is applied in Velocity on the document of each link end), to be confirmed by spike T1.
+
 Outputs per rule: a counter (checked items, compliant items) and the violation list (`item id`, document key, type,
 message), capped at the "list cap" with the full count kept (as docCoverage `uncCap`). Unresolvable link targets are
 skipped and counted as a data-quality note.

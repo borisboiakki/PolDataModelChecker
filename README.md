@@ -9,8 +9,10 @@ Siemens Polarion **LiveReport widgets** to formalize the **data model** of a pro
 
 ![dmDefine preview rendered from the sample model (mock data)](docs/dmDefine/preview-graph.png)
 
-The model is a **YAML** text in the description of a work item of a dedicated LiveDoc. Format (draft):
-[docs/DATA_MODEL_FORMAT.md](docs/DATA_MODEL_FORMAT.md). The two widgets are independent, so dmCheck can be tested with a
+The model is a **YAML** text in the description of a work item of a dedicated LiveDoc. Format:
+[docs/DATA_MODEL_FORMAT.md](docs/DATA_MODEL_FORMAT.md); **how to model common cases, with examples**
+(V-cycle chain, several documents per role pooled or paired, hierarchy):
+[docs/MODELING_GUIDE.md](docs/MODELING_GUIDE.md). The two widgets are independent, so dmCheck can be tested with a
 hand-written dummy model.
 
 ## Principles
@@ -37,7 +39,8 @@ This repository was started from [polarion_branches_copies_widget](https://githu
 |---|---|
 | `CLAUDE.md` | Instructions for Claude Code: workflow, rules, Polarion facts verified on 2512 |
 | `Polarion_Development_Guide.md` | Polarion development best practices (copied from the sister repo) |
-| `docs/DATA_MODEL_FORMAT.md` | Draft of the model YAML |
+| `docs/DATA_MODEL_FORMAT.md` | Format of the model YAML (keys, defaults, validation, planned `pairs`) |
+| `docs/MODELING_GUIDE.md` | User guide: use cases with example models |
 | `docs/ARCHITECTURE.md` | Preliminary architecture (model pipeline, parser, checks, page model, spikes) |
 | `docs/reference/` | Architecture of the sister widgets (reference for the reused parts) |
 | `widgets/<widget>/SPECIFICATION.md` | Requirements, decisions, spikes and open questions of each widget |

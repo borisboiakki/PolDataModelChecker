@@ -18,7 +18,8 @@ Target: Polarion 2512 (verified with the spike widget); 2612 not verified yet.
 2. Add a work item of type **Text** (or another type set in the widget parameters).
 3. Paste the YAML model into its description **as plain text** (Ctrl+Shift+V, or copy from a plain text editor), one
    line per line. Start from `test-data/vcycle-model.yaml` and change the roles, types, link roles and documents. A title
-   or comment lines above the first key (`version:`) are allowed. The format: `docs/DATA_MODEL_FORMAT.md`.
+   or comment lines above the first key (`version:`) are allowed. The format: `docs/DATA_MODEL_FORMAT.md`; examples for
+   common structures (one or several documents per role, paired documents, hierarchy): `docs/MODELING_GUIDE.md`.
 4. Save. Baselines of the LiveDoc keep the versions of the model.
 
 ## Add the widget to a page
