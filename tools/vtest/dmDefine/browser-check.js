@@ -230,6 +230,10 @@ async function clickNode(p, key) {
   await p.click('button:has-text("Edit model")');
   expect((await p.textContent('.dd-ed-note')).indexOf('No model yet') === 0 && (await p.$$('.dd-ed-forms .dd-card')).length === 0, 'editor without model: empty forms');
   expect((await p.textContent('.dd-ed-checks')).indexOf('Add at least one document role') >= 0, 'editor without model: check asks for a role');
+  await p.fill('.dd-ed-forms input[placeholder="e.g. V-cycle model"]', 'Model "A" of the customer' + String.fromCharCode(39) + 's project');
+  await p.waitForTimeout(100);
+  expect((await p.textContent('.dd-ed-checks')).indexOf('Name contains both quote characters') >= 0, 'editor: warning for a text with both quote characters');
+  await p.fill('.dd-ed-forms input[placeholder="e.g. V-cycle model"]', '');
   await p.fill('.dd-ed-forms input[placeholder^="project/id"]', 'SYSENG/SE-12');
   await p.dispatchEvent('.dd-ed-forms input[placeholder^="project/id"]', 'change');
   await p.click('button:has-text("Generate YAML")');

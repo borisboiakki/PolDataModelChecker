@@ -10,7 +10,7 @@ documents) and **check the real data against it**. Typical case: the V-cycle (sy
 requirements linked with `satisfies` → tests linked with `verifies`). Two widgets, built iteratively:
 
 - **dmDefine** (`widgets/dmDefine/`): reads the model, shows it (graph + table), validates it, helps to edit it.
-  **0.8.1**: 0.1.0 read, validate, show; 0.2.0 pairs; 0.3.0 editor (forms + YAML text, `src/editor.js`); 0.4.0 `uses:` +
+  **0.8.2**: 0.1.0 read, validate, show; 0.2.0 pairs; 0.3.0 editor (forms + YAML text, `src/editor.js`); 0.4.0 `uses:` +
   documents of other projects; 0.5.0 Save to Polarion (REST, optional); 0.6.0 severity per side of a rule
   (`from_severity` / `to_severity`, D17); 0.7.0 starter generator (D8, *Propose a model from the project*); 0.8.0 exploded
   view (D16). **0.1.0–0.6.0 verified on 2512 by the PO**; later ones: open checks in `docs/PO_CHECKS.md`.
@@ -189,7 +189,7 @@ exploded view (`viewSwitch`, `drawExploded`).
 ## Where the work stands (read first in a new session)
 
 - Open checks of the PO on 2512, in order: `docs/PO_CHECKS.md` (§1–§4 done; open: dmCheck drill-down 3.7–3.12, severity
-  per side 2.21 and 3.14, starter generator 2.22–2.25, exploded view 2.26–2.28 and 3.15–3.16; §5 later: REST token
+  per side 2.21 and 3.14, starter generator 2.22–2.25, exploded view 2.26–2.28 and 3.15–3.16, quote warning 2.29; §5 later: REST token
   disabled, 2612). Record each result in the spec / `tests/dmSpike-v0.1.x/spike-tests.md`, then tick it there.
 - Decisions of 2026-10-30: the 0.1.0 evaluation of dmCheck is kept, set queries serve the drill-down only; exploded view
   as the mockup agreed with the PO. Next increments: to agree with the PO (candidates in §8 of each spec: collection

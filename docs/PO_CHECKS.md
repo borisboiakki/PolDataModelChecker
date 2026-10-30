@@ -52,6 +52,7 @@ Use a model with the names of your project (start from `test-data/vcycle-model.y
 | 2.26 | **dmDefine 0.8.0** (upload the new zip) on the model of use case 3 (or the dmCheck test model): *View: Exploded* | one frame per role, one box per document; L1 (pooled) arrows from each solution spec to the CustomerSpec frame; L2 one arrow per pair; click an arrow: the rule; click a document: the role | 0.8.0 |
 | 2.27 | Leave a document out of the pairs (e.g. remove the STD B pair) | that document outlined in orange, "in no pair of L2" | 0.8.0 |
 | 2.28 | Widget parameter *Graph view when the page opens* = Exploded; and a model with one document per role and no pair | opens in the exploded view; no *View* switch for the simple model | 0.8.0 |
+| 2.29 | **dmDefine 0.8.2**: *Edit model*, type a name holding both quote characters, e.g. `Model "A" of the customer's project` | a warning under the forms: "Name contains both quote characters …" | 0.8.2 |
 
 ## 3. dmCheck (upload `widgets/dmCheck/dist/dmCheck.zip`)
 

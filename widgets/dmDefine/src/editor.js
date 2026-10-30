@@ -9,6 +9,8 @@
 
   var ED_UNEXP_TYPES = ['error', 'warning', 'ignore'];
   var ED_RULE_SEV = ['error', 'warning', 'info'];
+  var ED_DQ = String.fromCharCode(34);
+  var ED_SQ = String.fromCharCode(39);
   var ED_SAME = 'as the rule';
   var ED_SIDE_SEV = [ED_SAME].concat(ED_RULE_SEV);
   var ED_UNEXP_LINKS = ['ignore', 'info', 'warning', 'error'];
@@ -259,6 +261,21 @@
       else if (roleIds.length && roleIds.indexOf(k.linkRole) < 0) { add('error', 'Rule ' + name + ': link role ' + k.linkRole + ' does not exist in the project.'); }
       ['fmin', 'tmin'].forEach(function (f) { if (k[f] !== '' && !edIsInt(k[f])) { add('error', 'Rule ' + name + ': the minimum must be a whole number.'); } });
       edCheckPairs(M, k, name, add);
+    });
+    // The YAML subset has no escape: a text holding both quote characters cannot be written as it is (edQuote turns
+    // the double quotes into single quotes).
+    var texts = [['Name', M.name], ['Description', M.description]];
+    M.roles.forEach(function (r) {
+      texts.push(['Role ' + r.key + ': title', r.title], ['Role ' + r.key + ': description', r.description]);
+      r.items.forEach(function (it) { texts.push(['Role ' + r.key + ', type ' + it.type + ': description', it.description]); });
+    });
+    M.links.forEach(function (k) { texts.push(['Rule ' + k.id + ': description', k.description]); });
+    texts.forEach(function (t) {
+      var v = t[1] || '';
+      if (v.indexOf('"') >= 0 && v.indexOf("'") >= 0) {
+        add('warning', t[0] + ' contains both quote characters (' + ED_DQ + ' and ' + ED_SQ + '): the YAML text cannot hold both, each ' + ED_DQ +
+          ' will be written as ' + ED_SQ + '.');
+      }
     });
     return out;
   }
