@@ -149,8 +149,8 @@ Findings:
   compact proposal (YAML + summary), not every combination table.
 - Pending (PO): the generated starter YAML opened in dmDefine (problems, usefulness).
 
-Decision proposed for the starter generator (D8): **variant B** (nested), falling back to nothing else needed (A also
-works); full scan not used.
+Decision proposed for the starter generator (D8): **variant B** (nested; A also works as a fallback);
+full scan not used.
 
 ### Run 3: S9 editor controls (for dmDefine 0.3.0)
 
