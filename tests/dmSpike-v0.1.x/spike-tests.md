@@ -171,6 +171,13 @@ Findings:
   one run on a pair with missing links (e.g. the dmCheck test structure of `test-data/vcycle-check/`, PO_CHECKS 3.1,
   or a link removed for the test) closes it. Until then dmCheck keeps the 0.1.0 method as the reference.
 
+**Run 5b (PO, same pair with two `satisfies` links removed; Lucene variant photographed):** reference: 181 source items,
+181 target items, **179 link sources**; source items without link **2**, target items not covered **2**. Lucene
+(`queryWorkItems("project.id:P AND SQL:(… NOT IN (…))", "id")`, i.e. the NOT IN query inside the `SQL:(…)` restriction):
+**the same 2 + 2 items** (same ids), "same as the reference: yes", 3 ms + 2 ms. → The NOT IN set queries return the right
+non-empty lists, also through Lucene (drill-down K9 feasible). NOT EXISTS was shown on the fully linked pair only
+(accepted, empty result); not needed: dmCheck 0.2 uses NOT IN.
+
 ### Run 3: S9 editor controls (for dmDefine 0.3.0)
 
 Upload the rebuilt `dmSpike.zip` (browser view, any test). In section **S9**: type several lines with leading spaces in
