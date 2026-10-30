@@ -54,7 +54,9 @@
       var a = lEls[j].dataset;
       rules.push({
         id: a.id, from: a.from, ft: a.ft || '', role: a.role, rname: a.rn || a.role, to: a.to, tt: a.tt || '',
-        fmin: toInt(a.fmin), tmin: toInt(a.tmin), sev: a.sev || 'error', line: toInt(a.line)
+        fmin: toInt(a.fmin), tmin: toInt(a.tmin), sev: a.sev || 'error', line: toInt(a.line),
+        paired: a.paired === '1',
+        pairs: parts(a.pairs, ';').map(function (p) { var f = p.split('|'); return { s: f[0], t: f[1] || '' }; })
       });
     }
     var probs = [];
@@ -129,7 +131,14 @@
     var s = r.id + ': ' + (r.ft || 'any type') + ' ' + r.rname + ' ' + (r.tt || 'any type');
     if (r.fmin > 0) { s += '; each source item ' + GE + r.fmin; }
     if (r.tmin > 0) { s += '; each target item ' + GE + r.tmin; }
+    if (r.paired) { s += '; paired documents (' + r.pairs.length + ')'; }
     return s + ' (' + r.sev + ')';
+  }
+
+  // "pooled" or "paired: source -> target; ..." (documents of the current project as space/name).
+  function pairsText(r) {
+    if (!r.paired) { return 'pooled'; }
+    return 'paired: ' + r.pairs.map(function (p) { return p.s + ' ' + ARROW + ' ' + p.t; }).join('; ');
   }
 
   function Widget(root) {
@@ -335,12 +344,12 @@
     var self = this;
     var t = el('table', { 'class': 'bw-table' }, box);
     var hr = el('tr', null, t);
-    ['Id', 'From (source)', 'Link role', 'To (target)', 'Min per source item', 'Min per target item', 'Severity', 'Line'].forEach(function (h) {
+    ['Id', 'From (source)', 'Link role', 'To (target)', 'Min per source item', 'Min per target item', 'Severity', 'Documents', 'Line'].forEach(function (h) {
       el('th', null, hr, h);
     });
     rules.forEach(function (r) {
       var tr = el('tr', null, t);
-      [r.id, endText(r.from, r.ft), r.rname, endText(r.to, r.tt), r.fmin, r.tmin, r.sev].forEach(function (v) { el('td', null, tr, String(v)); });
+      [r.id, endText(r.from, r.ft), r.rname, endText(r.to, r.tt), r.fmin, r.tmin, r.sev, pairsText(r)].forEach(function (v) { el('td', null, tr, String(v)); });
       var td = el('td', null, tr);
       var ln = el('span', { 'class': 'dd-line' }, td, String(r.line));
       ln.addEventListener('click', function () { self.showLine(r.line); });
@@ -396,14 +405,18 @@
         docs.push([n.key, d.decl, d.project, d.space, d.name, d.found ? 'yes' : 'no', d.title]);
       });
     });
-    var rules = [['Id', 'From role', 'From type', 'Link role', 'Link role name', 'To role', 'To type', 'Min per source item', 'Min per target item', 'Severity', 'Line']];
-    m.rules.forEach(function (r) { rules.push([r.id, r.from, r.ft, r.role, r.rname, r.to, r.tt, r.fmin, r.tmin, r.sev, r.line]); });
+    var rules = [['Id', 'From role', 'From type', 'Link role', 'Link role name', 'To role', 'To type', 'Min per source item', 'Min per target item', 'Severity', 'Documents', 'Line']];
+    var pairs = [['Rule', 'Source document (from role)', 'Target document (to role)']];
+    m.rules.forEach(function (r) {
+      rules.push([r.id, r.from, r.ft, r.role, r.rname, r.to, r.tt, r.fmin, r.tmin, r.sev, r.paired ? 'paired' : 'pooled', r.line]);
+      r.pairs.forEach(function (p) { pairs.push([r.id, p.s, p.t]); });
+    });
     var probs = [['Severity', 'Line', 'Problem']];
     m.probs.forEach(function (p) { probs.push([p.sev, p.line > 0 ? p.line : '', p.msg]); });
     var text = [['Line', 'Text']];
     m.lines.forEach(function (t, i) { text.push([i + 1, t]); });
     var itemUrlAbs = self.item.id ? absUrl(itemUrl(self.item.project, self.item.id, '')) : '';
-    return { roles: roles, types: types, docs: docs, docLinks: docLinks, rules: rules, probs: probs, text: text, itemUrl: itemUrlAbs };
+    return { roles: roles, types: types, docs: docs, docLinks: docLinks, rules: rules, pairs: pairs, probs: probs, text: text, itemUrl: itemUrlAbs };
   };
 
   Widget.prototype.drawTable = function () {
@@ -423,6 +436,7 @@
     }
     section('Document roles', r.roles);
     section('Link rules', r.rules);
+    if (r.pairs.length > 1) { section('Document pairs', r.pairs); }
     section('Documents', r.docs, r.docLinks);
     section('Problems', r.probs);
   };
@@ -432,7 +446,8 @@
     var sheets = [
       { name: 'Roles', rows: r.roles, widths: [18, 30, 50, 12, 50, 8] },
       { name: 'Item types', rows: r.types, widths: [18, 26, 8, 8, 10] },
-      { name: 'Link rules', rows: r.rules, widths: [10, 18, 24, 18, 22, 18, 24, 12, 12, 10, 8] },
+      { name: 'Link rules', rows: r.rules, widths: [10, 18, 24, 18, 22, 18, 24, 12, 12, 10, 10, 8] },
+      { name: 'Document pairs', rows: r.pairs, widths: [10, 45, 45] },
       { name: 'Documents', rows: r.docs, widths: [18, 40, 18, 18, 30, 8, 40], links: r.docLinks },
       { name: 'Problems', rows: r.probs, widths: [10, 8, 90] },
       { name: 'Model text', rows: r.text, widths: [8, 100] }

@@ -78,9 +78,10 @@ async function clickNode(p, key) {
   await dl.saveAs(dir + '/data-model.xlsx');
   const book = await readBook(p, dir + '/data-model.xlsx');
   expect(dl.suggestedFilename() === 'data-model-DMTEST.xlsx', 'Excel: file name');
-  expect(JSON.stringify(book.map(s => s.name)) === JSON.stringify(['Roles', 'Item types', 'Link rules', 'Documents', 'Problems', 'Model text']), 'Excel: 6 sheets');
+  expect(JSON.stringify(book.map(s => s.name)) === JSON.stringify(['Roles', 'Item types', 'Link rules', 'Document pairs', 'Documents', 'Problems', 'Model text']), 'Excel: 7 sheets');
   expect(book[2].rows.length === 3 && book[2].rows[1][0] === 'L1' && book[2].rows[1][3] === 'satisfies', 'Excel: link rules');
-  expect(book[3].rows.length === 5, 'Excel: 4 documents');
+  expect(book[3].rows.length === 1, 'Excel: no document pair (pooled rules only)');
+  expect(book[4].rows.length === 5, 'Excel: 4 documents');
 
   const [svgDl] = await Promise.all([p.waitForEvent('download'), p.click('button:has-text("SVG")')]);
   expect(svgDl.suggestedFilename() === 'data-model-DMTEST.svg', 'SVG export');
@@ -108,6 +109,26 @@ async function clickNode(p, key) {
   const cats = await p.$$eval('.bw-legend .bw-leg', ls => ls.map(l => l.textContent));
   expect(JSON.stringify(cats) === JSON.stringify(['satisfies', 'has parent']), 'legend: link roles of the drawn rules only');
   await p.screenshot({ path: dir + '/shot-errors.png', fullPage: true });
+
+  // ---------------------------------------------------------------- paired rule
+  await p.goto('file://' + dir + '/paired.html');
+  await p.waitForTimeout(300);
+  expect((await p.textContent('.dd-probs')).indexOf('No problem found') >= 0, 'paired: no problem');
+  // Line of L2 (verifies): the edge whose tooltip summary names L2.
+  await p.evaluate(() => {
+    const labels = Array.from(document.querySelectorAll('.bw-edge-label'));
+    const lab = labels.find(l => l.textContent === 'verifies');
+    lab.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+  await p.waitForTimeout(100);
+  const pdet = await p.textContent('.bw-details');
+  expect(pdet.indexOf('L2') >= 0 && pdet.indexOf('paired: Tests/STD A ' + String.fromCharCode(8594) + ' Specs/Solution Spec A') >= 0, 'paired: rule details list the pairs');
+  await p.click('button:has-text("Table")');
+  const pheads = await p.$$eval('.bw-table-wrap .dd-h', hs => hs.map(h => h.textContent));
+  expect(pheads.indexOf('Document pairs') === 2, 'paired: table view lists the document pairs');
+  const pairRows = await p.$$eval('.bw-table-wrap table', ts => ts[2].querySelectorAll('tbody tr').length);
+  expect(pairRows === 2, 'paired: 2 pairs in the table');
+  await p.screenshot({ path: dir + '/shot-paired.png', fullPage: true });
 
   // ---------------------------------------------------------------- PDF view (static, no script)
   await p.goto('file://' + dir + '/pdf.html');

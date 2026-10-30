@@ -12,8 +12,10 @@ reports a type, a link role or a document that does not exist).
 
 | Feature | dmDefine (show, validate) | dmCheck (check the data) |
 |---|---|---|
-| Roles, item types, link rules, `from_min` / `to_min`, bindings, several documents per role (pooled) | 0.1.0 | planned (0.1.0) |
-| `pairs:` (paired documents, use cases 3 and 4) | planned (0.2): 0.1.0 shows a warning "Unknown key pairs (ignored)" | planned (0.1.0) |
+| Roles, item types, link rules, `from_min` / `to_min`, bindings, several documents per role (pooled) | since 0.1.0 | planned (0.1.0) |
+| `pairs:` (paired documents, use cases 3 and 4) | since 0.2.0 (0.1.0 ignored it with the warning "Unknown key pairs (ignored)") | planned (0.1.0) |
+
+dmCheck is not built yet: the "dmCheck reports" parts below describe what it will check.
 
 ## How to read a link rule
 
@@ -130,7 +132,7 @@ dmCheck checks (pooled):
 
 It does **not** check that a given test document covers a given specification: for that, use pairs (use case 3).
 
-## Use case 3 — paired documents: each specification has its own test specification (planned)
+## Use case 3 — paired documents: each specification has its own test specification
 
 A customer specification is satisfied by two solution specifications. Each solution specification must be verified by
 **its own** test specification (STD): STD A verifies Solution Spec A, STD B verifies Solution Spec B. The `satisfies`
@@ -182,6 +184,11 @@ pairs:
 Each pair is written `[source document, target document]`: the document of the `from` role (here the STD, which holds
 the `verifies` links) first, then the document of the `to` role.
 
+dmDefine checks the pairs: a pair written the wrong way round (`["Specs/Solution Spec A", "Tests/STD A"]`) is an error
+(*Specs/Solution Spec A is not declared in bindings for role SolutionSTD*), and a declared document in no pair is a
+warning. The rule details, the table view and the Excel export (sheet *Document pairs*) list the pairs; a rule without
+pairs is shown as *pooled*.
+
 dmCheck checks for L2 (paired):
 - `to_min: 1`: each requirement of Solution Spec A is verified by a test case of **STD A** (a test case of STD B does
   not count), and the same for B;
@@ -192,7 +199,7 @@ dmCheck checks for L2 (paired):
 
 And for L1 (pooled): each customer requirement is satisfied by a requirement of Solution Spec A or B.
 
-## Use case 4 — one test document for two specifications (pairs, many-to-many; planned)
+## Use case 4 — one test document for two specifications (pairs, many-to-many)
 
 A document may appear in several pairs. Here one STD verifies both solution specifications, a second STD verifies only
 Solution Spec B:
@@ -210,7 +217,7 @@ that verifies a requirement of Solution Spec A is a cross-pair link.
 
 ## Use case 5 — the same check without pairs: one role per document (works today)
 
-Until pairs are available, or if you prefer to see each pair as separate boxes in the graph, give each document its
+If you prefer to see each pair as separate boxes in the graph, give each document its
 own role and repeat the rule per pair. The graph shows the pairs explicitly; the price is one rule per pair.
 
 ```yaml
@@ -318,7 +325,7 @@ In the dmDefine graph, P1 and R1 are listed in the role boxes (loop sign), L1 is
 |---|---|
 | Every requirement is covered by some document of the downstream role | pooled (default): use cases 1, 2 |
 | Each document is covered by **its own** downstream document | pairs: use cases 3, 4 |
-| The same as pairs, with the pairs drawn as separate boxes, or before pairs are available | one role per document: use case 5 |
+| The same as pairs, with the pairs drawn as separate boxes | one role per document: use case 5 |
 | Both: pooled coverage upstream, pairing downstream | pooled rule + paired rule in one model: use case 3 |
 
 Not covered yet by any of them: chain coverage over several rules (e.g. "each customer requirement is satisfied by a

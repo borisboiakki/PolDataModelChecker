@@ -39,7 +39,9 @@ The widget reads the first item of the type with a line starting with `version:`
 - **Graph**: one box per document role (types, documents found), one line per pair of roles connected by rules, arrow
   in the link direction (source → target). Click a role or a line for the details. Rules inside one role (e.g.
   `has parent`) are listed in its box.
-- Toolbar: link role filters, *Highlight roles*, zoom, *Table*, *SVG*, *Excel* (roles, item types, rules, documents,
+- Rules with `pairs:` (paired documents) list their pairs in the rule details, the table view and the Excel sheet
+  *Document pairs*; other rules are *pooled*.
+- Toolbar: link role filters, *Highlight roles*, zoom, *Table*, *SVG*, *Excel* (roles, item types, rules, document pairs, documents,
   problems, model text), *Reload page*, *Model text*, *Copy YAML*, *Open model item*.
 - To change the model: *Open model item*, edit the description, save, *Reload page*.
 - PDF export: tables of problems, roles and rules.

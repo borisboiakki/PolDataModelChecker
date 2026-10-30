@@ -5,7 +5,7 @@
 ## Velocity 1.4 dialect (guide 3.1.9): no map literals, one statement per line, no backslashes in strings.
 ## Model pipeline (docs/ARCHITECTURE.md 3): dm-read.vm (model item -> text lines), dm-yaml.vm (YAML subset -> paths),
 ## dm-model.vm (roles, rules, bindings, validation). Graph edge "to>from": o = target role (left), c = source role.
-#set($bwVersion = "0.1.0")
+#set($bwVersion = "0.2.0")
 ## Shared snippet style.vm (shared/vm), inlined by tools/build-widget.py at "## BW_SHARED style.vm".
 ## CSS of the interactive view and the static (PDF/print) table. Root classes: bw-root, cw-root (sister repo), dd-root (dmDefine), dc-root (dmCheck).
 <style>
@@ -634,7 +634,7 @@
 #set($dmVersion = $dmGv)
 #set($dmHasText = $dmLines.size() > 0)
 #if($dmHasText && $dmStarted)
-  #dmUnknownKeys("" ["version", "name", "description", "model", "bindings", "uses"])
+  #dmUnknownKeys("" ["version", "name", "description", "model", "bindings", "pairs", "uses"])
   #dmKindOf("uses")
   #if($dmKo != "")
     #dmLineOf("uses")
@@ -1005,6 +1005,140 @@
     #end
   #end
 #end
+## ---------------------------------------------------------------- pairs (paired rules, PO 2026-10-30, dmCheck K15)
+## pairs: { ruleId: [[source document, target document], ...] }. Documents written as in bindings; the source document
+## must be declared for the rule's from role, the target for its to role. A rule without entry stays pooled.
+## Output on each rule map: paired (true/false), pairs (list of [source key, target key, line]).
+## Key of a declared document text $dmPd (forms of bindings) into $dmPk ("" when the form is wrong).
+#macro(dmDocKeyOf $dmPd)
+  #set($dmPk = "")
+  #set($dmPsegs = [])
+  #set($dmPdS = "$dmPd")
+  #foreach($dmS in $dmPdS.trim().split("/"))
+    #set($void = $dmPsegs.add($dmS.trim()))
+  #end
+  #if($dmPsegs.size() == 1 && $dmPsegs.get(0) != "")
+    #set($dmPk = "${dmProjectId}/_default/$dmPsegs.get(0)")
+  #elseif($dmPsegs.size() == 2 && $dmPsegs.get(0) != "" && $dmPsegs.get(1) != "")
+    #set($dmPk = "${dmProjectId}/$dmPsegs.get(0)/$dmPsegs.get(1)")
+  #elseif($dmPsegs.size() == 3 && $dmPsegs.get(0) != "" && $dmPsegs.get(1) != "" && $dmPsegs.get(2) != "")
+    #set($dmPk = "$dmPsegs.get(0)/$dmPsegs.get(1)/$dmPsegs.get(2)")
+  #end
+#end
+## Keys of the declared documents of role $dmRoleK into $dmRkeys.
+#macro(dmRoleDocKeys $dmRoleK)
+  #set($dmRkeys = [])
+  #set($dmRr = false)
+  #set($dmRr = $dmRoleByKey.get($dmRoleK))
+  #if($dmRr)
+    #foreach($dmD2 in $dmRr.get("docs"))
+      #set($void = $dmRkeys.add($dmD2.get("key")))
+    #end
+  #end
+#end
+#set($dmRuleById = $objectFactory.newMap())
+#foreach($dmRu in $dmRules)
+  #set($void = $dmRu.put("paired", false))
+  #set($void = $dmRu.put("pairs", []))
+  #if(!$dmRuleById.containsKey($dmRu.get("id")))
+    #set($void = $dmRuleById.put($dmRu.get("id"), $dmRu))
+  #end
+#end
+#dmKindOf("pairs")
+#if($dmKo == "map")
+  #foreach($dmPr in $dmKeys.get("pairs"))
+    #set($dmPp = "pairs.${dmPr}")
+    #dmLineOf($dmPp)
+    #set($dmPl = $dmLo)
+    #set($dmRu = false)
+    #set($dmRu = $dmRuleById.get($dmPr))
+    #dmKindOf($dmPp)
+    #if(!$dmRu)
+      #set($void = $dmProbs.add(["error", $dmPl, "pairs: $dmPr is not the id of a rule in model.links."]))
+    #elseif($dmKo != "list")
+      #set($void = $dmProbs.add(["error", $dmPl, "pairs.$dmPr must be a list of [source document, target document]."]))
+    #else
+      #set($void = $dmRu.put("paired", true))
+      #set($dmRpairs = $dmRu.get("pairs"))
+      #set($dmFromR = $dmRu.get("from"))
+      #set($dmToR = $dmRu.get("to"))
+      #dmRoleDocKeys($dmFromR)
+      #set($dmFromKeys = $dmRkeys)
+      #dmRoleDocKeys($dmToR)
+      #set($dmToKeys = $dmRkeys)
+      #set($dmNp = $dmCnt.get($dmPp))
+      #set($dmNp = $dmNp - 1)
+      #if($dmNp >= 0)
+        #foreach($dmI in [0..$dmNp])
+          #set($dmPe = "${dmPp}[${dmI}]")
+          #dmLineOf($dmPe)
+          #set($dmPel = $dmLo)
+          #dmKindOf($dmPe)
+          #set($dmPc = 0)
+          #if($dmKo == "list")
+            #set($dmPc = $dmCnt.get($dmPe))
+          #end
+          #if($dmPc != 2)
+            #set($void = $dmProbs.add(["error", $dmPel, "$dmPe must be [source document, target document]."]))
+          #else
+            #set($dmPe0 = "${dmPe}[0]")
+            #set($dmPe1 = "${dmPe}[1]")
+            #dmGet($dmPe0)
+            #set($dmSrcD = $dmGv)
+            #dmGet($dmPe1)
+            #set($dmTgtD = $dmGv)
+            #dmDocKeyOf($dmSrcD)
+            #set($dmSrcK = $dmPk)
+            #dmDocKeyOf($dmTgtD)
+            #set($dmTgtK = $dmPk)
+            #set($dmPok = true)
+            #if($dmSrcK == "" || !$dmFromKeys.contains($dmSrcK))
+              #set($void = $dmProbs.add(["error", $dmPel, "Pair of $dmPr: $dmSrcD is not declared in bindings for role $dmFromR (source of the rule)."]))
+              #set($dmPok = false)
+            #end
+            #if($dmTgtK == "" || !$dmToKeys.contains($dmTgtK))
+              #set($void = $dmProbs.add(["error", $dmPel, "Pair of $dmPr: $dmTgtD is not declared in bindings for role $dmToR (target of the rule)."]))
+              #set($dmPok = false)
+            #end
+            #if($dmPok)
+              #set($dmDupP = false)
+              #foreach($dmP2 in $dmRpairs)
+                #if($dmP2.get(0) == $dmSrcK && $dmP2.get(1) == $dmTgtK)
+                  #set($dmDupP = true)
+                #end
+              #end
+              #if($dmDupP)
+                #set($void = $dmProbs.add(["warning", $dmPel, "Pair [$dmSrcD, $dmTgtD] of $dmPr is listed twice."]))
+              #else
+                #set($void = $dmRpairs.add([$dmSrcK, $dmTgtK, $dmPel]))
+              #end
+            #end
+          #end
+        #end
+      #end
+      ## Declared documents of the two roles that are in no pair of this rule (dmCheck reports them as unpaired).
+      #set($dmInPair = [])
+      #foreach($dmP2 in $dmRpairs)
+        #set($void = $dmInPair.add("s:$dmP2.get(0)"))
+        #set($void = $dmInPair.add("t:$dmP2.get(1)"))
+      #end
+      #foreach($dmK3 in $dmFromKeys)
+        #if(!$dmInPair.contains("s:$dmK3"))
+          #set($void = $dmProbs.add(["warning", $dmPl, "Document $dmK3 (role $dmFromR) is in no pair of rule ${dmPr}: dmCheck will report it as unpaired."]))
+        #end
+      #end
+      #foreach($dmK3 in $dmToKeys)
+        #if(!$dmInPair.contains("t:$dmK3"))
+          #set($void = $dmProbs.add(["warning", $dmPl, "Document $dmK3 (role $dmToR) is in no pair of rule ${dmPr}: dmCheck will report it as unpaired."]))
+        #end
+      #end
+    #end
+  #end
+#elseif($dmKo != "" && $dmKo != "null")
+  #dmLineOf("pairs")
+  #set($void = $dmProbs.add(["error", $dmLo, "pairs must be a block: rule id: [[source document, target document], ...]."]))
+#end
+
 #foreach($dmR in $dmRoles)
   #if(!$dmR.get("bound"))
     #set($dmRk = $dmR.get("key"))
@@ -1064,6 +1198,30 @@
     #set($ddEt = "${ddEt} / ${ddType}")
   #end
 #end
+## Pairs of a rule: "source -> target" texts ($ddPt, static view) and "source|target;" ($ddPd, page model). Documents of the
+## current project are shown as space/name.
+#macro(ddPairs $ddU)
+  #set($ddPt = "")
+  #set($ddPd = "")
+  #set($ddPre = "${dmProjectId}/")
+  #foreach($pp in $ddU.get("pairs"))
+    #set($ddA = $pp.get(0))
+    #set($ddB = $pp.get(1))
+    #if($ddA.startsWith($ddPre))
+      #set($ddA = $ddA.substring($ddPre.length()))
+    #end
+    #if($ddB.startsWith($ddPre))
+      #set($ddB = $ddB.substring($ddPre.length()))
+    #end
+    #if($ddPt != "")
+      #set($ddPt = "${ddPt}; ")
+    #end
+    #set($ddPt = "${ddPt}${ddA} -> ${ddB}")
+    #set($ddA = $ddA.replace("|", " ").replace(";", " "))
+    #set($ddB = $ddB.replace("|", " ").replace(";", " "))
+    #set($ddPd = "${ddPd}${ddA}|${ddB};")
+  #end
+#end
 #set($itemLabel = "")
 #if($dmItem)
   #set($itemLabel = "${dmItemProject}/${dmItemId}")
@@ -1099,12 +1257,13 @@
 </table>
 <div class="dd-h">Link rules</div>
 <table class="bw-table">
-<tr><th>Id</th><th>From (link source)</th><th>Link role</th><th>To (link target)</th><th>Min links per source item</th><th>Min links per target item</th><th>Severity</th></tr>
+<tr><th>Id</th><th>From (link source)</th><th>Link role</th><th>To (link target)</th><th>Min links per source item</th><th>Min links per target item</th><th>Severity</th><th>Documents</th></tr>
 #foreach($u in $dmRules)
   #ddEnd($u.get("from") $u.get("ft"))
   #set($fromT = $ddEt)
   #ddEnd($u.get("to") $u.get("tt"))
-<tr><td>$esc.html($u.get("id"))</td><td>$esc.html($fromT)</td><td>$esc.html($u.get("rname"))</td><td>$esc.html($ddEt)</td><td>$u.get("fmin")</td><td>$u.get("tmin")</td><td>$u.get("sev")</td></tr>
+  #ddPairs($u)
+<tr><td>$esc.html($u.get("id"))</td><td>$esc.html($fromT)</td><td>$esc.html($u.get("rname"))</td><td>$esc.html($ddEt)</td><td>$u.get("fmin")</td><td>$u.get("tmin")</td><td>$u.get("sev")</td><td>#if($u.get("paired"))paired: $esc.html($ddPt)#else pooled#end</td></tr>
 #end
 </table>
 <div class="bw-muted">Links that match no rule: $dmUnexpLinks.</div>
@@ -1158,7 +1317,12 @@
 <i class="dm-r" data-k="$esc.html($r.get('key'))" data-title="$esc.html($r.get('title'))" data-line="$r.get('line')" data-unexp="$r.get('unexp')" data-bound="$rd.get(3)" data-types="$esc.html($rd.get(1))" data-docs="$esc.html($rd.get(2))"></i>
 #end
 #foreach($u in $dmRules)
-<i class="dm-l" data-id="$esc.html($u.get('id'))" data-from="$esc.html($u.get('from'))" data-ft="$esc.html($u.get('ft'))" data-role="$esc.html($u.get('role'))" data-rn="$esc.html($u.get('rname'))" data-to="$esc.html($u.get('to'))" data-tt="$esc.html($u.get('tt'))" data-fmin="$u.get('fmin')" data-tmin="$u.get('tmin')" data-sev="$u.get('sev')" data-line="$u.get('line')"></i>
+  #ddPairs($u)
+  #set($pf = "0")
+  #if($u.get("paired"))
+    #set($pf = "1")
+  #end
+<i class="dm-l" data-paired="$pf" data-pairs="$esc.html($ddPd)" data-id="$esc.html($u.get('id'))" data-from="$esc.html($u.get('from'))" data-ft="$esc.html($u.get('ft'))" data-role="$esc.html($u.get('role'))" data-rn="$esc.html($u.get('rname'))" data-to="$esc.html($u.get('to'))" data-tt="$esc.html($u.get('tt'))" data-fmin="$u.get('fmin')" data-tmin="$u.get('tmin')" data-sev="$u.get('sev')" data-line="$u.get('line')"></i>
 #end
 #foreach($p in $dmProbs)
 <i class="dm-p" data-sev="$p.get(0)" data-line="$p.get(1)" data-msg="$esc.html($p.get(2))"></i>
@@ -2010,7 +2174,9 @@
       var a = lEls[j].dataset;
       rules.push({
         id: a.id, from: a.from, ft: a.ft || '', role: a.role, rname: a.rn || a.role, to: a.to, tt: a.tt || '',
-        fmin: toInt(a.fmin), tmin: toInt(a.tmin), sev: a.sev || 'error', line: toInt(a.line)
+        fmin: toInt(a.fmin), tmin: toInt(a.tmin), sev: a.sev || 'error', line: toInt(a.line),
+        paired: a.paired === '1',
+        pairs: parts(a.pairs, ';').map(function (p) { var f = p.split('|'); return { s: f[0], t: f[1] || '' }; })
       });
     }
     var probs = [];
@@ -2085,7 +2251,14 @@
     var s = r.id + ': ' + (r.ft || 'any type') + ' ' + r.rname + ' ' + (r.tt || 'any type');
     if (r.fmin > 0) { s += '; each source item ' + GE + r.fmin; }
     if (r.tmin > 0) { s += '; each target item ' + GE + r.tmin; }
+    if (r.paired) { s += '; paired documents (' + r.pairs.length + ')'; }
     return s + ' (' + r.sev + ')';
+  }
+
+  // "pooled" or "paired: source -> target; ..." (documents of the current project as space/name).
+  function pairsText(r) {
+    if (!r.paired) { return 'pooled'; }
+    return 'paired: ' + r.pairs.map(function (p) { return p.s + ' ' + ARROW + ' ' + p.t; }).join('; ');
   }
 
   function Widget(root) {
@@ -2291,12 +2464,12 @@
     var self = this;
     var t = el('table', { 'class': 'bw-table' }, box);
     var hr = el('tr', null, t);
-    ['Id', 'From (source)', 'Link role', 'To (target)', 'Min per source item', 'Min per target item', 'Severity', 'Line'].forEach(function (h) {
+    ['Id', 'From (source)', 'Link role', 'To (target)', 'Min per source item', 'Min per target item', 'Severity', 'Documents', 'Line'].forEach(function (h) {
       el('th', null, hr, h);
     });
     rules.forEach(function (r) {
       var tr = el('tr', null, t);
-      [r.id, endText(r.from, r.ft), r.rname, endText(r.to, r.tt), r.fmin, r.tmin, r.sev].forEach(function (v) { el('td', null, tr, String(v)); });
+      [r.id, endText(r.from, r.ft), r.rname, endText(r.to, r.tt), r.fmin, r.tmin, r.sev, pairsText(r)].forEach(function (v) { el('td', null, tr, String(v)); });
       var td = el('td', null, tr);
       var ln = el('span', { 'class': 'dd-line' }, td, String(r.line));
       ln.addEventListener('click', function () { self.showLine(r.line); });
@@ -2352,14 +2525,18 @@
         docs.push([n.key, d.decl, d.project, d.space, d.name, d.found ? 'yes' : 'no', d.title]);
       });
     });
-    var rules = [['Id', 'From role', 'From type', 'Link role', 'Link role name', 'To role', 'To type', 'Min per source item', 'Min per target item', 'Severity', 'Line']];
-    m.rules.forEach(function (r) { rules.push([r.id, r.from, r.ft, r.role, r.rname, r.to, r.tt, r.fmin, r.tmin, r.sev, r.line]); });
+    var rules = [['Id', 'From role', 'From type', 'Link role', 'Link role name', 'To role', 'To type', 'Min per source item', 'Min per target item', 'Severity', 'Documents', 'Line']];
+    var pairs = [['Rule', 'Source document (from role)', 'Target document (to role)']];
+    m.rules.forEach(function (r) {
+      rules.push([r.id, r.from, r.ft, r.role, r.rname, r.to, r.tt, r.fmin, r.tmin, r.sev, r.paired ? 'paired' : 'pooled', r.line]);
+      r.pairs.forEach(function (p) { pairs.push([r.id, p.s, p.t]); });
+    });
     var probs = [['Severity', 'Line', 'Problem']];
     m.probs.forEach(function (p) { probs.push([p.sev, p.line > 0 ? p.line : '', p.msg]); });
     var text = [['Line', 'Text']];
     m.lines.forEach(function (t, i) { text.push([i + 1, t]); });
     var itemUrlAbs = self.item.id ? absUrl(itemUrl(self.item.project, self.item.id, '')) : '';
-    return { roles: roles, types: types, docs: docs, docLinks: docLinks, rules: rules, probs: probs, text: text, itemUrl: itemUrlAbs };
+    return { roles: roles, types: types, docs: docs, docLinks: docLinks, rules: rules, pairs: pairs, probs: probs, text: text, itemUrl: itemUrlAbs };
   };
 
   Widget.prototype.drawTable = function () {
@@ -2379,6 +2556,7 @@
     }
     section('Document roles', r.roles);
     section('Link rules', r.rules);
+    if (r.pairs.length > 1) { section('Document pairs', r.pairs); }
     section('Documents', r.docs, r.docLinks);
     section('Problems', r.probs);
   };
@@ -2388,7 +2566,8 @@
     var sheets = [
       { name: 'Roles', rows: r.roles, widths: [18, 30, 50, 12, 50, 8] },
       { name: 'Item types', rows: r.types, widths: [18, 26, 8, 8, 10] },
-      { name: 'Link rules', rows: r.rules, widths: [10, 18, 24, 18, 22, 18, 24, 12, 12, 10, 8] },
+      { name: 'Link rules', rows: r.rules, widths: [10, 18, 24, 18, 22, 18, 24, 12, 12, 10, 10, 8] },
+      { name: 'Document pairs', rows: r.pairs, widths: [10, 45, 45] },
       { name: 'Documents', rows: r.docs, widths: [18, 40, 18, 18, 30, 8, 40], links: r.docLinks },
       { name: 'Problems', rows: r.probs, widths: [10, 8, 90] },
       { name: 'Model text', rows: r.text, widths: [8, 100] }

@@ -100,7 +100,7 @@
 #set($dmVersion = $dmGv)
 #set($dmHasText = $dmLines.size() > 0)
 #if($dmHasText && $dmStarted)
-  #dmUnknownKeys("" ["version", "name", "description", "model", "bindings", "uses"])
+  #dmUnknownKeys("" ["version", "name", "description", "model", "bindings", "pairs", "uses"])
   #dmKindOf("uses")
   #if($dmKo != "")
     #dmLineOf("uses")
@@ -471,6 +471,140 @@
     #end
   #end
 #end
+## ---------------------------------------------------------------- pairs (paired rules, PO 2026-10-30, dmCheck K15)
+## pairs: { ruleId: [[source document, target document], ...] }. Documents written as in bindings; the source document
+## must be declared for the rule's from role, the target for its to role. A rule without entry stays pooled.
+## Output on each rule map: paired (true/false), pairs (list of [source key, target key, line]).
+## Key of a declared document text $dmPd (forms of bindings) into $dmPk ("" when the form is wrong).
+#macro(dmDocKeyOf $dmPd)
+  #set($dmPk = "")
+  #set($dmPsegs = [])
+  #set($dmPdS = "$dmPd")
+  #foreach($dmS in $dmPdS.trim().split("/"))
+    #set($void = $dmPsegs.add($dmS.trim()))
+  #end
+  #if($dmPsegs.size() == 1 && $dmPsegs.get(0) != "")
+    #set($dmPk = "${dmProjectId}/_default/$dmPsegs.get(0)")
+  #elseif($dmPsegs.size() == 2 && $dmPsegs.get(0) != "" && $dmPsegs.get(1) != "")
+    #set($dmPk = "${dmProjectId}/$dmPsegs.get(0)/$dmPsegs.get(1)")
+  #elseif($dmPsegs.size() == 3 && $dmPsegs.get(0) != "" && $dmPsegs.get(1) != "" && $dmPsegs.get(2) != "")
+    #set($dmPk = "$dmPsegs.get(0)/$dmPsegs.get(1)/$dmPsegs.get(2)")
+  #end
+#end
+## Keys of the declared documents of role $dmRoleK into $dmRkeys.
+#macro(dmRoleDocKeys $dmRoleK)
+  #set($dmRkeys = [])
+  #set($dmRr = false)
+  #set($dmRr = $dmRoleByKey.get($dmRoleK))
+  #if($dmRr)
+    #foreach($dmD2 in $dmRr.get("docs"))
+      #set($void = $dmRkeys.add($dmD2.get("key")))
+    #end
+  #end
+#end
+#set($dmRuleById = $objectFactory.newMap())
+#foreach($dmRu in $dmRules)
+  #set($void = $dmRu.put("paired", false))
+  #set($void = $dmRu.put("pairs", []))
+  #if(!$dmRuleById.containsKey($dmRu.get("id")))
+    #set($void = $dmRuleById.put($dmRu.get("id"), $dmRu))
+  #end
+#end
+#dmKindOf("pairs")
+#if($dmKo == "map")
+  #foreach($dmPr in $dmKeys.get("pairs"))
+    #set($dmPp = "pairs.${dmPr}")
+    #dmLineOf($dmPp)
+    #set($dmPl = $dmLo)
+    #set($dmRu = false)
+    #set($dmRu = $dmRuleById.get($dmPr))
+    #dmKindOf($dmPp)
+    #if(!$dmRu)
+      #set($void = $dmProbs.add(["error", $dmPl, "pairs: $dmPr is not the id of a rule in model.links."]))
+    #elseif($dmKo != "list")
+      #set($void = $dmProbs.add(["error", $dmPl, "pairs.$dmPr must be a list of [source document, target document]."]))
+    #else
+      #set($void = $dmRu.put("paired", true))
+      #set($dmRpairs = $dmRu.get("pairs"))
+      #set($dmFromR = $dmRu.get("from"))
+      #set($dmToR = $dmRu.get("to"))
+      #dmRoleDocKeys($dmFromR)
+      #set($dmFromKeys = $dmRkeys)
+      #dmRoleDocKeys($dmToR)
+      #set($dmToKeys = $dmRkeys)
+      #set($dmNp = $dmCnt.get($dmPp))
+      #set($dmNp = $dmNp - 1)
+      #if($dmNp >= 0)
+        #foreach($dmI in [0..$dmNp])
+          #set($dmPe = "${dmPp}[${dmI}]")
+          #dmLineOf($dmPe)
+          #set($dmPel = $dmLo)
+          #dmKindOf($dmPe)
+          #set($dmPc = 0)
+          #if($dmKo == "list")
+            #set($dmPc = $dmCnt.get($dmPe))
+          #end
+          #if($dmPc != 2)
+            #set($void = $dmProbs.add(["error", $dmPel, "$dmPe must be [source document, target document]."]))
+          #else
+            #set($dmPe0 = "${dmPe}[0]")
+            #set($dmPe1 = "${dmPe}[1]")
+            #dmGet($dmPe0)
+            #set($dmSrcD = $dmGv)
+            #dmGet($dmPe1)
+            #set($dmTgtD = $dmGv)
+            #dmDocKeyOf($dmSrcD)
+            #set($dmSrcK = $dmPk)
+            #dmDocKeyOf($dmTgtD)
+            #set($dmTgtK = $dmPk)
+            #set($dmPok = true)
+            #if($dmSrcK == "" || !$dmFromKeys.contains($dmSrcK))
+              #set($void = $dmProbs.add(["error", $dmPel, "Pair of $dmPr: $dmSrcD is not declared in bindings for role $dmFromR (source of the rule)."]))
+              #set($dmPok = false)
+            #end
+            #if($dmTgtK == "" || !$dmToKeys.contains($dmTgtK))
+              #set($void = $dmProbs.add(["error", $dmPel, "Pair of $dmPr: $dmTgtD is not declared in bindings for role $dmToR (target of the rule)."]))
+              #set($dmPok = false)
+            #end
+            #if($dmPok)
+              #set($dmDupP = false)
+              #foreach($dmP2 in $dmRpairs)
+                #if($dmP2.get(0) == $dmSrcK && $dmP2.get(1) == $dmTgtK)
+                  #set($dmDupP = true)
+                #end
+              #end
+              #if($dmDupP)
+                #set($void = $dmProbs.add(["warning", $dmPel, "Pair [$dmSrcD, $dmTgtD] of $dmPr is listed twice."]))
+              #else
+                #set($void = $dmRpairs.add([$dmSrcK, $dmTgtK, $dmPel]))
+              #end
+            #end
+          #end
+        #end
+      #end
+      ## Declared documents of the two roles that are in no pair of this rule (dmCheck reports them as unpaired).
+      #set($dmInPair = [])
+      #foreach($dmP2 in $dmRpairs)
+        #set($void = $dmInPair.add("s:$dmP2.get(0)"))
+        #set($void = $dmInPair.add("t:$dmP2.get(1)"))
+      #end
+      #foreach($dmK3 in $dmFromKeys)
+        #if(!$dmInPair.contains("s:$dmK3"))
+          #set($void = $dmProbs.add(["warning", $dmPl, "Document $dmK3 (role $dmFromR) is in no pair of rule ${dmPr}: dmCheck will report it as unpaired."]))
+        #end
+      #end
+      #foreach($dmK3 in $dmToKeys)
+        #if(!$dmInPair.contains("t:$dmK3"))
+          #set($void = $dmProbs.add(["warning", $dmPl, "Document $dmK3 (role $dmToR) is in no pair of rule ${dmPr}: dmCheck will report it as unpaired."]))
+        #end
+      #end
+    #end
+  #end
+#elseif($dmKo != "" && $dmKo != "null")
+  #dmLineOf("pairs")
+  #set($void = $dmProbs.add(["error", $dmLo, "pairs must be a block: rule id: [[source document, target document], ...]."]))
+#end
+
 #foreach($dmR in $dmRoles)
   #if(!$dmR.get("bound"))
     #set($dmRk = $dmR.get("key"))

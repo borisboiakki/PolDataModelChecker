@@ -5,7 +5,7 @@
 ## Velocity 1.4 dialect (guide 3.1.9): no map literals, one statement per line, no backslashes in strings.
 ## Model pipeline (docs/ARCHITECTURE.md 3): dm-read.vm (model item -> text lines), dm-yaml.vm (YAML subset -> paths),
 ## dm-model.vm (roles, rules, bindings, validation). Graph edge "to>from": o = target role (left), c = source role.
-#set($bwVersion = "0.1.0")
+#set($bwVersion = "0.2.0")
 ## BW_SHARED style.vm
 <style>
   .dd-head { margin-bottom: 4px; }
@@ -72,6 +72,30 @@
     #set($ddEt = "${ddEt} / ${ddType}")
   #end
 #end
+## Pairs of a rule: "source -> target" texts ($ddPt, static view) and "source|target;" ($ddPd, page model). Documents of the
+## current project are shown as space/name.
+#macro(ddPairs $ddU)
+  #set($ddPt = "")
+  #set($ddPd = "")
+  #set($ddPre = "${dmProjectId}/")
+  #foreach($pp in $ddU.get("pairs"))
+    #set($ddA = $pp.get(0))
+    #set($ddB = $pp.get(1))
+    #if($ddA.startsWith($ddPre))
+      #set($ddA = $ddA.substring($ddPre.length()))
+    #end
+    #if($ddB.startsWith($ddPre))
+      #set($ddB = $ddB.substring($ddPre.length()))
+    #end
+    #if($ddPt != "")
+      #set($ddPt = "${ddPt}; ")
+    #end
+    #set($ddPt = "${ddPt}${ddA} -> ${ddB}")
+    #set($ddA = $ddA.replace("|", " ").replace(";", " "))
+    #set($ddB = $ddB.replace("|", " ").replace(";", " "))
+    #set($ddPd = "${ddPd}${ddA}|${ddB};")
+  #end
+#end
 #set($itemLabel = "")
 #if($dmItem)
   #set($itemLabel = "${dmItemProject}/${dmItemId}")
@@ -107,12 +131,13 @@
 </table>
 <div class="dd-h">Link rules</div>
 <table class="bw-table">
-<tr><th>Id</th><th>From (link source)</th><th>Link role</th><th>To (link target)</th><th>Min links per source item</th><th>Min links per target item</th><th>Severity</th></tr>
+<tr><th>Id</th><th>From (link source)</th><th>Link role</th><th>To (link target)</th><th>Min links per source item</th><th>Min links per target item</th><th>Severity</th><th>Documents</th></tr>
 #foreach($u in $dmRules)
   #ddEnd($u.get("from") $u.get("ft"))
   #set($fromT = $ddEt)
   #ddEnd($u.get("to") $u.get("tt"))
-<tr><td>$esc.html($u.get("id"))</td><td>$esc.html($fromT)</td><td>$esc.html($u.get("rname"))</td><td>$esc.html($ddEt)</td><td>$u.get("fmin")</td><td>$u.get("tmin")</td><td>$u.get("sev")</td></tr>
+  #ddPairs($u)
+<tr><td>$esc.html($u.get("id"))</td><td>$esc.html($fromT)</td><td>$esc.html($u.get("rname"))</td><td>$esc.html($ddEt)</td><td>$u.get("fmin")</td><td>$u.get("tmin")</td><td>$u.get("sev")</td><td>#if($u.get("paired"))paired: $esc.html($ddPt)#else pooled#end</td></tr>
 #end
 </table>
 <div class="bw-muted">Links that match no rule: $dmUnexpLinks.</div>
@@ -166,7 +191,12 @@
 <i class="dm-r" data-k="$esc.html($r.get('key'))" data-title="$esc.html($r.get('title'))" data-line="$r.get('line')" data-unexp="$r.get('unexp')" data-bound="$rd.get(3)" data-types="$esc.html($rd.get(1))" data-docs="$esc.html($rd.get(2))"></i>
 #end
 #foreach($u in $dmRules)
-<i class="dm-l" data-id="$esc.html($u.get('id'))" data-from="$esc.html($u.get('from'))" data-ft="$esc.html($u.get('ft'))" data-role="$esc.html($u.get('role'))" data-rn="$esc.html($u.get('rname'))" data-to="$esc.html($u.get('to'))" data-tt="$esc.html($u.get('tt'))" data-fmin="$u.get('fmin')" data-tmin="$u.get('tmin')" data-sev="$u.get('sev')" data-line="$u.get('line')"></i>
+  #ddPairs($u)
+  #set($pf = "0")
+  #if($u.get("paired"))
+    #set($pf = "1")
+  #end
+<i class="dm-l" data-paired="$pf" data-pairs="$esc.html($ddPd)" data-id="$esc.html($u.get('id'))" data-from="$esc.html($u.get('from'))" data-ft="$esc.html($u.get('ft'))" data-role="$esc.html($u.get('role'))" data-rn="$esc.html($u.get('rname'))" data-to="$esc.html($u.get('to'))" data-tt="$esc.html($u.get('tt'))" data-fmin="$u.get('fmin')" data-tmin="$u.get('tmin')" data-sev="$u.get('sev')" data-line="$u.get('line')"></i>
 #end
 #foreach($p in $dmProbs)
 <i class="dm-p" data-sev="$p.get(0)" data-line="$p.get(1)" data-msg="$esc.html($p.get(2))"></i>

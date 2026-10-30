@@ -73,7 +73,7 @@ bindings:
   SubsystemReq: ["Specs/Subsystem A Requirements"]
 ```
 
-### 2.1 Several documents per role: pooled or paired (planned; PO 2026-10-30)
+### 2.1 Several documents per role: pooled or paired (PO 2026-10-30)
 
 A role can hold several documents (e.g. two solution specifications, several test specifications). For each link rule
 the documents are either:
@@ -97,11 +97,13 @@ pairs:                         # local, like bindings; one entry per paired rule
 ```
 
 Documents are written as in `bindings` (`name`, `space/name` or `project/space/name`) and must be declared there under
-the rule's roles. `pairs` is local to the checked project (not part of the reusable `model`). Status: format decided,
-**not implemented yet**: dmCheck 0.1.0 will evaluate it, dmDefine 0.2 will validate and show it (dmDefine 0.1.0 reports
-`pairs` as an unknown key and ignores it). Examples of the use cases: `docs/MODELING_GUIDE.md`.
+the rule's roles. `pairs` is local to the checked project (not part of the reusable `model`). A document name must not
+contain a comma (the entries of `[ ]` are separated by commas). Status: **dmDefine 0.2.0 validates and shows it**
+(the rule id exists; each entry has two documents; the source document is declared for the rule's `from` role and the
+target for its `to` role; duplicates; documents in no pair are listed as warnings, since dmCheck will report them as
+unpaired). dmCheck will evaluate it (planned, 0.1.0). dmDefine 0.1.0 ignored `pairs` with a warning. Examples of the use cases: `docs/MODELING_GUIDE.md`.
 
-### Keys, defaults and validation (dmDefine 0.1.0)
+### Keys, defaults and validation (dmDefine 0.2.0)
 
 | Path | Value | Default | Checked |
 |---|---|---|---|
@@ -119,7 +121,7 @@ the rule's roles. `pairs` is local to the checked project (not part of the reusa
 | `model.unexpected_links` | `error`, `warning`, `info`, `ignore` | `ignore` | value |
 | `bindings.<Role>` | document or list of documents: `name` (default space), `space/name`, `project/space/name` | — | role defined; document exists; declared once; a role without document: warning |
 | `uses` | — | — | not supported in 0.1.0 (error) |
-| `pairs.<rule id>[]` | `[source document, target document]` | rule pooled | planned (§2.1); 0.1.0: unknown key (warning) |
+| `pairs.<rule id>[]` | `[source document, target document]` | rule pooled | rule id exists; source declared for the `from` role, target for the `to` role; duplicates (warning); documents of the two roles in no pair (warning) (§2.1, dmDefine 0.2.0) |
 
 Unknown keys are warnings (ignored). Problems carry the line of the model text.
 

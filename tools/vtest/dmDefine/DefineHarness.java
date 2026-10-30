@@ -15,7 +15,28 @@ import java.util.regex.*;
 public class DefineHarness {
 
     static final String P = "DMTEST";
-    static DmMocks.Module modelDoc, errorsDoc, syntaxDoc, emptyDoc;
+    static DmMocks.Module modelDoc, errorsDoc, syntaxDoc, emptyDoc, pairedDoc, pairErrDoc;
+
+    /** Use case 3 of docs/MODELING_GUIDE.md: pooled satisfies, paired verifies. */
+    static final String[] PAIRED_MODEL = {
+        "version: 1", "name: Solutions with their own STD", "model:", "  roles:", "    CustomerSpec:", "      items:",
+        "        - { type: systemRequirement, min: 1 }", "    SolutionSpec:", "      items:", "        - { type: subsystemRequirement, min: 1 }",
+        "    SolutionSTD:", "      items:", "        - { type: testCase, min: 1 }", "  links:", "    - id: L1",
+        "      from: { role: SolutionSpec, type: subsystemRequirement }", "      link_role: satisfies",
+        "      to: { role: CustomerSpec, type: systemRequirement }", "      from_min: 1", "      to_min: 1", "    - id: L2",
+        "      from: { role: SolutionSTD, type: testCase }", "      link_role: verifies", "      to: { role: SolutionSpec, type: subsystemRequirement }",
+        "      from_min: 1", "      to_min: 1", "bindings:", "  CustomerSpec: [\"Specs/System Specification\"]",
+        "  SolutionSpec: [\"Specs/Solution Spec A\", \"Specs/Solution Spec B\"]", "  SolutionSTD: [\"Tests/STD A\", \"Tests/STD B\"]",
+        "pairs:", "  L2:", "    - [\"Tests/STD A\", \"Specs/Solution Spec A\"]", "    - [\"Tests/STD B\", \"Specs/Solution Spec B\"]" };
+
+    /** Mistakes in pairs: duplicate, reversed pair, incomplete pair, unknown rule, unpaired documents. */
+    static final String[] PAIR_ERRORS_MODEL = {
+        "version: 1", "model:", "  roles:", "    Spec:", "      items:", "        - { type: systemRequirement }", "    Test:",
+        "      items:", "        - { type: testCase }", "  links:", "    - id: V1", "      from: { role: Test, type: testCase }",
+        "      link_role: verifies", "      to: { role: Spec, type: systemRequirement }", "      to_min: 1", "bindings:",
+        "  Spec: [\"Specs/Solution Spec A\", \"Specs/Solution Spec B\"]", "  Test: [\"Tests/STD A\", \"Tests/STD B\"]", "pairs:", "  V1:",
+        "    - [\"Tests/STD A\", \"Specs/Solution Spec A\"]", "    - [\"Tests/STD A\", \"Specs/Solution Spec A\"]",
+        "    - [\"Specs/Solution Spec B\", \"Tests/STD B\"]", "    - [\"Tests/STD A\"]", "  V9:", "    - [a, b]" };
     static int SAMPLE_LINES, SPEC_LINE;
 
     static final String[] ERRORS_MODEL = {
@@ -46,6 +67,11 @@ public class DefineHarness {
         errorsDoc = new DmMocks.Module(P, "Model", "Errors Model", "Errors Model");
         syntaxDoc = new DmMocks.Module(P, "Model", "Syntax Model", "Syntax Model");
         emptyDoc = new DmMocks.Module(P, "Model", "Empty", "Empty");
+        pairedDoc = new DmMocks.Module(P, "Model", "Paired Model", "Paired Model");
+        pairErrDoc = new DmMocks.Module(P, "Model", "Pair Errors", "Pair Errors");
+        DmMocks.MODULES.addAll(Arrays.asList(pairedDoc, pairErrDoc,
+            new DmMocks.Module(P, "Specs", "Solution Spec A", "Solution Spec A"), new DmMocks.Module(P, "Specs", "Solution Spec B", "Solution Spec B"),
+            new DmMocks.Module(P, "Tests", "STD A", "STD A"), new DmMocks.Module(P, "Tests", "STD B", "STD B")));
         DmMocks.MODULES.addAll(Arrays.asList(modelDoc, errorsDoc, syntaxDoc, emptyDoc,
             new DmMocks.Module(P, "Specs", "System Specification", "System Specification"),
             new DmMocks.Module(P, "Specs", "Subsystem A Requirements", "Subsystem A Requirements"),
@@ -60,6 +86,8 @@ public class DefineHarness {
         DmMocks.ITEMS.add(new DmMocks.WorkItem(errorsDoc, P, "DM-20", "text", "Errors", DmMocks.asStoredHtml(Arrays.asList(ERRORS_MODEL))));
         DmMocks.ITEMS.add(new DmMocks.WorkItem(syntaxDoc, P, "DM-30", "text", "Syntax", DmMocks.asStoredHtml(Arrays.asList(SYNTAX_MODEL))));
         DmMocks.ITEMS.add(new DmMocks.WorkItem(emptyDoc, P, "DM-40", "heading", "Nothing", ""));
+        DmMocks.ITEMS.add(new DmMocks.WorkItem(pairedDoc, P, "DM-50", "text", "Paired", DmMocks.asStoredHtml(Arrays.asList(PAIRED_MODEL))));
+        DmMocks.ITEMS.add(new DmMocks.WorkItem(pairErrDoc, P, "DM-60", "text", "Pair errors", DmMocks.asStoredHtml(Arrays.asList(PAIR_ERRORS_MODEL))));
     }
 
     static Map<String, DmMocks.Param> params(DmMocks.Module doc, String itemId) {
@@ -133,6 +161,26 @@ public class DefineHarness {
         DmMocks.check(h.contains("<td>L1</td><td>SubsystemReq / subsystemRequirement</td><td>satisfies</td><td>SystemSpec / systemRequirement</td><td>1</td><td>1</td><td>error</td>"), "PDF: rules table");
         h = run(dir, out, "pdf-errors", params(errorsDoc, ""), true);
         DmMocks.check(h.contains("<td class=\"dd-sev-error\">error</td><td>8</td>") && h.contains("(not found)"), "PDF errors: problems table, document not found");
+
+        h = run(dir, out, "paired", params(pairedDoc, ""), false);
+        DmMocks.check(count(h, "<i class=\"dm-p\"") == 0, "paired: valid pairs, no problem");
+        DmMocks.check(h.contains("data-paired=\"1\" data-pairs=\"Tests/STD A|Specs/Solution Spec A;Tests/STD B|Specs/Solution Spec B;\" data-id=\"L2\""), "paired: pairs of L2 in the page model");
+        DmMocks.check(h.contains("data-paired=\"0\" data-pairs=\"\" data-id=\"L1\""), "paired: L1 stays pooled");
+        h = run(dir, out, "pdf-paired", params(pairedDoc, ""), true);
+        DmMocks.check(h.contains("<td>paired: Tests/STD A -&gt; Specs/Solution Spec A; Tests/STD B -&gt; Specs/Solution Spec B</td>") && h.contains("<td> pooled</td>"), "PDF paired: documents column");
+
+        h = run(dir, out, "pair-errors", params(pairErrDoc, ""), false);
+        String[] pairExpected = {
+            "data-sev=\"warning\" data-line=\"22\" data-msg=\"Pair [Tests/STD A, Specs/Solution Spec A] of V1 is listed twice.\"",
+            "data-line=\"23\" data-msg=\"Pair of V1: Specs/Solution Spec B is not declared in bindings for role Test (source of the rule).\"",
+            "data-line=\"23\" data-msg=\"Pair of V1: Tests/STD B is not declared in bindings for role Spec (target of the rule).\"",
+            "data-line=\"24\" data-msg=\"pairs.V1[3] must be [source document, target document].\"",
+            "data-line=\"25\" data-msg=\"pairs: V9 is not the id of a rule in model.links.\"",
+            "Document DMTEST/Tests/STD B (role Test) is in no pair of rule V1: dmCheck will report it as unpaired.",
+            "Document DMTEST/Specs/Solution Spec B (role Spec) is in no pair of rule V1: dmCheck will report it as unpaired."
+        };
+        for (String e : pairExpected) { DmMocks.check(h.contains(e), "pair errors: " + e); }
+        DmMocks.check(count(h, "<i class=\"dm-p\"") == pairExpected.length, "pair errors: no other problem");
 
         h = run(dir, out, "nodoc", params(null, ""), false);
         DmMocks.check(h.contains("select the model document") && !h.contains("<script"), "no document: hint, no script");

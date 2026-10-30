@@ -78,6 +78,9 @@ every referenced object. Velocity 1.4-safe. No customer data in the repository.
 
 ## 8. Increments
 
+PO 2026-10-30: dmCheck is started after dmDefine is completed.
+
+
 1. **0.1.0** Spike T1/T2/T4, then bindings, the three v1 checks, table, Excel, graph, static PDF view.
 2. **0.2.0** Drill-down queries, cross-project documents.
 3. **0.3.0** Collection context; later: orphans, wrong document, field rules.

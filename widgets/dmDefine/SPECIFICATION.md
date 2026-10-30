@@ -1,7 +1,7 @@
 # Specification — Data model definition widget (dmDefine)
 
 **Status:** v0.2, 2026-10-30. Spike dmSpike runs 1–2 done on 2512 (`tests/dmSpike-v0.1.x/spike-tests.md`). Widget
-**0.1.0 implemented** (`widgets/dmDefine/src`: D1–D7, D11), tested with Velocity 1.4 on mocks and in Chromium; open checks
+**0.1.0 implemented** (`widgets/dmDefine/src`: D1–D7, D11, D13), **0.2.0** adds the pairs (D14); tested with Velocity 1.4 on mocks and in Chromium; open checks
 on the instance in §9. Items marked `[?]` are open or need verification on a Polarion instance.
 
 ## 1. Goal
@@ -40,7 +40,7 @@ The model is stored in Polarion (SPEC §6) and read by **dmCheck** (`widgets/dmC
 | D10 | **REST write-back**: "Save to Polarion" updates the description of the model item from the browser; hidden when the REST API is unreachable | Could | 3 (after spike S4) |
 | D11 | Show the revision of the model LiveDoc / item used; link to open the model item for editing | Should (done: item revision from `getLastRevision()`) | 1 |
 | D12 | Cross-project documents in bindings (`project/space/document`) | Should (form accepted by 0.1.0, not verified on 2512) | 2 |
-| D14 | **Pairs** (`pairs:` section, dmCheck K15): validate it (the rule id exists; each pair is `[source document, target document]`; the source document is declared for the rule's `from` role and the target for its `to` role) and show it (rule details, table, Excel). Until then dmDefine 0.1.0 reports `pairs` as an unknown key (warning) and ignores it | Should | 2 |
+| D14 | **Pairs** (`pairs:` section, dmCheck K15): validate it (the rule id exists; each pair is `[source document, target document]`; the source document is declared for the rule's `from` role and the target for its `to` role) and show it (rule details, table, Excel). Documents of the two roles in no pair: warning | Should (done, 0.2.0) | 2 |
 | D13 | **Model text** view with line numbers (problem lines marked, a click on a problem shows its line) and **Copy YAML** (copies the text, e.g. to reuse the model in another project) | Should (done) | 1 |
 
 ## 4. Non-functional requirements
@@ -100,12 +100,16 @@ Decided by the PO (2026-10-30):
 
 ## 8. Increments
 
-1. **0.1.0** read + validate + show: parameters, YAML read (spike S1–S3), validation, graph + table + bindings. No editing.
-   Reuse by copying/branching the model LiveDoc.
-2. **0.2.0** `uses:` reference, starter generator and in-widget editor with copy/paste output.
-3. **0.3.0** REST write-back (if S4 is positive), cross-project bindings.
+PO 2026-10-30: dmDefine is completed before dmCheck is started.
 
-## 9. Open checks for 0.1.0 on 2512
+1. **0.1.0** (done) read + validate + show: parameters, YAML read (spike S1–S3), validation, graph + table + documents,
+   model text, Copy YAML. Reuse by copying/branching the model LiveDoc.
+2. **0.2.0** (done) pairs (D14).
+3. Next increments (order to confirm with the PO): `uses:` reference (§3.4 of the architecture, S8 verified) and
+   cross-project documents (D12, S5 run 3); starter generator (D8, spike S7); in-widget editor with Copy (D9);
+   REST write-back (D10, checks of spike S4 listed in `tests/dmSpike-v0.1.x/spike-tests.md`).
+
+## 9. Open checks for 0.1.0 / 0.2.0 on 2512
 
 Only verifiable on the instance (the harness uses mocks):
 
@@ -118,3 +122,5 @@ d. A model with mistakes (unknown type or link role, missing document, wrong ind
    right lines.
 e. PDF export: problems, roles and rules tables.
 f. Optional: a binding to a document of another project (`project/space/name`).
+g. 0.2.0: use case 3 of `docs/MODELING_GUIDE.md` (names adapted) shows no problem, the pairs in the details, table and
+   Excel; a reversed pair and a document in no pair are reported.

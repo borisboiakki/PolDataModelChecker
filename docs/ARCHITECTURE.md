@@ -68,7 +68,7 @@ Shared snippets, inlined at build time (`## BW_SHARED <file>`), variables prefix
 |---|---|
 | `shared/vm/dm-read.vm` | Parameters `doc`, `itemTypes`, `itemId`; finds the model item; description HTML → `$dmLines` (§3.2, §3.3) |
 | `shared/vm/dm-yaml.vm` | YAML subset parser → path maps `$dmKind`, `$dmVal`, `$dmKeys`, `$dmCnt`, `$dmLine` (§3.3) |
-| `shared/vm/dm-model.vm` | Project configuration, schema and configuration validation, roles/rules, binding resolution (§3.5, §3.6) |
+| `shared/vm/dm-model.vm` | Project configuration, schema and configuration validation, roles/rules, binding resolution, pairs (§3.5, §3.6) |
 | existing `style.vm` | Reused (root classes `dd-root`, `dc-root` added) |
 
 `uses:` (§3.4) is not implemented yet: dmDefine 0.1.0 reports it as an error.
@@ -209,7 +209,7 @@ values escaped with `$esc.html`, separators replaced inside values, caps with wa
 |---|---|---|
 | root `dd-root` | `data-project`, `data-version`, `data-height`, `data-item` (model item id), `data-item-project`, `data-rev` (`getLastRevision()`), `data-doc` (model document key), `data-name`, `data-unexp` (unexpected links severity) | dmDefine |
 | `dm-r` (role) | `data-k` (role key), `data-title`, `data-line`, `data-unexp` (other types), `data-bound` (1/0), `data-types` (`type|min|max|ignored;…`, -1 = none), `data-docs` (`declared|project|space|name|found|title;…`) | dmDefine (dmCheck: same) |
-| `dm-l` (link rule) | `data-id`, `data-from`, `data-ft`, `data-role`, `data-rn` (role name), `data-to`, `data-tt`, `data-fmin`, `data-tmin`, `data-sev`, `data-line` | dmDefine (dmCheck: same) |
+| `dm-l` (link rule) | `data-paired` (1/0), `data-pairs` (`source|target;…`, current project's documents as `space/name`), `data-id`, `data-from`, `data-ft`, `data-role`, `data-rn` (role name), `data-to`, `data-tt`, `data-fmin`, `data-tmin`, `data-sev`, `data-line` | dmDefine (dmCheck: same) |
 | `dm-p` (problem) | `data-sev`, `data-line` (0 = not tied to a line), `data-msg` | dmDefine (dmCheck: same) |
 | `dm-y` | `data-t`: one element per line of the model text | dmDefine |
 | `dm-c` (rule result) | `data-id` (rule id or `types:<role>`), `data-kind`, `data-n` (checked), `data-ok`, `data-vn` (full count), `data-v` (`id|docKey|type|msg;…` capped), `data-q` (drill-down query) | dmCheck (planned) |
@@ -291,7 +291,8 @@ T1) there.
 
 | Version | dmDefine | dmCheck |
 |---|---|---|
-| 0.1.0 | **Built**: pipeline §3 (without `uses:`), graph, table, documents, problems, exports, PDF | — (spike T1–T3 on the dummy model) |
+| 0.1.0 | **Built**: pipeline §3 (without `uses:`), graph, table, documents, problems, exports, PDF | — |
+| 0.2.0 | **Built**: `pairs` validated and shown (rule details, table, Excel sheet, PDF column) | — (started after dmDefine is completed, PO) |
 | 0.2.0 | `uses:` reference, starter generator, editor + Copy | 0.1.0: three v1 checks, report, Excel, coloured graph, PDF |
 | 0.3.0 | REST save (if S4 positive), cross-project bindings | drill-down, cross-project documents |
 | later | — | collection context, orphans, wrong document, field rules |

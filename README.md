@@ -4,7 +4,7 @@ Siemens Polarion **LiveReport widgets** to formalize the **data model** of a pro
 
 | Widget | Purpose | Status | Docs |
 |---|---|---|---|
-| <img src="docs/dmDefine/icon.svg" width="32" alt=""> **dmDefine** — Data Model Definition | A key user / project admin formalizes the main documents (roles), the work item types each must contain and the links between them (e.g. V-cycle: `satisfies`). Shows the model as a graph and tables, validates it against the project configuration, lists the problems with their line | **0.1.0** (built and tested on mocks; to validate on 2512) | [install](docs/dmDefine/install.md) · [specification](widgets/dmDefine/SPECIFICATION.md) |
+| <img src="docs/dmDefine/icon.svg" width="32" alt=""> **dmDefine** — Data Model Definition | A key user / project admin formalizes the main documents (roles), the work item types each must contain and the links between them (e.g. V-cycle: `satisfies`). Shows the model as a graph and tables, validates it against the project configuration, lists the problems with their line | **0.2.0** (built and tested on mocks; 0.2.0 = document pairs; to validate on 2512) | [install](docs/dmDefine/install.md) · [specification](widgets/dmDefine/SPECIFICATION.md) |
 | **dmCheck** — Data Model Check | Checks the real documents, items and links against the model: required links, unexpected links, required item types. Report as table and Excel, graph coloured by compliance, drill-down queries | Specification draft | [specification](widgets/dmCheck/SPECIFICATION.md) |
 
 ![dmDefine preview rendered from the sample model (mock data)](docs/dmDefine/preview-graph.png)
@@ -31,7 +31,8 @@ This repository was started from [polarion_branches_copies_widget](https://githu
 2. Preliminary architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (**draft, to be revised after the spikes**).
 3. Spikes with diagnostic widgets in `tests/`: **dmSpike** ([run sheet](tests/dmSpike-v0.1.x/spike-tests.md)) for the
    model item, the YAML parser in Velocity, bindings, configuration and REST (**done on 2512: model reading, parser, configuration and REST GET/PATCH confirmed**); SQL of the checks later.
-4. **dmDefine 0.1.0** (read, validate, show): built; next dmCheck spike (SQL of the checks) and dmCheck 0.1.0.
+4. **dmDefine**: 0.1.0 (read, validate, show) and 0.2.0 (document pairs) built; the next dmDefine increments are listed
+   in its specification (§8). dmCheck (spike on the SQL of the checks, then 0.1.0) starts after dmDefine is completed.
 
 ## Repository contents
 
