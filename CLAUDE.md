@@ -91,10 +91,23 @@ Do not present unverified items as fact in code comments or docs. 2612 is **not 
   (608 x 405) at the package root.
 - Unresolvable references: see golden rules.
 
-NOT verified for this project (to settle by spikes, see the specifications): how the **description** of a work item
-(HTML rich text) is read from Velocity and what its markup looks like for a YAML block; whether a YAML parser can be
-embedded (Velocity side or JS side); whether the REST API can be called from the widget with the user's session (auth,
-CSRF, permissions) on 2512/2612; document type / custom field based document binding.
+**Verified by dmSpike run 1 on 2512** (`tests/dmSpike-v0.1.x/spike-tests.md` §4):
+- A YAML block pasted as plain text into a `text` work item is stored as one `<span style=…>` per line separated by
+  `<br/>` (empty line = span holding a `<br/>`), indentation as spaces and U+00A0 characters (no `&nbsp;` entity), `"` as
+  `&quot;`, no newline. Read it with Open API `getDescription().getContent()` (`getType()` = `text/html`); Rendering API
+  `fields().description().get()` is not the HTML.
+- `$esc.b` / `$esc.backslash` = backslash, `$esc.h` / `$esc.hash` = `#`: regexes needing a backslash are built at run time
+  (`"${bs}r?${bs}n"`, `"${bs}u00A0"`). The Velocity YAML subset parser of the spike parsed the stored model (48 lines,
+  0 problems, ≈ 4 ms).
+- `@document` single select → `getModelObject().items().contained()` (document order) → `getOldApi()`; single-select
+  `workitem-type` parameter: `singleValue()` → option, `id()` = type id. `getRevision()` is empty for HEAD items and
+  modules: use `getLastRevision()`.
+- `getTrackerProject(p).getWorkItemTypeEnum().getAllOptions()` lists the types (id, name). `$trackerService.getWorkItem(p, id)`
+  reads a work item of another project.
+- REST from a widget: `top.getRestApiToken()` exists on the PO's instance; GET with header `X-Polarion-REST-Token` → 200;
+  without the token → 401 (session cookie not enough). PATCH not verified yet (spike bug, re-run pending).
+
+NOT verified for this project: REST PATCH of the description from a widget (format, revision); 2612 for everything.
 
 ## Repository layout
 

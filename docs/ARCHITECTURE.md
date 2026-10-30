@@ -79,25 +79,26 @@ Shared snippets, inlined at build time (`## BW_SHARED <file>`), each with its ow
 | Parameter | Kind | Notes |
 |---|---|---|
 | Model document | `@document` single select | Current project only (verified limitation, guide §2.1) |
-| Model item type | `workitem-type` selector, default `text` | Single value [S2: is `.value("text")` accepted on a single select? Otherwise multi with `values(["text"])`, verified] |
+| Model item type | `workitem-type` selector, default `text` | Multi with `values(["text"])` (verified preselection). A single select works too (S2) but its default value form is not verified |
 | Model item id | text, optional | `ID`: picks one item when the document holds several items of the type |
 | Static view details | boolean | PDF: full lists or summary only |
 
 dmCheck adds: severities shown by default, list cap per rule (default 500), excluded item types (existing shared
 selector, default `heading`, see dmCheck spec Q1).
 
-### 3.2 Locating and reading the model item [S1, S2]
+### 3.2 Locating and reading the model item (S1, S2 verified on 2512)
 
 1. Document from the `@document` option: `getModelObject()`, `isUnresolvable()` check. Its items in document order:
    `items().contained()` (guide §2.1).
-2. Candidates = items of the model item type. If an id is given, take that one. Otherwise take the first whose text
-   starts with `model:` or `uses:`. None or several → a problem is reported and nothing is checked.
-3. The description is read as HTML [S1: Rendering API `fields().description()` vs. Open API
-   `getDescription().getContent()`; how the rich text editor stores a pasted YAML block: paragraphs, `<br>`, `<pre>`,
-   `&nbsp;`, entities, leading spaces].
-4. The item's id, project, revision and a link to open it go to the page model (D11) [S2: revision accessor].
+2. Candidates = items of the model item type. If an id is given, take that one. Otherwise take the first with a line
+   that starts with `version:`, `model:` or `uses:` (S2: the text may start with comment lines). None or several → a problem is reported and nothing is checked.
+3. The description is read with Open API `getDescription().getContent()` (verified S1: a plain paste is stored as one
+   `<span>` per line separated by `<br/>`, indentation as spaces and U+00A0, `&quot;`; the Rendering API `get()` is not the
+   HTML).
+4. The item's id, project, revision (`getLastRevision()`; `getRevision()` is empty on HEAD, S2) and a link to open it go
+   to the page model (D11).
 
-### 3.3 YAML subset parser in Velocity 1.4 [S3]
+### 3.3 YAML subset parser in Velocity 1.4 (S3 verified on 2512)
 
 The model uses a **YAML subset**, documented in `DATA_MODEL_FORMAT.md` and valid YAML, so external tools can read it:
 block maps and lists indented with spaces, plain/single/double-quoted scalars, one-level flow lists `[a, b]` and flow
@@ -108,7 +109,7 @@ Design:
 - **HTML → lines**: replace the block ends (`</p>`, `<br>`, `</div>`, `</li>`) with a line marker, remove the other
   tags, decode the entities (`&nbsp;` → space, `&amp; &lt; &gt; &quot; &#39;`), and split on the marker. Inside `<pre>`, split
   on the newline character. Velocity 1.4 forbids backslashes in string literals, so regexes that need one are built at
-  run time from `$esc.b`, and the comment sign from `$esc.h` [S3: both EscapeTool getters on the instance].
+  run time from `$esc.b` (verified S3; `"#"` works as a literal, `$esc.h` also exists).
 - **Start of the model**: lines before the first top-level model key (`version:`, `name:`, `model:`, `uses:`,
   `bindings:` at column 0) are skipped and counted, so a title or explanation above the YAML (or above a code block)
   is allowed.
@@ -155,7 +156,7 @@ Reuse mechanisms, in order of increments:
 | Syntax | subset grammar, indentation, duplicate keys | parser |
 | Schema | known keys (unknown = warning), value types, severities, `model:` version | `dm-model.vm` |
 | References | roles used by rules exist, rule ids unique | `dm-model.vm` |
-| Configuration | item types and link roles exist in the checked project (`getWorkItemLinkRoleEnum()` verified; types: [S6]) | `dm-model.vm` |
+| Configuration | item types and link roles exist in the checked project (`getWorkItemTypeEnum()` and `getWorkItemLinkRoleEnum()`, verified S6) | `dm-model.vm` |
 | Bindings | every declared document resolves; a document declared in two roles is a warning | `dm-bind.vm` |
 
 dmCheck runs the checks only when there is no **error**. Warnings are shown and the checks still run.
@@ -215,7 +216,9 @@ export. Widget code:
   problems panel with line numbers next to the model text; Excel sheets Roles, Types, Rules, Bindings, Problems.
   From 0.2: starter generator (data from Velocity: item types per declared document and observed link roles), editor
   forms on the structured model, YAML serializer and **Copy** button. From 0.3: **Save to Polarion** through REST, shown
-  only after a successful probe call (token available, endpoint reachable, permission), with copy/paste as fallback.
+  only after a successful probe (S4: `top.getRestApiToken` is a function and a GET of the model item with header
+  `X-Polarion-REST-Token` returns 200; without the token 401), with copy/paste as fallback. The written HTML follows the
+  storage seen in S1 (one line per `<br/>`, leading spaces kept as U+00A0 / `&nbsp;`) [PATCH to verify, run 2].
 - **dmCheck `graph.js`**: same graph, coloured by compliance (green = all compliant, orange = warnings only, red =
   errors; counts on edges and nodes); a click lists the violations; a report table filtered by severity, rule and
   document; Excel sheets Summary, Item types, Required links, Unexpected links, Model.
@@ -260,7 +263,8 @@ spike after dmDefine 0.1.0.
 | S8 | Read a work item of another project (`getWorkItem`), at a given revision | §3.4 |
 | T1–T3 | Correlated sub-select / `NOT EXISTS` in `sqlSearch`, binding queries, drill-down Lucene | §4 |
 
-All spikes run on 2512 first. **2612 compatibility is unverified** until the PO repeats the key spikes (S1, S3, S4,
+**Run 1 on 2512 (2026-10-30)**: S1, S2, S3, S5 (default space), S6, S8 confirmed; S4 GET confirmed, PATCH pending
+(spike bug fixed). Details: `tests/dmSpike-v0.1.x/spike-tests.md` §4. All spikes run on 2512 first. **2612 compatibility is unverified** until the PO repeats the key spikes (S1, S3, S4,
 T1) there.
 
 ## 10. Increments

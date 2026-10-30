@@ -154,8 +154,12 @@
   #set($docFolder = "$docMod.getModuleFolder()")
   #set($docName = "$docMod.getId()")
   #set($tmp = "")
+  ## Run 1 on 2512: getRevision() empty on the HEAD module and work item; getLastRevision() gives the revision.
   #set($tmp = $docMod.getRevision())
   #set($docRev = "$tmp")
+  #set($tmp = "")
+  #set($tmp = $docMod.getLastRevision())
+  #set($docRev = "${docRev} / last ${tmp}")
 #end
 ## Items in document order through the Rendering API (guide 2.1), and the same items through SQL (type filter).
 #set($rItems = [])
@@ -232,10 +236,12 @@
         #set($tmp = $dObj.getContent())
         #set($dTxt = "$tmp")
       #end
-      #set($dPlain = $dTxt.replaceAll("<[^>]*>", " ").replaceAll("&nbsp;", " ").trim())
-      #if($dPlain.startsWith("version:") || $dPlain.startsWith("model:") || $dPlain.startsWith("uses:") || $dPlain.startsWith("name:"))
+      ## Run 1 on 2512: the model text may start with comment lines, so look for a line that starts with a model key.
+      #set($dPlain = $dTxt.replaceAll("(?i)<br[^>]*>", "@NL@").replaceAll("(?i)</(p|div|li|pre)>", "@NL@").replaceAll("<[^>]*>", ""))
+      #set($dPlain = "@NL@${dPlain}")
+      #if($dPlain.contains("@NL@version:") || $dPlain.contains("@NL@model:") || $dPlain.contains("@NL@uses:"))
         #set($modelItem = $oi)
-        #set($modelHow = "first item of the type whose text starts with version:, model:, uses: or name:")
+        #set($modelHow = "first item of the type with a line that starts with version:, model: or uses:")
       #end
     #end
   #end
@@ -881,10 +887,12 @@
     #set($rDesc = "$tmp")
   #end
   #set($rDescShown = $rDesc)
+  #set($rRev = "")
+  #set($rRev = $rwi.getLastRevision())
   #if($rDescShown.length() > 300)
     #set($rDescShown = $rDescShown.substring(0, 300))
   #end
-<tr><th>Item</th><td>$esc.html($rwi.getId()) &middot; type $esc.html($rwi.getType().getId()) &middot; $esc.html($rwi.getTitle()) &middot; revision $esc.html($rwi.getRevision())</td></tr>
+<tr><th>Item</th><td>$esc.html($rwi.getId()) &middot; type $esc.html($rwi.getType().getId()) &middot; $esc.html($rwi.getTitle()) &middot; last revision $esc.html($rRev)</td></tr>
 <tr><th>Description</th><td>$rDesc.length() characters<pre>$esc.html($rDescShown)</pre></td></tr>
 #end
 </table>
@@ -911,19 +919,21 @@
   function token() {
     try { return (top.getRestApiToken && top.getRestApiToken()) || null; } catch (e) { return 'error: ' + e; }
   }
-  function url() {
-    return '/polarion/rest/v1/projects/' + encodeURIComponent(project) + '/workitems/' + encodeURIComponent(id) + '?fields[workitems]=title,description';
+  // Run 1 on 2512: PATCH refused the fields[workitems] query parameter (HTTP 400): only GET carries it.
+  function url(method) {
+    var u = '/polarion/rest/v1/projects/' + encodeURIComponent(project) + '/workitems/' + encodeURIComponent(id);
+    return method === 'GET' ? u + '?fields[workitems]=title,description' : u;
   }
   function call(method, withToken, body) {
     var h = { 'Accept': 'application/json' };
     if (withToken) { h['X-Polarion-REST-Token'] = token(); }
     if (body) { h['Content-Type'] = 'application/json'; }
     var t0 = Date.now();
-    return fetch(url(), { method: method, headers: h, credentials: 'same-origin', body: body ? JSON.stringify(body) : undefined })
+    return fetch(url(method), { method: method, headers: h, credentials: 'same-origin', body: body ? JSON.stringify(body) : undefined })
       .then(function (r) {
         return r.text().then(function (txt) {
           log(method + (withToken ? ' (token)' : ' (no token)') + ': HTTP ' + r.status + ' in ' + (Date.now() - t0) + ' ms');
-          log(txt.substring(0, 1500));
+          log(txt ? txt.substring(0, 1500) : '(empty body)');
           return { status: r.status, text: txt };
         });
       })

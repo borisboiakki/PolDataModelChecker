@@ -45,7 +45,8 @@ public class DmSpikeHarness {
         public String getModuleFolder() { return folder; }
         public String getId() { return name; }
         public String getTitle() { return title; }
-        public String getRevision() { return "4711"; }
+        public String getRevision() { return null; }        // empty on 2512 (run 1) for a HEAD module
+        public String getLastRevision() { return "4711"; }
     }
 
     public static class WorkItem {
@@ -62,7 +63,7 @@ public class DmSpikeHarness {
         public Opt getType() { return new Opt(type, type); }
         public String getTitle() { return title; }
         public Text getDescription() { return desc; }
-        public String getRevision() { return "4712"; }
+        public String getRevision() { return null; }        // empty on 2512 (run 1) for a HEAD work item
         public String getLastRevision() { return "4712"; }
     }
 
@@ -211,6 +212,22 @@ public class DmSpikeHarness {
         return b.toString();
     }
 
+    /** Form observed on 2512 (run 1, plain paste): one styled span per line, br separators, an empty line as a span
+     *  holding a br, quotes as &quot;, indentation partly as no-break space characters (100 in the 48-line model). */
+    static String asSpans() {
+        StringBuilder b = new StringBuilder();
+        String open = "<span style=\"font-size: 10pt;line-height: 1.5;\">";
+        for (String l : SAMPLE) {
+            int i = 0;
+            while (i < l.length() && l.charAt(i) == ' ') { i++; }
+            StringBuilder ind = new StringBuilder();
+            for (int k = 0; k < i; k++) { ind.append(k % 2 == 0 ? ' ' : '\u00a0'); }
+            String body = l.substring(i).replace("&", "&amp;").replace("<", "&lt;").replace("\"", "&quot;");
+            b.append(open).append(ind).append(body.isEmpty() ? "<br/>" : body).append("</span><br/>");
+        }
+        return b.toString();
+    }
+
     /** Code-block guess: one pre with newlines and no-break space characters for two of the indents. */
     static String asPre() {
         StringBuilder b = new StringBuilder("<p>Data model</p><pre>");
@@ -218,14 +235,17 @@ public class DmSpikeHarness {
         return b.append("</pre>").toString();
     }
 
-    static Module modelDoc, preDoc;
+    static Module modelDoc, preDoc, spanDoc;
 
     static void buildTestSet() {
         modelDoc = new Module("DMTEST", "Model", "Data Model");
         MODULES.add(modelDoc);
         ITEMS.add(new WorkItem(modelDoc, "DMTEST", "DM-1", "heading", "Data model", ""));
         ITEMS.add(new WorkItem(modelDoc, "DMTEST", "DM-2", "text", "Introduction", "<p>This document holds the data model.</p>"));
-        ITEMS.add(new WorkItem(modelDoc, "DMTEST", "DM-3", "text", "Model", asParagraphs()));
+        ITEMS.add(new WorkItem(modelDoc, "DMTEST", "DM-3", "text", "Model", "<span># Comment line first, as in run 1 on 2512</span><br/>" + asParagraphs()));
+        spanDoc = new Module("DMTEST", "Model", "Data Model Spans");
+        MODULES.add(spanDoc);
+        ITEMS.add(new WorkItem(spanDoc, "DMTEST", "DM-30", "text", "Model", asSpans()));
         preDoc = new Module("DMTEST", "Model", "Data Model Pre");
         MODULES.add(preDoc);
         ITEMS.add(new WorkItem(preDoc, "DMTEST", "DM-10", "text", "Model", asPre()));
@@ -305,7 +325,10 @@ public class DmSpikeHarness {
         new File(out).mkdirs();
 
         String h = render(dir, out, "all-paragraphs", params("all", modelDoc, "item", "Specs/System Specification, Test Spec, Missing, SYSENG/Specs/Sub Spec", "SYSENG/SE-12"), false, new Esc());
-        check(h.contains("DM-3 (first item of the type whose text starts with"), "S2: model item found after a text item without model keys");
+        check(h.contains("DM-3 (first item of the type with a line that starts with"), "S2: model item found after a text item without model keys, despite a leading comment");
+        check(h.contains("revision  / last 4711"), "S2: document revision from getLastRevision()");
+        check(h.contains("last revision 4712"), "S8: revision of the other project's item from getLastRevision()");
+        check(h.contains("method === 'GET' ? u + '?fields[workitems]"), "S4: query parameter only on GET");
         check(h.contains("SQL (same document, types)</th><td>2 items"), "S2: SQL finds the two text items");
         check(h.contains("&lt;p&gt;version: 1&lt;/p&gt;"), "S1: raw HTML shown escaped");
         checkModel(h, "S3 paragraphs");
@@ -314,6 +337,9 @@ public class DmSpikeHarness {
         check(h.contains("<td>systemRequirement</td><td>System Requirement</td>"), "S6: types listed");
         check(h.contains("SYSENG/SE-12 read"), "S8: work item of another project read");
         check(h.contains("<script>") && h.contains("X-Polarion-REST-Token"), "S4: REST probe script in the browser view");
+
+        h = render(dir, out, "yaml-spans", params("yaml", spanDoc, "item", "", ""), false, new Esc());
+        checkModel(h, "S3 2512 form (spans, br, no-break space characters)");
 
         h = render(dir, out, "yaml-pre", params("yaml", preDoc, "item", "", ""), false, new Esc());
         checkModel(h, "S3 pre block (newlines, no-break spaces)");
