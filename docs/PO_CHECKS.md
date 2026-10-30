@@ -5,7 +5,7 @@ Polarion instance**. Run the checks in this order when you have time; for each o
 screenshots or PDF exports: the repository is public). Findings are then recorded in the specification and in
 `tests/dmSpike-v0.1.x/spike-tests.md`.
 
-Last update: 2026-10-30 (open: dmCheck 0.2.0 checks 3.7–3.12; severity per side: 2.19, 2.20, 3.13 done, 2.21 and 3.14 open), dmDefine 0.5.0, dmCheck 0.1.0, dmSpike S7 and S10; §1 done; §1–§4 done (dmDefine 0.5.0 and dmCheck 0.1.0 verified, decisions agreed); §5 later.
+Last update: 2026-10-30 (open: dmCheck 0.2.0 checks 3.7–3.12; severity per side: 2.21 and 3.14 open; starter generator: 2.22–2.25), dmDefine 0.5.0, dmCheck 0.1.0, dmSpike S7 and S10; §1 done; §1–§4 done (dmDefine 0.5.0 and dmCheck 0.1.0 verified, decisions agreed); §5 later.
 
 ## 1. Spike widget dmSpike (upload `tests/dmSpike-v0.1.x/spike-widget/dmSpike.zip`)
 
@@ -45,6 +45,10 @@ Use a model with the names of your project (start from `test-data/vcycle-model.y
 | 2.19 | ✅ **Done 2026-10-30** (as expected). **dmDefine 0.6.0** (upload the new zip): in the test model (`test-data/vcycle-check/model.yaml`), add `from_severity: info` under rule L1 (after `to_min: 1`) | no problem; L1 tooltip, details and *Table*: "sources: info, targets: error"; *Excel* sheet Link rules: columns *Severity of sources* = info, *of targets* = error; PDF rules table: "error (sources: info, targets: error)" | 0.6.0 |
 | 2.20 | ✅ **Done 2026-10-30** (as expected). *Edit model*: rule L1 shows *Severity of source items without link* = info, *of target items not covered* = as the rule; change it to warning, *Generate YAML* | the YAML has `from_severity: warning`; pasted back (or *Save to Polarion*) it reads with no problem | 0.6.0 |
 | 2.21 | A wrong value, e.g. `to_severity: fatal` | an error on that line: "… must be error, warning or info" | 0.6.0 |
+| 2.22 | **dmDefine 0.7.0** (upload the new zip) on a page with no model (no model document selected, or an empty model document): *Edit model* → *Propose a model from the project…* | the project's documents that hold items, with their types, all ticked except the model document; the page renders in a normal time on your largest project | 0.7.0 |
+| 2.23 | Untick the documents that are not part of the data model, *Propose* | one role per ticked document (its types, `min: 1`, heading ignored); one rule per link role found between them (e.g. `satisfies`, `verifies`), minimums 0; no problem listed under the forms | 0.7.0 |
+| 2.24 | Correct the proposal (e.g. move two solution specifications into one role, set `from_min` / `to_min`), *Generate YAML*, paste into a new Text item (or *Save to Polarion* after creating the item), *Reload page* | the model is shown with no problem | 0.7.0 |
+| 2.25 | A page with a model: *Edit model* | no *Propose* button (offered on an empty model only) | 0.7.0 |
 
 ## 3. dmCheck (upload `widgets/dmCheck/dist/dmCheck.zip`)
 

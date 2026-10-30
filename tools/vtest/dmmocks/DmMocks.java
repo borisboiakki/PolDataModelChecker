@@ -145,6 +145,33 @@ public class DmMocks {
                 }
                 return out;
             }
+            // dmDefine starter generator (S7 variant B): one representative item per document and type ...
+            if (sql.startsWith("SELECT w.c_uri FROM workitem w WHERE w.c_uri IN (SELECT MIN(w.c_uri) FROM workitem w")) {
+                String proj = sql.substring(sql.indexOf("p.c_id = '") + 10, sql.indexOf("'", sql.indexOf("p.c_id = '") + 10));
+                Map<String, WorkItem> rep = new LinkedHashMap<String, WorkItem>();
+                for (WorkItem w : ITEMS) {
+                    if (w.module == null || !w.module.project.equals(proj)) { continue; }
+                    String k = w.module.folder + "/" + w.module.name + "|" + w.type;
+                    if (!rep.containsKey(k) || rep.get(k).id.compareTo(w.id) > 0) { rep.put(k, w); }
+                }
+                out.addAll(rep.values());
+                return out;
+            }
+            // ... and one representative link source per source document, target document, link role, source and target type.
+            if (sql.startsWith("SELECT ws.c_uri FROM workitem ws WHERE ws.c_uri IN (SELECT MIN(ws.c_uri) FROM struct_workitem_linkedworkitems l")) {
+                String proj = sql.substring(sql.indexOf("p.c_id = '") + 10, sql.indexOf("'", sql.indexOf("p.c_id = '") + 10));
+                Map<String, WorkItem> rep = new LinkedHashMap<String, WorkItem>();
+                for (WorkItem w : ITEMS) {
+                    if (w.module == null || !w.module.project.equals(proj)) { continue; }
+                    for (Link l : w.links) {
+                        if (l.target.module == null) { continue; }
+                        String k = w.module.name + "|" + l.target.module.name + "|" + l.role.id + "|" + w.type + "|" + l.target.type;
+                        if (!rep.containsKey(k) || rep.get(k).id.compareTo(w.id) > 0) { rep.put(k, w); }
+                    }
+                }
+                for (WorkItem w : rep.values()) { if (!out.contains(w)) { out.add(w); } }
+                return out;
+            }
             if (sql.startsWith("SELECT m.c_uri FROM module m INNER JOIN project p ON p.c_uri = m.fk_uri_project WHERE ")) {
                 for (Module m : MODULES) {
                     String cond = "(p.c_id = '" + m.project.replace("'", "''") + "' AND m.c_modulefolder = '" + m.folder.replace("'", "''")

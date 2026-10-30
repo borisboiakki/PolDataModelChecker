@@ -210,6 +210,29 @@ async function clickNode(p, key) {
   const yamlN = await p.$eval('.dd-ta', t => t.value);
   expect(yamlN === 'version: 1' + String.fromCharCode(10) + 'uses: "SYSENG/SE-12"' + String.fromCharCode(10), 'editor without model: start by reusing a model (uses)');
 
+  // ---------------------------------------------------------------- starter generator (D8): propose a model from the project
+  await p.goto('file://' + dir + '/nodoc.html');
+  await p.waitForTimeout(300);
+  await p.click('button:has-text("Edit model")');
+  await p.click('button:has-text("Propose a model from the project")');
+  const sdocs = await p.$$eval('.dd-starter-doc', ls => ls.map(l => l.textContent));
+  console.log('starter documents:', sdocs.length);
+  expect(sdocs.some(t => t.indexOf('Specs/System Specification (heading, systemRequirement)') === 0) && sdocs.some(t => t.indexOf('Tests/System Tests (testCase)') === 0),
+    'starter: documents with their work item types, all ticked');
+  // Keep the V-cycle documents only (untick the model documents).
+  await p.evaluate(() => document.querySelectorAll('.dd-starter-doc input').forEach(c => { c.checked = c.dataset.d.indexOf('Model/') !== 0; }));
+  await p.click('.dd-starter button:has-text("Propose")');
+  await p.waitForTimeout(100);
+  const sroles = await p.$$eval('.dd-ed-forms input[placeholder="e.g. SystemSpec"]', is => is.map(i => i.value));
+  console.log('starter roles:', JSON.stringify(sroles));
+  expect(JSON.stringify(sroles) === JSON.stringify(['Subsystem_A_Requirements', 'System_Specification', 'System_Tests']), 'starter: one role per ticked document');
+  await p.click('button:has-text("Generate YAML")');
+  const yamlS = await p.$eval('.dd-ta', t => t.value);
+  fs.writeFileSync(dir + '/roundtrip-starter.yaml', yamlS);
+  expect(yamlS.indexOf('link_role: satisfies') > 0 && yamlS.indexOf('link_role: verifies') > 0 && yamlS.indexOf('link_role: parent') > 0 &&
+    yamlS.indexOf('{ type: heading, ignored: true }') > 0 && yamlS.indexOf('{ type: systemRequirement, min: 1 }') > 0 && yamlS.indexOf('from_min') < 0 &&
+    yamlS.indexOf('  System_Specification: ["Specs/System Specification"]') > 0, 'starter: rules per link combination (heading links left out), headings ignored, min 1, bindings');
+
   // ---------------------------------------------------------------- PDF view (static, no script)
   await p.goto('file://' + dir + '/pdf.html');
   await p.screenshot({ path: dir + '/shot-pdf.png', fullPage: true });

@@ -35,7 +35,7 @@ The model is stored in Polarion (SPEC §6) and read by **dmCheck** (`widgets/dmC
 | D5 | **Table** of the model: documents, types, link rules; bound real documents per role | Must (done) | 1 |
 | D6 | **Bindings view**: for each role, the real documents it resolves to (or "not found") | Must (done) | 1 |
 | D7 | Excel and SVG export of the model; PDF/print static view | Should (done) | 1 |
-| D8 | **Starter generator**: propose a model skeleton from the real data (documents, item types per document, observed link roles between documents, as in docCoverage), to be corrected by the user and pasted into the model item | Should | 2 |
+| D8 | **Starter generator** (done, 0.7.0; decision 11): *Edit model* on an empty model offers *Propose a model from the project*: the documents of the project that hold items, with their types, all ticked except the model document; *Propose* fills the forms with one role per ticked document (key from the document name, its types with `min: 1`, `heading` with `ignored: true`) and one rule per link combination found between the ticked documents (source role and type, link role, target role and type; minimums 0; combinations with a heading left out). The user corrects it in the forms, then *Generate YAML* / *Save to Polarion* as usual. Data: S7 variant B queries, read only when there is no model text | Should | 0.7.0 |
 | D9 | **In-widget editor** producing the YAML text to copy into the model item (details and decisions: §7.8, PO 2026-10-30): a **form editor** (general settings, roles with their item types, link rules, documents per role, pairs) whose lists come from the project configuration and the project's documents, and a **YAML text editor**; *Copy* and *Download* of the generated YAML; start from an empty model when the project has none | Should (done, 0.3.0) | 0.3.0 |
 | D10 | **REST write-back**: *Save to Polarion* in the editor's YAML text tab writes the text into the description of the model work item (PATCH, verified call of dmSpike S4); shown only when the session REST token exists and a GET of the model item answers 200; re-reads the item before saving (warning when it changed since the page was loaded), confirms, reads it back after saving; explains 401/403/404/409; a widget parameter switches it off; copy and paste always available. Only an existing model item (a new model is pasted into a new Text item first) | Could (done, 0.5.0) | 0.5.0 |
 | D11 | Show the revision of the model LiveDoc / item used; link to open the model item for editing | Should (done: item revision from `getLastRevision()`) | 1 |
@@ -132,6 +132,11 @@ Decided by the PO (2026-10-30):
    keep `severity`; dmCheck colours a line with the worst severity found; dmDefine shows both severities in the tooltip
    and the details. Done before the starter generator. Format stays version 1 (optional keys).
 
+11. **Starter generator (D8)**, PO 2026-10-30, proposals accepted: in *Edit model* on an empty model only (not on an
+   existing model); documents picked in a list (all ticked by default); one role per document, `min: 1` per type found
+   (counts are not available with the fast query: S7); rules with minimums 0, set by the user; headings recognised by
+   the type id `heading` (ignored, and their links left out); no grouping of documents into roles and no pairs guessed.
+
 ## 8. Increments
 
 PO 2026-10-30: dmDefine is completed before dmCheck is started.
@@ -142,10 +147,9 @@ PO 2026-10-30: dmDefine is completed before dmCheck is started.
 3. **0.3.0** (done; PO 2026-10-30: item 2 of the list first) in-widget editor with Copy (D9); spike S9 done on 2512 (run 3).
 4. **0.4.0** (done) `uses:` reference (D15, S8 verified) and documents of other projects (D12).
 5. **0.5.0** (done) *Save to Polarion* through the REST API (D10); checks on 2512 in `docs/PO_CHECKS.md` 2.14–2.18.
-6. Next increment: starter generator (spike S7 prepared: `tests/dmSpike-v0.1.x/spike-tests.md` run 4, PO_CHECKS 1.3)
-   (D8, spike S7).
-7. **0.6.0** (done) severity per side (D17).
-8. Next: starter generator (D8). Later: exploded view of the graph (D16).
+6. **0.6.0** (done) severity per side (D17).
+7. **0.7.0** (done) starter generator (D8, spike S7 run 4); checks on 2512: `docs/PO_CHECKS.md` 2.22–2.25.
+8. Next: exploded view of the graph (D16).
 
 ## 9. Open checks on 2512
 

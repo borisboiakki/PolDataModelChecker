@@ -80,11 +80,25 @@ public class DefineHarness {
         DmMocks.MODULES.addAll(Arrays.asList(pairedDoc, pairErrDoc,
             new DmMocks.Module(P, "Specs", "Solution Spec A", "Solution Spec A"), new DmMocks.Module(P, "Specs", "Solution Spec B", "Solution Spec B"),
             new DmMocks.Module(P, "Tests", "STD A", "STD A"), new DmMocks.Module(P, "Tests", "STD B", "STD B")));
-        DmMocks.MODULES.addAll(Arrays.asList(modelDoc, errorsDoc, syntaxDoc, emptyDoc,
-            new DmMocks.Module(P, "Specs", "System Specification", "System Specification"),
-            new DmMocks.Module(P, "Specs", "Subsystem A Requirements", "Subsystem A Requirements"),
-            new DmMocks.Module(P, "Specs", "Subsystem B Requirements", "Subsystem B Requirements"),
-            new DmMocks.Module(P, "Tests", "System Tests", "System Tests")));
+        DmMocks.Module sysSpec = new DmMocks.Module(P, "Specs", "System Specification", "System Specification");
+        DmMocks.Module subA = new DmMocks.Module(P, "Specs", "Subsystem A Requirements", "Subsystem A Requirements");
+        DmMocks.Module sysTests = new DmMocks.Module(P, "Tests", "System Tests", "System Tests");
+        DmMocks.MODULES.addAll(Arrays.asList(modelDoc, errorsDoc, syntaxDoc, emptyDoc, sysSpec, subA,
+            new DmMocks.Module(P, "Specs", "Subsystem B Requirements", "Subsystem B Requirements"), sysTests));
+        // Items and links for the starter generator (D8): a small V-cycle; expected proposal in the browser check.
+        DmMocks.WorkItem sys1 = new DmMocks.WorkItem(sysSpec, P, "SYS-1", "systemRequirement", "System req 1", "");
+        DmMocks.WorkItem sys2 = new DmMocks.WorkItem(sysSpec, P, "SYS-2", "systemRequirement", "System req 2", "");
+        DmMocks.WorkItem sysH = new DmMocks.WorkItem(sysSpec, P, "SYS-0", "heading", "Chapter", "");
+        DmMocks.WorkItem sub1 = new DmMocks.WorkItem(subA, P, "SUB-1", "subsystemRequirement", "Sub req 1", "");
+        DmMocks.WorkItem sub2 = new DmMocks.WorkItem(subA, P, "SUB-2", "subsystemRequirement", "Sub req 2", "");
+        DmMocks.WorkItem tst1 = new DmMocks.WorkItem(sysTests, P, "TST-1", "testCase", "Test 1", "");
+        DmMocks.WorkItem tst2 = new DmMocks.WorkItem(sysTests, P, "TST-2", "testCase", "Test 2", "");
+        sub1.link("satisfies", sys1);
+        sub2.link("satisfies", sys2).link("parent", sub1);
+        tst1.link("verifies", sys1);
+        tst2.link("verifies", sys2);
+        sysH.link("parent", sys1);
+        DmMocks.ITEMS.addAll(Arrays.asList(sys1, sys2, sysH, sub1, sub2, tst1, tst2));
         List<String> sample = Files.readAllLines(new File(root, "test-data/vcycle-model.yaml").toPath(), StandardCharsets.UTF_8);
         SAMPLE_LINES = sample.size();
         SPEC_LINE = sample.indexOf("    SystemSpec:") + 1;
@@ -178,12 +192,24 @@ public class DefineHarness {
         DmMocks.check(modelOf(h).equals(modelOf(o)), "round trip " + name + ": same roles, rules and pairs as the original model");
     }
 
+    /** The model proposed by the starter generator (browser check) reads with no problem and has its roles and rules. */
+    static void starterReadBack(String dir, String out, String yamlFile) throws Exception {
+        List<String> lines = Files.readAllLines(new File(yamlFile).toPath(), StandardCharsets.UTF_8);
+        DmMocks.Module doc = new DmMocks.Module(P, "Model", "Starter", "Starter");
+        DmMocks.MODULES.add(doc);
+        DmMocks.ITEMS.add(new DmMocks.WorkItem(doc, P, "RT-starter", "text", "Starter", DmMocks.asStoredHtml(lines)));
+        String h = run(dir, out, "roundtrip-starter", params(doc, ""), false);
+        DmMocks.check(count(h, "<i class=\"dm-p\"") == 0, "starter: the proposed model reads with no problem");
+        DmMocks.check(count(h, "<i class=\"dm-r\"") == 3 && count(h, "<i class=\"dm-l\"") == 3, "starter: 3 roles, 3 rules");
+    }
+
     public static void main(String[] args) throws Exception {
         if (args[0].equals("--roundtrip")) {
             buildTestSet(args[3]);
             roundTrip(args[1], args[2], "sample", args[2] + "/roundtrip.yaml", "browser");
             roundTrip(args[1], args[2], "paired", args[2] + "/roundtrip-paired.yaml", "paired");
             roundTrip(args[1], args[2], "uses", args[2] + "/roundtrip-uses.yaml", "uses");
+            starterReadBack(args[1], args[2], args[2] + "/roundtrip-starter.yaml");
             restRoundTrip(args[1], args[2]);
             System.out.println("dmDefine round trip: all checks passed");
             return;
@@ -292,6 +318,11 @@ public class DefineHarness {
 
         h = run(dir, out, "nodoc", params(null, ""), false);
         DmMocks.check(h.contains("No model document is selected") && h.contains("<script") && h.contains("data-text=\"0\""), "no document: interactive view (editor available), info problem");
+        DmMocks.check(h.contains("<i class=\"dm-sd\" data-d=\"Specs/System Specification\" data-t=\"heading\"></i>") && h.contains("<i class=\"dm-sd\" data-d=\"Specs/System Specification\" data-t=\"systemRequirement\"></i>")
+            && h.contains("<i class=\"dm-sl\" data-s=\"Specs/Subsystem A Requirements\" data-st=\"subsystemRequirement\" data-r=\"satisfies\" data-t=\"Specs/System Specification\" data-tt=\"systemRequirement\"></i>")
+            && h.contains("data-r=\"parent\" data-t=\"Specs/Subsystem A Requirements\"") && count(h, "<i class=\"dm-sl\"") == 4, "starter data: types per document, 4 link combinations");
+        h = run(dir, out, "browser-nostarter", params(modelDoc, ""), false);
+        DmMocks.check(!h.contains("<i class=\"dm-sd\"") && !h.contains("<i class=\"dm-sl\""), "starter data: not read when a model exists");
         h = run(dir, out, "empty", params(emptyDoc, ""), false);
         DmMocks.check(h.contains("The model document has no work item of type [text]"), "empty document: problem reported");
         h = run(dir, out, "badid", params(null, "NOPE-1"), false);

@@ -52,6 +52,10 @@ The widget reads the first item of the type with a line starting with `version:`
   The lines above `version:` and the `description` fields are kept; comments inside the model are not (the editor says
   so). A model with errors opens in the *YAML text* tab only. With no model item yet, the forms start empty: paste the
   generated text into a new `text` work item of the model document.
+- **Propose a model from the project** (0.7.0): on an empty model, *Edit model* offers to start from the project's data:
+  untick the documents that are not part of the data model, then *Propose*. The forms are filled with one role per
+  document (its work item types, `min: 1`; headings ignored) and one rule per link role found between the documents
+  (minimums 0). Then correct it: group documents into one role, set the minimums and severities, add pairs.
 - **Save to Polarion** (0.5.0): in the *YAML text* tab, when the REST API can be used from the page (session REST
   token, read access to the model item), *Save to Polarion* writes the text into the model work item directly (it asks
   first, warns when the item changed since the page was loaded, and reads it back); then *Reload page*. When it is not

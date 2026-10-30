@@ -295,6 +295,17 @@
       self.docs.push({ id: id, label: id + (d.t && d.t !== d.n ? ' ' + DASH + ' ' + d.t : '') });
     });
     [this.types, this.linkRoles, this.docs].forEach(function (l) { l.sort(function (a, b) { return a.id.localeCompare(b.id); }); });
+    // Starter generator data (D8): written by the server only when there is no model text.
+    this.starter = { types: {}, links: [] };
+    Array.prototype.forEach.call(root.querySelectorAll('.bw-model .dm-sd'), function (e) {
+      var d = e.dataset;
+      (self.starter.types[d.d] = self.starter.types[d.d] || []).push(d.t);
+    });
+    Array.prototype.forEach.call(root.querySelectorAll('.bw-model .dm-sl'), function (e) {
+      var d = e.dataset;
+      self.starter.links.push({ s: d.s, st: d.st, r: d.r, t: d.t, tt: d.tt });
+    });
+    this.starterOpen = false;
     this.hasText = ds.text === '1';
     this.formsOk = !this.hasText || toInt(ds.errors) === 0;
     var info = edTextInfo(w.model.lines, w.model.probs);
@@ -473,6 +484,102 @@
     if (M.bindings[oldKey]) { M.bindings[newKey] = M.bindings[oldKey]; delete M.bindings[oldKey]; }
   };
 
+  // ------------------------------------------------------------------ starter generator (D8, dmDefine 0.7.0)
+  // Proposes a model from the project: one role per selected document (its types, min 1; headings ignored), one rule per
+  // link combination found between the selected documents (minimums 0: the rule only allows the links). The user then
+  // corrects it in the forms (group documents into one role, minimums, severities, pairs).
+  var ED_IGNORED_TYPES = ['heading'];
+
+  function edRoleKey(name) {
+    var k = '';
+    for (var i = 0; i < name.length; i++) {
+      var c = name.charAt(i);
+      k += ED_KEY_CHARS.indexOf(c) >= 0 ? c : '_';
+    }
+    while (k.indexOf('__') >= 0) { k = k.split('__').join('_'); }
+    if (k.charAt(0) === '_') { k = k.substring(1); }
+    if (k.charAt(k.length - 1) === '_') { k = k.substring(0, k.length - 1); }
+    return k || 'Doc';
+  }
+
+  Editor.prototype.starterForm = function (parent) {
+    var self = this;
+    var row = el('div', { 'class': 'dd-row' }, parent);
+    this.w.button(row, 'Propose a model from the project' + ELLIPSIS, 'Start from the documents, work item types and links found in this project', function () {
+      self.starterOpen = !self.starterOpen;
+      self.renderForms();
+    });
+    if (!this.starterOpen) { return; }
+    var st = this.starter;
+    var box = el('div', { 'class': 'dd-card dd-starter' }, parent);
+    el('div', { 'class': 'bw-muted' }, box, 'Documents of the project that hold work items. Untick those that are not part of the data model, then Propose: ' +
+      'one role per document (its work item types, min 1; headings ignored) and one rule per link role found between the ticked documents ' +
+      '(minimums 0: set them, and the severities, in the forms).');
+    var ids = Object.keys(st.types).sort(function (a, b) { return a.localeCompare(b); });
+    // The model document itself (data-doc = project/space/name) is not preselected.
+    var md = (this.w.root.dataset.doc || '').split('/');
+    var modelDoc = md.length > 2 ? (md[1] === '_default' ? md.slice(2).join('/') : md.slice(1).join('/')) : '';
+    var checks = [];
+    var list = el('div', { 'class': 'dd-starter-list' }, box);
+    ids.forEach(function (id) {
+      var lb = el('label', { 'class': 'dd-starter-doc' }, list);
+      var cb = el('input', { type: 'checkbox' }, lb);
+      cb.checked = id !== modelDoc;
+      cb.dataset.d = id;
+      checks.push(cb);
+      el('span', null, lb, id + ' ');
+      el('span', { 'class': 'bw-muted' }, lb, '(' + st.types[id].slice().sort().join(', ') + ')');
+    });
+    var r2 = el('div', { 'class': 'dd-row' }, box);
+    this.w.button(r2, 'All', 'Tick all documents', function () { checks.forEach(function (c) { c.checked = true; }); });
+    this.w.button(r2, 'None', 'Untick all documents', function () { checks.forEach(function (c) { c.checked = false; }); });
+    this.w.button(r2, 'Propose', 'Fill the forms with the proposed model', function () {
+      var sel = checks.filter(function (c) { return c.checked; }).map(function (c) { return c.dataset.d; });
+      if (!sel.length) { return; }
+      self.propose(sel);
+      self.starterOpen = false;
+      self.renderForms();
+    });
+  };
+
+  Editor.prototype.propose = function (sel) {
+    var M = this.M;
+    var st = this.starter;
+    var titles = {};
+    this.docs.forEach(function (d) { titles[d.id] = d.label; });
+    var roleOf = {};
+    var used = {};
+    sel.forEach(function (d) {
+      var base = edRoleKey(d.substring(d.lastIndexOf('/') + 1));
+      var k = base;
+      for (var n = 2; used[k]; n++) { k = base + '_' + n; }
+      used[k] = true;
+      roleOf[d] = k;
+      var label = titles[d] || d;
+      var dash = label.indexOf(' ' + DASH + ' ');
+      M.roles.push({
+        key: k, title: dash > 0 ? label.substring(dash + 3) : d.substring(d.lastIndexOf('/') + 1), description: '', unexp: '',
+        items: st.types[d].slice().sort().map(function (t) {
+          var ign = ED_IGNORED_TYPES.indexOf(t) >= 0;
+          return { type: t, min: ign ? '' : '1', max: '', ignored: ign, description: '' };
+        })
+      });
+      M.bindings[k] = [d];
+    });
+    var seen = {};
+    var n = 0;
+    st.links.forEach(function (c) {
+      if (!roleOf[c.s] || !roleOf[c.t] || ED_IGNORED_TYPES.indexOf(c.st) >= 0 || ED_IGNORED_TYPES.indexOf(c.tt) >= 0) { return; }
+      var key = [roleOf[c.s], c.st, c.r, roleOf[c.t], c.tt].join('|');
+      if (seen[key]) { return; }
+      seen[key] = true;
+      n++;
+      M.links.push({ id: 'L' + n, fromRole: roleOf[c.s], fromType: c.st, linkRole: c.r, toRole: roleOf[c.t], toType: c.tt,
+        fmin: '', tmin: '', sev: '', fsev: '', tsev: '', description: '' });
+    });
+    if (!M.name) { M.name = 'Model proposed from ' + this.project; }
+  };
+
   Editor.prototype.renderForms = function () {
     var self = this;
     var M = this.M;
@@ -495,6 +602,7 @@
       this.input(row, M.uses, 'project/id of a model work item (optional)', function (v) { M.uses = v; changed(); }, 260, function () { rerender(); });
       el('span', { 'class': 'bw-muted' }, row, M.uses ? 'The roles and rules are edited in that work item; here: documents and pairs.' : 'Empty: the model is written here.');
     }
+    if (!this.hasText && !M.uses && !M.roles.length && Object.keys(this.starter.types).length) { this.starterForm(g); }
     if (!M.uses) {
       row = el('div', { 'class': 'dd-row' }, g);
       this.label(row, 'Links that match no rule');

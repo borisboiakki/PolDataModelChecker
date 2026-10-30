@@ -30,6 +30,8 @@
   .dd-ed-note { margin: 4px 0; }
   .dd-sec { margin: 6px 0 10px 0; }
   .dd-card { border: 1px solid rgb(215,220,230); background: rgb(255,255,255); padding: 4px 6px; margin: 4px 0; }
+  .dd-starter-list { max-height: 260px; overflow-y: auto; margin: 4px 0; }
+  .dd-starter-doc { display: block; padding: 1px 0; }
   .dd-row { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; margin: 3px 0; }
   .dd-lab { color: rgb(90,98,115); }
   .dd-in { font-size: 12px; padding: 2px 4px; border: 1px solid rgb(170,178,195); border-radius: 3px; }
@@ -278,6 +280,72 @@
     #set($pdT = "")
     #set($pdT = $pm.getTitle())
 <i class="dm-pd" data-s="$esc.html($pm.getModuleFolder())" data-n="$esc.html($pm.getId())" data-t="$esc.html($pdT)"></i>
+  #end
+#end
+## Starter generator data (D8, dmDefine 0.7.0), only when there is no model text: the item types of each document of the
+## project and the link combinations between them (source document and type, link role, target document and type).
+## Form verified on 2512 by dmSpike S7 (variant B, nested IN (SELECT MIN(c_uri) ... GROUP BY ...): same types and
+## combinations as the full scan, 80 ms for 151 documents): one representative item per group, whose links are read.
+## Document key as in the editor's picker: name for the default space, else space/name; current project only.
+#if($hasText == "0")
+  #set($stDs = $trackerService.getDataService())
+  #set($stBase = "FROM workitem w INNER JOIN module m ON m.c_uri = w.fk_uri_module INNER JOIN project p ON p.c_uri = m.fk_uri_project WHERE p.c_id = '${pdQ}'")
+  #set($stItems = $stDs.sqlSearch("SELECT w.c_uri FROM workitem w WHERE w.c_uri IN (SELECT MIN(w.c_uri) ${stBase} GROUP BY w.fk_uri_module, w.c_type)"))
+  #set($stDone = $objectFactory.newMap())
+  #foreach($sw in $stItems)
+    #if(!$sw.isUnresolvable())
+      #set($stM = false)
+      #set($stM = $sw.getModule())
+      #if($stM && !$stM.isUnresolvable() && "$stM.getProjectId()" == $dmProjectId)
+        #set($stD = "$stM.getId()")
+        #if("$stM.getModuleFolder()" != "_default")
+          #set($stD = "$stM.getModuleFolder()/$stM.getId()")
+        #end
+        #set($stT = "$sw.getType().getId()")
+        #set($stK = "${stD}|${stT}")
+        #if(!$stDone.containsKey($stK))
+          #set($void = $stDone.put($stK, true))
+<i class="dm-sd" data-d="$esc.html($stD)" data-t="$esc.html($stT)"></i>
+        #end
+      #end
+    #end
+  #end
+  #set($stLBase = "FROM struct_workitem_linkedworkitems l INNER JOIN workitem ws ON ws.c_uri = l.fk_uri_p_workitem INNER JOIN workitem wt ON wt.c_uri = l.fk_uri_workitem INNER JOIN module ms ON ms.c_uri = ws.fk_uri_module INNER JOIN project p ON p.c_uri = ms.fk_uri_project WHERE p.c_id = '${pdQ}' AND wt.fk_uri_module IS NOT NULL")
+  #set($stSrc = $stDs.sqlSearch("SELECT ws.c_uri FROM workitem ws WHERE ws.c_uri IN (SELECT MIN(ws.c_uri) ${stLBase} GROUP BY ws.fk_uri_module, wt.fk_uri_module, l.c_role, ws.c_type, wt.c_type)"))
+  #set($stCombos = $objectFactory.newMap())
+  #foreach($sw in $stSrc)
+    #set($stM = false)
+    #if(!$sw.isUnresolvable())
+      #set($stM = $sw.getModule())
+    #end
+    #if($stM && !$stM.isUnresolvable() && "$stM.getProjectId()" == $dmProjectId)
+      #set($stS = "$stM.getId()")
+      #if("$stM.getModuleFolder()" != "_default")
+        #set($stS = "$stM.getModuleFolder()/$stM.getId()")
+      #end
+      #set($stST = "$sw.getType().getId()")
+      #foreach($stL in $sw.getLinkedWorkItemsStructsDirect())
+        #set($stW = false)
+        #set($stW = $stL.getLinkedItem())
+        #set($stTM = false)
+        #if($stW && !$stW.isUnresolvable())
+          #set($stTM = $stW.getModule())
+        #end
+        #if($stTM && !$stTM.isUnresolvable() && "$stTM.getProjectId()" == $dmProjectId)
+          #set($stTD = "$stTM.getId()")
+          #if("$stTM.getModuleFolder()" != "_default")
+            #set($stTD = "$stTM.getModuleFolder()/$stTM.getId()")
+          #end
+          #set($stR = "$stL.getLinkRole().getId()")
+          #set($stTT = "$stW.getType().getId()")
+          #set($stK = "${stS}|${stST}|${stR}|${stTD}|${stTT}")
+          #if(!$stCombos.containsKey($stK))
+            #set($void = $stCombos.put($stK, true))
+<i class="dm-sl" data-s="$esc.html($stS)" data-st="$esc.html($stST)" data-r="$esc.html($stR)" data-t="$esc.html($stTD)" data-tt="$esc.html($stTT)"></i>
+          #end
+        #end
+      #end
+    #end
   #end
 #end
 </div>

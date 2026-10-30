@@ -10,9 +10,10 @@ documents) and **check the real data against it**. Typical case: the V-cycle (sy
 requirements linked with `satisfies` → tests linked with `verifies`). Two widgets, built iteratively:
 
 - **dmDefine** (`widgets/dmDefine/`): reads the model, shows it (graph + table), validates it, helps to edit it.
-  **0.6.0 built** (0.1.0 read, validate, show; 0.2.0 pairs; 0.3.0 editor: forms + YAML text, `src/editor.js`; 0.4.0
+  **0.7.0 built** (0.1.0 read, validate, show; 0.2.0 pairs; 0.3.0 editor: forms + YAML text, `src/editor.js`; 0.4.0
   `uses:` + documents of other projects; 0.5.0 Save to Polarion (REST, optional); 0.6.0 severity per side of a rule
-  (`from_severity` / `to_severity`, D17, verified on 2512: PO_CHECKS 2.19–2.20; 2.21 open); tested on mocks and in Chromium with a round trip of the generated YAML;
+  (`from_severity` / `to_severity`, D17, verified on 2512: PO_CHECKS 2.19–2.20; 2.21 open); 0.7.0 starter generator (D8, *Propose a model from the project*
+  on an empty model, S7 queries; checks 2.22–2.25); tested on mocks and in Chromium with a round trip of the generated YAML;
   to validate on 2512: `docs/PO_CHECKS.md`, keep it up to date with every new feature).
   PO 2026-10-30: dmDefine is completed before dmCheck is started.
 - **dmCheck** (`widgets/dmCheck/`): reads the same model, checks the real documents/items/links, reports violations
@@ -174,10 +175,10 @@ root classes `dd-root`/`dc-root`; `core.js` optional widget fields `isolatedText
 
 ## Where the work stands (read first in a new session)
 
-- Pending checks of the PO on 2512, in order: `docs/PO_CHECKS.md` (§1–§4 done 2026-10-30; open: dmCheck 0.2.0 checks 3.7–3.12, severity per side 2.21 and 3.14;
+- Pending checks of the PO on 2512, in order: `docs/PO_CHECKS.md` (§1–§4 done 2026-10-30; open: dmCheck 0.2.0 checks 3.7–3.12, severity per side 2.21 and 3.14, starter generator 2.22–2.25;
   §5 later: REST token disabled, 2612). Record each result in the spec / `tests/dmSpike-v0.1.x/spike-tests.md`, then tick it there.
-- Next increments: dmDefine starter generator (S7 done: nested `IN (SELECT MIN(c_uri) … GROUP BY …)` form, run 4), dmCheck 0.2.0 drill-down built (PO 2026-10-30: dmCheck 0.2 first);
-  the 0.1.0 evaluation is kept (PO 2026-10-30); set queries only for the drill-down. Later: exploded view of the graph (dmDefine D16, then dmCheck K17; PO-agreed design in the specs).
+- Done 2026-10-30: dmDefine 0.7.0 starter generator (S7 variant B queries), dmCheck 0.2.0 drill-down;
+  the 0.1.0 evaluation is kept (PO 2026-10-30); set queries only for the drill-down. Next: exploded view of the graph (dmDefine D16, then dmCheck K17; PO-agreed design in the specs).
   Specs §8 of each widget list them.
 
 ## Working conventions
