@@ -141,7 +141,7 @@ PO 2026-10-30: dmDefine is completed before dmCheck is started.
 
 ## 9. Open checks on 2512
 
-Only verifiable on the instance (the harness uses mocks). **PO 2026-10-30: a–e, g, h verified on 2512 (PO_CHECKS 2.1–2.9); j: save of a changed model and read-back after reload verified (2.14), indentation kept and a new revision in the history (2.15), conflict warning (2.16), parameter Off hides the button (2.18);** still open: i, rest of j (2.17 no edit rights; REST token disabled, later). The ordered to-do list for the PO, with what to report, is
+Only verifiable on the instance (the harness uses mocks). **PO 2026-10-30: a–e, g, h verified on 2512 (PO_CHECKS 2.1–2.9); j: save of a changed model and read-back after reload verified (2.14), indentation kept and a new revision in the history (2.15), conflict warning (2.16), parameter Off hides the button (2.18);** no edit rights handled (2.17);** still open: i (2.10–2.13); REST token disabled (later). The ordered to-do list for the PO, with what to report, is
 `docs/PO_CHECKS.md`.
 
 a. Upload of `dmDefine.zip` (entries ≤ 30 characters: `dmDefine/resources/xlsx.js` = 26) and the widget icon.

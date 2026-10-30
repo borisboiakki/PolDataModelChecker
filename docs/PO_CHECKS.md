@@ -5,7 +5,7 @@ Polarion instance**. Run the checks in this order when you have time; for each o
 screenshots or PDF exports: the repository is public). Findings are then recorded in the specification and in
 `tests/dmSpike-v0.1.x/spike-tests.md`.
 
-Last update: 2026-10-30, dmDefine 0.5.0, dmCheck 0.1.0, dmSpike S7 and S10; §1 done; 2.1–2.9, 2.14–2.16, 2.18 done.
+Last update: 2026-10-30, dmDefine 0.5.0, dmCheck 0.1.0, dmSpike S7 and S10; §1 done; 2.1–2.9, 2.14–2.18 done.
 
 ## 1. Spike widget dmSpike (upload `tests/dmSpike-v0.1.x/spike-widget/dmSpike.zip`)
 
@@ -40,7 +40,7 @@ Use a model with the names of your project (start from `test-data/vcycle-model.y
 | 2.14 | ✅ **Done 2026-10-30** (changed model saved and shown after reload). **Save to Polarion**: *Edit model* → *YAML text*: the button *Save to Polarion* is shown and the line below names the model item. Change something (e.g. the name), *Save to Polarion*, accept; then *Reload page* | "Saved to P/ID"; after reload the change is shown, no problem | 0.5.0 |
 | 2.15 | ✅ **Done 2026-10-30** (indentation kept, new revision in the history). After 2.14: open the model work item: the description shows the YAML with its indentation; its **history** shows a new revision | indentation kept, new revision | 0.5.0 |
 | 2.16 | ✅ **Done 2026-10-30** (warning shown). Save twice without reloading the page (or change the item in another tab first) | a warning "was changed since this page was loaded" | 0.5.0 |
-| 2.17 | With a user who can read but not edit the model item | Save shown, then "Not saved: no permission …" (or Save not shown) | 0.5.0 |
+| 2.17 | ✅ **Done 2026-10-30** (as expected for a user without edit rights). With a user who can read but not edit the model item | Save shown, then "Not saved: no permission …" (or Save not shown) | 0.5.0 |
 | 2.18 | ✅ **Done 2026-10-30** (no Save button). Widget parameter *Save to Polarion* = Off | no Save button, "switched off in the widget parameters" | 0.5.0 |
 
 ## 3. dmCheck (upload `widgets/dmCheck/dist/dmCheck.zip`)
