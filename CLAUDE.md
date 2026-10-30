@@ -105,9 +105,12 @@ Do not present unverified items as fact in code comments or docs. 2612 is **not 
 - `getTrackerProject(p).getWorkItemTypeEnum().getAllOptions()` lists the types (id, name). `$trackerService.getWorkItem(p, id)`
   reads a work item of another project.
 - REST from a widget: `top.getRestApiToken()` exists on the PO's instance; GET with header `X-Polarion-REST-Token` → 200;
-  without the token → 401 (session cookie not enough). PATCH not verified yet (spike bug, re-run pending).
+  without the token → 401 (session cookie not enough). PATCH `/polarion/rest/v1/projects/{p}/workitems/{id}` (no query
+parameter; body `{"data":{"type":"workitems","id":"p/id","attributes":{"description":{"type":"text/html","value":…}}}}`,
+`Content-Type: application/json`) → 204 (run 2, description written back unchanged).
 
-NOT verified for this project: REST PATCH of the description from a widget (format, revision); 2612 for everything.
+NOT verified for this project: PATCH of a changed model and its read-back, revision created by a PATCH, behaviour
+without edit rights or with the REST token disabled (checks before dmDefine 0.3); 2612 for everything.
 
 ## Repository layout
 

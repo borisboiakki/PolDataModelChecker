@@ -1,7 +1,7 @@
 # Spike dmSpike (dmDefine 0.1.x): model item, YAML in Velocity, bindings, configuration, REST
 
-**Status:** run 1 done on 2512 (2026-10-30, PO): S1, S2, S3 (plain paste), S5 (default space), S6, S8 ✅; S4 GET ✅,
-PATCH failed on a spike bug (fixed in the widget, to re-run). Open: code-block variant, S5 named space / other project /
+**Status:** run 1 done on 2512 (2026-10-30, PO): S1, S2, S3 (plain paste), S5 (default space), S6, S8 ✅; S4 GET ✅;
+run 2: S4 PATCH ✅ (204). Open: code-block variant, S5 named space / other project /
 missing document, S4 PATCH. The widget is checked locally with
 Velocity 1.4 on mocks only (`tools/test-spikes.sh`: 48 checks). Questions S1–S8 come from `docs/ARCHITECTURE.md` §9.
 Findings are added below after each run, as in the sister repo. Never commit raw results (screenshots, PDFs, HTML dumps
@@ -96,7 +96,21 @@ The PO provided the instance's `openapi.json` (Polarion REST API v1, 156 paths; 
 The fixed spike PATCH (URL without query parameter, body above, JSON content type) matches the definition. Expected in
 run 2: HTTP 204.
 
-### Run 2 (to do)
+### Run 2 on 2512 (2026-10-30, PO; S4 box)
+
+| ID | Result |
+|---|---|
+| S4 | ✅ GET with the token: HTTP 200 in 70 ms. **PATCH** of the description written back unchanged (`{"data":{"type":"workitems","id":"<project>/<id>","attributes":{"description":{"type":"text/html","value":…}}}}`, URL without query parameter, header `X-Polarion-REST-Token`, `Content-Type: application/json`): **HTTP 204 in 79 ms**, empty body. Write-back from a widget works on this instance |
+
+S4 is closed for the feasibility and the call. Left for a short check before dmDefine 0.3 (REST save), not needed for
+0.1/0.2: (a) PATCH a **changed** model in the HTML form the widget will generate and parse it back; (b) whether a
+PATCH creates a revision in the item history (also when unchanged); (c) a user without edit rights (expected 403) and
+an instance with the REST token disabled (no `top.getRestApiToken`, or 401) → the Save button stays hidden;
+(d) non-ASCII and special characters (`é`, `&`, `<`, quotes) in the written text.
+
+Still open from run 1 (optional): S5 with a named space, another project and a missing document.
+
+### Run 3 (optional)
 
 Upload the rebuilt `dmSpike.zip`, then: S4 buttons 2 and 4 (PATCH unchanged; report the HTTP status and whether a new
 revision appears in the item history); S5 with a named space, another project and a missing document; S3 on a code block

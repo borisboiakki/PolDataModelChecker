@@ -26,7 +26,7 @@ This repository was started from [polarion_branches_copies_widget](https://githu
 1. Specifications of both widgets and the model format (**draft, open questions listed**).
 2. Preliminary architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (**draft, to be revised after the spikes**).
 3. Spikes with diagnostic widgets in `tests/`: **dmSpike** ([run sheet](tests/dmSpike-v0.1.x/spike-tests.md)) for the
-   model item, the YAML parser in Velocity, bindings, configuration and REST (**run 1 done on 2512: parser and model reading confirmed; REST PATCH to re-run**); SQL of the checks later.
+   model item, the YAML parser in Velocity, bindings, configuration and REST (**done on 2512: model reading, parser, configuration and REST GET/PATCH confirmed**); SQL of the checks later.
 4. dmDefine 0.1.0 (read, validate, show), dmCheck 0.1.0 (the three v1 checks), then the later increments.
 
 ## Repository contents

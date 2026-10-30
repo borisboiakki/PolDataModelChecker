@@ -218,7 +218,7 @@ export. Widget code:
   forms on the structured model, YAML serializer and **Copy** button. From 0.3: **Save to Polarion** through REST, shown
   only after a successful probe (S4: `top.getRestApiToken` is a function and a GET of the model item with header
   `X-Polarion-REST-Token` returns 200; without the token 401), with copy/paste as fallback. The written HTML follows the
-  storage seen in S1 (one line per `<br/>`, leading spaces kept as U+00A0 / `&nbsp;`) [PATCH to verify, run 2].
+  storage seen in S1 (one line per `<br/>`, leading spaces kept as U+00A0 / `&nbsp;`) (PATCH verified on 2512, run 2: 204; a changed model and its read-back to check before 0.3).
   Call (checked against the instance's OpenAPI definition): `PATCH /polarion/rest/v1/projects/{p}/workitems/{id}` without
   query parameter, body `{"data":{"type":"workitems","id":"p/id","attributes":{"description":{"type":"text/html","value":…}}}}`,
   success 204. Optional later: GET with `revision=` to show or compare a past revision of the model in the browser.
@@ -266,8 +266,7 @@ spike after dmDefine 0.1.0.
 | S8 | Read a work item of another project (`getWorkItem`), at a given revision | §3.4 |
 | T1–T3 | Correlated sub-select / `NOT EXISTS` in `sqlSearch`, binding queries, drill-down Lucene | §4 |
 
-**Run 1 on 2512 (2026-10-30)**: S1, S2, S3, S5 (default space), S6, S8 confirmed; S4 GET confirmed, PATCH pending
-(spike bug fixed). Details: `tests/dmSpike-v0.1.x/spike-tests.md` §4. All spikes run on 2512 first. **2612 compatibility is unverified** until the PO repeats the key spikes (S1, S3, S4,
+**Run 1 on 2512 (2026-10-30)**: S1, S2, S3, S5 (default space), S6, S8 confirmed; S4 GET confirmed; run 2: S4 PATCH confirmed (204). Details: `tests/dmSpike-v0.1.x/spike-tests.md` §4. All spikes run on 2512 first. **2612 compatibility is unverified** until the PO repeats the key spikes (S1, S3, S4,
 T1) there.
 
 ## 10. Increments
