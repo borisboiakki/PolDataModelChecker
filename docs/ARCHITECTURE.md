@@ -324,9 +324,8 @@ T1) there.
 | 0.3.0 | **Built**: editor (forms + YAML text, Copy, Download, start from an empty model) | — |
 | 0.4.0 | **Built**: `uses:` reference, documents of other projects (tested on mocks) | — |
 | 0.5.0 | **Built**: *Save to Polarion* (REST, optional, tested with a mocked REST API) | **0.1.0 built**: v1 checks, graph by compliance, report table, Excel, PDF (tested on mocks from `test-data/vcycle-check/`) |
-| 0.2.0 | `uses:` reference, starter generator, editor + Copy | 0.1.0: three v1 checks, report, Excel, coloured graph, PDF |
-| 0.3.0 | REST save (if S4 positive), cross-project bindings | drill-down, cross-project documents |
-| later | — | collection context, orphans, wrong document, field rules |
+| next | starter generator (D8, after spike S7) | 0.2.0: faster set queries, drill-down (K9, after spike S10) |
+| later | exploded view of the graph (D16: one box per document in role frames, pairs drawn per pair) | exploded view coloured per document / pair (K17); collection context, orphans, wrong document, field rules |
 
 ## 11. Risks
 

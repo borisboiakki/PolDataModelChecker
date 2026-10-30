@@ -166,7 +166,8 @@ root classes `dd-root`/`dc-root`; `core.js` optional widget fields `isolatedText
 - Pending checks of the PO on 2512, in order: `docs/PO_CHECKS.md` (dmSpike S5/S7/S9/S10, dmDefine 0.1-0.5, dmCheck 0.1,
   decisions to confirm). Record each result in the spec / `tests/dmSpike-v0.1.x/spike-tests.md`, then tick it there.
 - Next increments: dmDefine starter generator (after S7 results), dmCheck 0.2 (faster set queries, drill-down; after
-  S10 results). Specs §8 of each widget list them.
+  S10 results). Later: exploded view of the graph (dmDefine D16, then dmCheck K17; PO-agreed design in the specs).
+  Specs §8 of each widget list them.
 
 ## Working conventions
 

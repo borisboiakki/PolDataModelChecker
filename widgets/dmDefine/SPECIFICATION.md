@@ -43,6 +43,7 @@ The model is stored in Polarion (SPEC §6) and read by **dmCheck** (`widgets/dmC
 | D15 | **`uses:` reference** (decision 5, ARCHITECTURE §3.4): roles and rules from a model item of another (or the same) project, bindings and pairs local; one level; shown in the header with the revision and a link; editor in a "local part" mode (roles and rules read only) | Should (done, 0.4.0) | 0.4.0 |
 | D14 | **Pairs** (`pairs:` section, dmCheck K15): validate it (the rule id exists; each pair is `[source document, target document]`; the source document is declared for the rule's `from` role and the target for its `to` role) and show it (rule details, table, Excel). Documents of the two roles in no pair: warning | Should (done, 0.2.0) | 2 |
 | D13 | **Model text** view with line numbers (problem lines marked, a click on a problem shows its line) and **Copy YAML** (copies the text, e.g. to reuse the model in another project) | Should (done) | 1 |
+| D16 | **Exploded view** of the graph (PO 2026-10-30, decision 9): a switch *Collapsed / Exploded*. Collapsed = today's graph (one box per role, one arrow per rule). Exploded = one box per declared document inside a frame per role; **paired** rules drawn document to document (one arrow per pair); **pooled** rules drawn from each document of the `from` role to the **frame** of the `to` role ("any document of this role"), not one arrow per document combination; pair problems (documents of the rule's roles in no pair, pairs naming undeclared documents) outlined in orange. Shown when a role has more than one document. Parameter *Initial view* (collapsed by default) also chooses the static PDF graph. Table and Excel unchanged (the *Document pairs* sheet already lists the pairs) | Should | later (after the starter generator) |
 
 ## 4. Non-functional requirements
 
@@ -118,6 +119,12 @@ Decided by the PO (2026-10-30):
    - Client-side checks in the forms (required fields, role keys unique and made of letters, digits, `_` and `-`, whole
      numbers, references to existing roles / rules); the full validation runs again when the pasted model is read.
 
+9. **Exploded view (D16)**, PO 2026-10-30, proposals accepted: role frames holding their documents; pooled rules
+   point to the target role's frame, paired rules document to document; switch offered whenever a role has several
+   documents (not only with `pairs:`); pair warnings outlined in orange; collapsed by default, parameter *Initial view*
+   also used by the PDF; table/Excel unchanged. dmCheck gets the same switch later (dmCheck K17: pair arrows coloured
+   by compliance). Not implemented yet.
+
 ## 8. Increments
 
 PO 2026-10-30: dmDefine is completed before dmCheck is started.
@@ -130,6 +137,7 @@ PO 2026-10-30: dmDefine is completed before dmCheck is started.
 5. **0.5.0** (done) *Save to Polarion* through the REST API (D10); checks on 2512 in `docs/PO_CHECKS.md` 2.14–2.18.
 6. Next increment: starter generator (spike S7 prepared: `tests/dmSpike-v0.1.x/spike-tests.md` run 4, PO_CHECKS 1.3)
    (D8, spike S7).
+7. Later: exploded view of the graph (D16).
 
 ## 9. Open checks on 2512
 
