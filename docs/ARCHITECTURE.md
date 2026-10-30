@@ -109,6 +109,13 @@ Design:
   tags, decode the entities (`&nbsp;` → space, `&amp; &lt; &gt; &quot; &#39;`), and split on the marker. Inside `<pre>`, split
   on the newline character. Velocity 1.4 forbids backslashes in string literals, so regexes that need one are built at
   run time from `$esc.b`, and the comment sign from `$esc.h` [S3: both EscapeTool getters on the instance].
+- **Start of the model**: lines before the first top-level model key (`version:`, `name:`, `model:`, `uses:`,
+  `bindings:` at column 0) are skipped and counted, so a title or explanation above the YAML (or above a code block)
+  is allowed.
+- Checked locally with velocity-1.4.jar (2026-10-30): a newline cannot be written in a string literal (lexical error),
+  so the newline regex must come from `$esc.b`; `"#"` and `'#'` are accepted in string literals; `$list.remove($i)`
+  with an Integer removes by index; ranges `[1..$n]` work. The prototype parser is in the spike widget
+  (`tests/dmSpike-v0.1.x/`), with 48 harness checks on mocks.
 - **Tokens**: each non-empty line gives `[lineNo, indent, isListItem, key, value]`. The indent is computed with Integer
   arithmetic (`length()` before and after `replaceAll("^ +", "")`). Tuples are stored as lists, because Java arrays
   have no methods in Velocity 1.4.
@@ -237,7 +244,8 @@ integer geometry, as the sister widgets do.
 
 ## 9. Spikes before implementation
 
-One diagnostic widget, `dmSpike` (`tests/dmSpike-v0.1.x/`), covers the dmDefine spikes. The checks have their own
+One diagnostic widget, `dmSpike` (`tests/dmSpike-v0.1.x/`, run sheet in its `spike-tests.md`), covers the dmDefine
+spikes S1–S6 and S8. The checks have their own
 spike after dmDefine 0.1.0.
 
 | ID | Question | Blocks |

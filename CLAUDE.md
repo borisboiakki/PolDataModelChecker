@@ -114,8 +114,10 @@ shared/vm/*.vm                 Velocity snippets inlined at BW_SHARED markers (c
 shared/resources/              xlsx.js + LICENSE (third-party, unchanged)
 tools/                         build-widget.py, vcheck.sh + VCheck.java (copied); tools/vtest/mocks/ = mock Polarion
                                objects (WidgetHarness.java, CollectionMocks.java); per-widget harness in tools/vtest/<w>/
-tests/<name>-vN.N.x/           spikes: spike-tests.md (plan + findings) and diagnostic widget
-test-data/                     anonymised sample models and structures (including the dummy model used to test dmCheck)
+tests/<name>-vN.N.x/           spikes: spike-tests.md (plan + findings) and diagnostic widget; dmSpike-v0.1.x = model
+                               item, YAML parser prototype, bindings, configuration, REST (smoke test + zip:
+                               tools/test-spikes.sh, harness tools/vtest/dmSpike/DmSpikeHarness.java)
+test-data/                     invented sample models and structures (vcycle-model.yaml; later the dummy model of dmCheck)
 .github/workflows/             CI (ci.yml.disabled until tools/test-widget.sh exists; copy from the sister repo then)
 ```
 
@@ -135,4 +137,6 @@ browser/harness checks are not copied yet: write them with the first widget (use
 - **No customer or project-specific data in the repo**; it is public. Never commit raw results from the PO's instance
   (PDF, PNG, Excel, JSON): they carry company templates. Keep only the findings in the docs. Test data are anonymised or
   invented (V-cycle examples).
+- After editing `tests/dmSpike-v0.1.x/spike-widget/dmSpike/`, run `tools/test-spikes.sh` (parse check, harness, zip rebuild)
+  and commit the zip with the sources.
 - Before finishing work, run guide §13 and say plainly what could not be tested (no Polarion instance in the sandbox).

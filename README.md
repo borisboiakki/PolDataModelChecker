@@ -25,7 +25,8 @@ This repository was started from [polarion_branches_copies_widget](https://githu
 
 1. Specifications of both widgets and the model format (**draft, open questions listed**).
 2. Preliminary architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (**draft, to be revised after the spikes**).
-3. Spikes (YAML in a work item description, REST write-back, SQL for the checks) with diagnostic widgets in `tests/`.
+3. Spikes with diagnostic widgets in `tests/`: **dmSpike** ([run sheet](tests/dmSpike-v0.1.x/spike-tests.md)) for the
+   model item, the YAML parser in Velocity, bindings, configuration and REST (**ready, to run on 2512**); SQL of the checks later.
 4. dmDefine 0.1.0 (read, validate, show), dmCheck 0.1.0 (the three v1 checks), then the later increments.
 
 ## Repository contents
@@ -39,7 +40,9 @@ This repository was started from [polarion_branches_copies_widget](https://githu
 | `docs/reference/` | Architecture of the sister widgets (reference for the reused parts) |
 | `widgets/<widget>/SPECIFICATION.md` | Requirements, decisions, spikes and open questions of each widget |
 | `shared/` | Client core, Velocity snippets, Excel library: **copied** from the sister repo, to be adapted |
-| `tools/` | `build-widget.py`, `vcheck.sh` (Velocity 1.4 parse check), mock Polarion objects in `tools/vtest/mocks/` |
+| `tools/` | `build-widget.py`, `vcheck.sh` (Velocity 1.4 parse check), `test-spikes.sh`, mock Polarion objects in `tools/vtest/` |
+| `tests/dmSpike-v0.1.x/` | Spike widget and run sheet for dmDefine 0.1.x |
+| `test-data/` | Invented sample model (`vcycle-model.yaml`) |
 
 ## Build and test (once a widget exists)
 

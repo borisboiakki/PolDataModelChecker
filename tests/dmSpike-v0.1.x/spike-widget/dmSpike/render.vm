@@ -1,0 +1,959 @@
+## Data Model - spike S1-S8 (see tests/dmSpike-v0.1.x/spike-tests.md for what each test checks and what to report).
+## Read-only diagnostics, except the explicit "PATCH" button of S4 (browser only), which writes the description back unchanged.
+## Velocity 1.4 dialect (guide 3.1.9): no map literals, one statement per line, no backslashes in string literals.
+## An exception stops the render: the error text of the page IS the finding (report it), then run the tests one by one.
+## Times: Long arithmetic does not compute on 2512, so start and end stamps (ms) are printed.
+<style>
+  .dms { font-family: Arial, sans-serif; font-size: 12px; }
+  .dms h4 { margin: 12px 0 6px 0; }
+  .dms table { border-collapse: collapse; margin: 6px 0; }
+  .dms td, .dms th { border: 1px solid rgb(187,187,187); padding: 2px 6px; text-align: left; vertical-align: top; }
+  .dms th { background: rgb(238,238,238); }
+  .dms .ok { color: rgb(26,127,55); font-weight: bold; }
+  .dms .ko { color: rgb(198,40,40); font-weight: bold; }
+  .dms pre { background: rgb(246,246,246); padding: 4px; white-space: pre-wrap; word-break: break-all; max-height: 400px; overflow: auto; }
+  .dms button { margin: 2px 6px 2px 0; }
+</style>
+
+## ---------------------------------------------------------------- parameters
+#set($test = "all")
+#set($tmp = "")
+#set($tmp = $parameters.test.singleValue)
+#set($tmp = $parameters.test.singleValue())
+#if("$tmp" != "")
+  #set($test = "$tmp")
+#end
+#set($source = "item")
+#set($tmp = "")
+#set($tmp = $parameters.source.singleValue)
+#set($tmp = $parameters.source.singleValue())
+#if("$tmp" != "")
+  #set($source = "$tmp")
+#end
+#set($tmp = "")
+#set($tmp = $parameters.itemId.value)
+#set($tmp = $parameters.itemId.value())
+#set($tmpS = "$tmp")
+#set($itemIdP = $tmpS.trim())
+#set($tmp = "")
+#set($tmp = $parameters.docs.value)
+#set($tmp = $parameters.docs.value())
+#set($docsP = "$tmp")
+#set($tmp = "")
+#set($tmp = $parameters.remote.value)
+#set($tmp = $parameters.remote.value())
+#set($tmpS = "$tmp")
+#set($remoteP = $tmpS.trim())
+#set($dmInt = 0)
+#set($maxChars = 6000)
+#set($tmp = "")
+#set($tmp = $parameters.maxChars.value)
+#set($tmp = $parameters.maxChars.value())
+#set($tmpS = "$tmp")
+#if($tmpS.matches("[0-9]{1,6}"))
+  #set($maxChars = $dmInt.parseInt($tmpS))
+#end
+## Model item types: multi-select read like bwOptionIds (verified on 2512); the single select is only reported.
+#set($typeIds = [])
+#set($typeVals = false)
+#set($typeVals = $parameters.itemTypes.values)
+#set($typeVals = $parameters.itemTypes.values())
+#if($typeVals)
+  #foreach($v in $typeVals)
+    #set($tId = "")
+    #set($tId = $v.id())
+    #set($tIdS = "$tId")
+    #if($tIdS.matches("[A-Za-z0-9_.-]+") && !$typeIds.contains($tIdS))
+      #set($void = $typeIds.add($tIdS))
+    #end
+  #end
+#end
+#set($typeSingle = "")
+#set($typeSingleRaw = "")
+#set($tsOpt = false)
+#set($tsOpt = $parameters.itemTypeSingle.singleValue())
+#if($tsOpt)
+  #set($typeSingleRaw = "$tsOpt")
+  #set($tmp = "")
+  #set($tmp = $tsOpt.id())
+  #set($typeSingle = "$tmp")
+#end
+#set($projectId = "")
+#set($projectId = $page.getReference().projectId())
+#set($projectS = "$projectId")
+#set($projectQ = $projectS.replace("'", "''"))
+#set($ds = $trackerService.getDataService())
+#set($isPdf = false)
+#set($isPdf = $widgetContext.target().isPdf())
+#set($run = $objectFactory.newMap())
+#foreach($t in ["locate", "desc", "yaml", "bind", "config", "remote"])
+  #if($test == "all" || $test == $t)
+    #set($void = $run.put($t, "1"))
+  #end
+#end
+## Summary rows [test, question, result, ok/ko/info], printed at the top after all tests ran.
+#set($sum = [])
+#set($t0 = $date.systemTime)
+
+## ---------------------------------------------------------------- S3 prerequisites: EscapeTool getters
+## A newline or a backslash cannot be written in a Velocity 1.4 string literal; regexes that need one are built at run
+## time from the backslash of the EscapeTool.
+#set($escB = "")
+#set($escB = $esc.b)
+#set($escBackslash = "")
+#set($escBackslash = $esc.backslash)
+#set($escH = "")
+#set($escH = $esc.h)
+#set($escHash = "")
+#set($escHash = $esc.hash)
+#set($escD = "")
+#set($escD = $esc.d)
+#set($bs = "")
+#set($escBS = "$escB")
+#set($escBackslashS = "$escBackslash")
+#if($escBS.length() == 1)
+  #set($bs = $escBS)
+#elseif($escBackslashS.length() == 1)
+  #set($bs = $escBackslashS)
+#end
+#set($nlRe = "")
+#set($nbspRe = "")
+#if($bs != "")
+  #set($nlRe = "${bs}r?${bs}n")
+  #set($nbspRe = "${bs}u00A0")
+  #set($void = $sum.add(["S3", "Backslash from the EscapeTool (run-time regexes)", "available", "ok"]))
+#else
+  #set($void = $sum.add(["S3", "Backslash from the EscapeTool (run-time regexes)", "not available: newlines in pre blocks are not split", "ko"]))
+#end
+
+## ---------------------------------------------------------------- S2 locate the model item
+#set($docMod = false)
+#set($docObj = false)
+#set($docOpt = false)
+#set($docOpt = $parameters.doc.singleValue())
+#set($docState = "no document selected")
+#if($docOpt)
+  #set($mo = false)
+  #set($mo = $docOpt.getModelObject())
+  #set($moUr = "unknown")
+  #if($mo)
+    #set($moUr = $mo.isUnresolvable())
+  #end
+  #if("$moUr" == "false")
+    #set($docObj = $mo)
+    #set($docMod = $mo.getOldApi())
+    #set($docState = "resolved")
+  #else
+    #set($docState = "unresolvable ($moUr)")
+  #end
+#end
+#set($docFolder = "")
+#set($docName = "")
+#set($docRev = "")
+#if($docMod)
+  #set($docFolder = "$docMod.getModuleFolder()")
+  #set($docName = "$docMod.getId()")
+  #set($tmp = "")
+  #set($tmp = $docMod.getRevision())
+  #set($docRev = "$tmp")
+#end
+## Items in document order through the Rendering API (guide 2.1), and the same items through SQL (type filter).
+#set($rItems = [])
+#set($ctTs0 = "")
+#set($ctTs1 = "")
+#set($ctState = "not run")
+#if($docObj)
+  #set($ctTs0 = $date.systemTime)
+  #set($ctList = false)
+  #set($ctList = $docObj.items().contained())
+  #set($ctTs1 = $date.systemTime)
+  #if($ctList)
+    #set($ctState = "ok")
+    #foreach($ri in $ctList)
+      #set($void = $rItems.add($ri))
+    #end
+  #else
+    #set($ctState = "items().contained() returned nothing")
+  #end
+#end
+#set($typeSql = "")
+#foreach($t in $typeIds)
+  #if($typeSql != "")
+    #set($typeSql = "${typeSql},")
+  #end
+  #set($typeSql = "${typeSql}'${t}'")
+#end
+#set($sqlItems = [])
+#set($itemSql = "")
+#if($docMod)
+  #set($fQ = $docFolder.replace("'", "''"))
+  #set($nQ = $docName.replace("'", "''"))
+  #set($itemSql = "SELECT w.c_uri FROM workitem w INNER JOIN module m ON m.c_uri = w.fk_uri_module INNER JOIN project p ON p.c_uri = m.fk_uri_project WHERE p.c_id = '${projectQ}' AND m.c_modulefolder = '${fQ}' AND m.c_id = '${nQ}'")
+  #if($typeSql != "")
+    #set($itemSql = "${itemSql} AND w.c_type IN (${typeSql})")
+  #end
+  #set($sqlItems = $ds.sqlSearch($itemSql))
+#end
+## Candidates: Open API items of the selected types, in document order. Model text = first that starts with a model key.
+#set($cands = [])
+#foreach($ri in $rItems)
+  #set($oi = false)
+  #set($oi = $ri.getOldApi())
+  #set($ty = "")
+  #if($oi)
+    #set($tmp = "")
+    #set($tmp = $oi.getType().getId())
+    #set($ty = "$tmp")
+  #end
+  #if($typeIds.contains($ty))
+    #set($void = $cands.add($oi))
+  #end
+#end
+#set($modelItem = false)
+#set($modelHow = "")
+#if($itemIdP != "" && $itemIdP.matches("[A-Za-z0-9_.-]+"))
+  #set($gw = false)
+  #set($gw = $trackerService.getWorkItem($projectId, $itemIdP))
+  #if($gw && !$gw.isUnresolvable())
+    #set($modelItem = $gw)
+    #set($modelHow = "id parameter, getWorkItem(project, id)")
+  #else
+    #set($modelHow = "id parameter: not found or unresolvable")
+  #end
+#end
+#if(!$modelItem)
+  #foreach($oi in $cands)
+    #if(!$modelItem)
+      #set($dTxt = "")
+      #set($dObj = false)
+      #set($dObj = $oi.getDescription())
+      #if($dObj)
+        #set($tmp = "")
+        #set($tmp = $dObj.getContent())
+        #set($dTxt = "$tmp")
+      #end
+      #set($dPlain = $dTxt.replaceAll("<[^>]*>", " ").replaceAll("&nbsp;", " ").trim())
+      #if($dPlain.startsWith("version:") || $dPlain.startsWith("model:") || $dPlain.startsWith("uses:") || $dPlain.startsWith("name:"))
+        #set($modelItem = $oi)
+        #set($modelHow = "first item of the type whose text starts with version:, model:, uses: or name:")
+      #end
+    #end
+  #end
+#end
+#if(!$modelItem && $cands.size() > 0)
+  #set($modelItem = $cands.get(0))
+  #set($modelHow = "first item of the type (no model key found at the start of any description)")
+#end
+#set($miId = "")
+#set($miProject = "")
+#set($miRev = "")
+#set($miLastRev = "")
+#set($miHtml = "")
+#set($miDescType = "")
+#if($modelItem)
+  #set($miId = "$modelItem.getId()")
+  #set($tmp = "")
+  #set($tmp = $modelItem.getProjectId())
+  #set($miProject = "$tmp")
+  #set($tmp = "")
+  #set($tmp = $modelItem.getRevision())
+  #set($miRev = "$tmp")
+  #set($tmp = "")
+  #set($tmp = $modelItem.getLastRevision())
+  #set($miLastRev = "$tmp")
+  #set($dObj = false)
+  #set($dObj = $modelItem.getDescription())
+  #if($dObj)
+    #set($tmp = "")
+    #set($tmp = $dObj.getContent())
+    #set($miHtml = "$tmp")
+    #set($tmp = "")
+    #set($tmp = $dObj.getType())
+    #set($miDescType = "$tmp")
+  #end
+#end
+#if($run.containsKey("locate"))
+  #if($modelItem)
+    #set($void = $sum.add(["S2", "Model item located", "$miId ($modelHow)", "ok"]))
+  #else
+    #set($void = $sum.add(["S2", "Model item located", "no item ($docState; contained: $ctState; candidates: $cands.size())", "ko"]))
+  #end
+#end
+
+## ---------------------------------------------------------------- S1 description: Rendering API forms
+## The Rendering API item of the model item (same id among the contained items), for the description field forms.
+#set($rDescGet = "")
+#set($rDescRender = "")
+#set($rDescUnset = "")
+#set($rDescClass = "")
+#if($modelItem)
+  #foreach($ri in $rItems)
+    #set($oi = false)
+    #set($oi = $ri.getOldApi())
+    #if($oi && "$oi.getId()" == $miId)
+      #set($fd = false)
+      #set($fd = $ri.fields().description())
+      #if($fd)
+        #set($tmp = "")
+        #set($tmp = $fd.isUnset())
+        #set($rDescUnset = "$tmp")
+        #set($tmp = "")
+        #set($tmp = $fd.get())
+        #set($rDescGet = "$tmp")
+        #set($tmp = "")
+        #set($tmp = $fd.render())
+        #set($rDescRender = "$tmp")
+      #end
+    #end
+  #end
+#end
+## Counts of markup tokens in the stored HTML: (length - length without the token) / length of the token.
+#macro(dmCount $dmCs $dmTok)
+  #set($dmCr = $dmCs.replace($dmTok, ""))
+  #set($dmCd = $dmCs.length() - $dmCr.length())
+  #set($dmCl = $dmTok.length())
+  #set($dmCountOut = $dmCd / $dmCl)
+#end
+#set($tokCounts = [])
+#set($htmlLower = $miHtml.toLowerCase())
+#foreach($tok in ["<p", "<br", "<pre", "<code", "<div", "<span", "<li", "<table", "style=", "margin-left", "padding-left", "&nbsp;", "&#160;", "&quot;", "&#39;", "&amp;"])
+  #dmCount($htmlLower $tok)
+  #set($void = $tokCounts.add([$tok, $dmCountOut]))
+#end
+#set($nlCount = "n/a")
+#if($nlRe != "")
+  #set($nlStripped = $miHtml.replaceAll($nlRe, ""))
+  #set($nlCount = $miHtml.length() - $nlStripped.length())
+#end
+#set($nbspCharCount = "n/a")
+#if($nbspRe != "")
+  #set($nbStripped = $miHtml.replaceAll($nbspRe, ""))
+  #set($nbspCharCount = $miHtml.length() - $nbStripped.length())
+#end
+#set($asciiOnly = $miHtml.replaceAll("[^ -~]", ""))
+#set($nonPrintable = $miHtml.length() - $asciiOnly.length())
+#if($run.containsKey("desc"))
+  #if($miHtml != "")
+    #set($void = $sum.add(["S1", "Description read (Open API getDescription().getContent())", "type $miDescType, $miHtml.length() characters", "ok"]))
+  #else
+    #set($void = $sum.add(["S1", "Description read (Open API getDescription().getContent())", "empty or no model item", "ko"]))
+  #end
+#end
+
+## ---------------------------------------------------------------- S3 HTML -> lines -> YAML subset parser -> tree
+#set($lines = [])
+#set($srcText = "")
+#if($source == "sample")
+  #set($lines = ["version: 1", "name: V-cycle model", "", "model:", "  roles:", "    SystemSpec:", "      title: System specification", "      items:", "        - type: systemRequirement", "          min: 1", "        - type: heading", "          ignored: true", "      unexpected_types: error", "    SubsystemReq:", "      title: 'Subsystem requirements # not a comment'", "      items:", "        - { type: subsystemRequirement, min: 1 }", "  links:", "    - id: L1", "      from: { role: SubsystemReq, type: subsystemRequirement }", "      link_role: satisfies", "      to: { role: SystemSpec, type: systemRequirement }", "      from_min: 1", "      to_min: 1", "      severity: error   # error, warning or info", "  unexpected_links: warning", "", "# local part", "bindings:", "  SystemSpec: [Specs/System Specification]", "  SubsystemReq: [Specs/Subsystem A Requirements, 'Specs/Subsystem B Requirements']"])
+#elseif($source == "bad")
+  #set($lines = ["version: 1", "model:", "  roles:", "    SystemSpec:", "      title: A", "      title: B", "   wrong: indentation", "    - listItem", "  links:", "    - id: L1", "    key without colon", "    -", "    - from: &anchor x", "bindings: [a, [b]]"])
+#else
+  ## Stored HTML of the model item -> text lines: block ends and br become line breaks, other tags are removed,
+  ## entities decoded. Newlines of the source (pre blocks) are line breaks too, when the backslash is available.
+  #set($srcText = $miHtml)
+  #if($nlRe != "")
+    #set($srcText = $srcText.replaceAll($nlRe, "@NL@"))
+  #end
+  #set($srcText = $srcText.replaceAll("(?i)<br[^>]*>", "@NL@"))
+  #set($srcText = $srcText.replaceAll("(?i)</(p|div|li|pre|h[1-6]|tr)>", "@NL@"))
+  #set($srcText = $srcText.replaceAll("<[^>]*>", ""))
+  #if($nbspRe != "")
+    #set($srcText = $srcText.replaceAll($nbspRe, " "))
+  #end
+  #set($srcText = $srcText.replace("&nbsp;", " ").replace("&#160;", " ").replace("&lt;", "<").replace("&gt;", ">"))
+  #set($srcText = $srcText.replace("&quot;", '"').replace("&#34;", '"').replace("&#39;", "'").replace("&apos;", "'"))
+  #set($srcText = $srcText.replace("&amp;", "&"))
+  #foreach($l in $srcText.split("@NL@"))
+    #set($void = $lines.add($l))
+  #end
+#end
+
+## Unquote a scalar: 'x' or "x" -> x (no escape sequences in the subset).
+#macro(dmUnq $dmU)
+  #set($dmUq = "$dmU")
+  #set($dmUq = $dmUq.trim())
+  #set($dmUl = $dmUq.length())
+  #if($dmUl >= 2)
+    #set($dmUe = $dmUl - 1)
+    #if(($dmUq.startsWith('"') && $dmUq.endsWith('"')) || ($dmUq.startsWith("'") && $dmUq.endsWith("'")))
+      #set($dmUq = $dmUq.substring(1, $dmUe))
+    #end
+  #end
+#end
+## Scalar or one-level flow collection -> $dmSc (String, List or Map) and $dmDisp (display text).
+#macro(dmScalar $dmV)
+  #set($dmSv = "$dmV")
+  #set($dmSv = $dmSv.trim())
+  #set($dmSl = $dmSv.length())
+  #set($dmSe = $dmSl - 1)
+  #if($dmSv.startsWith("&") || $dmSv.startsWith("*") || $dmSv.startsWith("|") || $dmSv.startsWith(">") || $dmSv.startsWith("!"))
+    #set($void = $probs.add(["error", $lineNo, "not in the YAML subset (anchor, alias, tag or multi-line scalar): $dmSv"]))
+    #set($dmSc = $dmSv)
+    #set($dmDisp = $dmSv)
+  #elseif($dmSv.startsWith("[") && $dmSv.endsWith("]"))
+    #set($dmSc = [])
+    #set($dmDisp = "[")
+    #set($dmIn = $dmSv.substring(1, $dmSe))
+    #set($dmIn = $dmIn.trim())
+    #if($dmIn.indexOf("[") >= 0 || $dmIn.indexOf("{") >= 0)
+      #set($void = $probs.add(["error", $lineNo, "nested flow collection (not in the YAML subset)"]))
+    #elseif($dmIn != "")
+      #foreach($dmP in $dmIn.split(","))
+        #dmUnq($dmP)
+        #set($void = $dmSc.add($dmUq))
+        #set($dmDisp = "${dmDisp}${dmUq} | ")
+      #end
+    #end
+    #set($dmDisp = "${dmDisp}]")
+  #elseif($dmSv.startsWith("{") && $dmSv.endsWith("}"))
+    #set($dmSc = $objectFactory.newMap())
+    #set($dmDisp = "{")
+    #set($dmIn = $dmSv.substring(1, $dmSe))
+    #set($dmIn = $dmIn.trim())
+    #if($dmIn.indexOf("[") >= 0 || $dmIn.indexOf("{") >= 0)
+      #set($void = $probs.add(["error", $lineNo, "nested flow collection (not in the YAML subset)"]))
+    #elseif($dmIn != "")
+      #foreach($dmP in $dmIn.split(","))
+        #set($dmCi = $dmP.indexOf(":"))
+        #if($dmCi < 1)
+          #set($void = $probs.add(["error", $lineNo, "flow map entry without key: $dmP"]))
+        #else
+          #set($dmK = $dmP.substring(0, $dmCi))
+          #set($dmK = $dmK.trim())
+          #set($dmC1 = $dmCi + 1)
+          #set($dmVv = $dmP.substring($dmC1))
+          #dmUnq($dmVv)
+          #set($void = $dmSc.put($dmK, $dmUq))
+          #set($dmDisp = "${dmDisp}${dmK}=${dmUq} | ")
+        #end
+      #end
+    #end
+    #set($dmDisp = "${dmDisp}}")
+  #else
+    #dmUnq($dmSv)
+    #set($dmSc = $dmUq)
+    #set($dmDisp = $dmUq)
+  #end
+#end
+## key: value into the map $kvMap (key column $kvInd, parent path $kvPath), from the line content $c.
+#macro(dmKv)
+  #set($kci = $c.indexOf(":"))
+  #set($k = $c.substring(0, $kci))
+  #set($kv1 = $kci + 1)
+  #set($v = $c.substring($kv1))
+  #set($v = $v.trim())
+  #set($kp = $k)
+  #if($kvPath != "")
+    #set($kp = "${kvPath}.${k}")
+  #end
+  #if($kvMap.containsKey($k))
+    #set($void = $probs.add(["error", $lineNo, "duplicate key $kp"]))
+  #end
+  #if($v == "")
+    #set($void = $kvMap.put($k, ""))
+    #set($pf = $objectFactory.newMap())
+    #set($void = $pf.put("p", "1"))
+    #set($void = $pf.put("kI", $kvInd))
+    #set($void = $pf.put("pm", $kvMap))
+    #set($void = $pf.put("pk", $k))
+    #set($void = $pf.put("path", $kp))
+    #set($void = $stack.add($pf))
+    #set($void = $rows.add([$lineNo, $kp, "(block)"]))
+  #else
+    #dmScalar($v)
+    #set($void = $kvMap.put($k, $dmSc))
+    #set($void = $rows.add([$lineNo, $kp, $dmDisp]))
+  #end
+#end
+
+#set($probs = [])
+#set($rows = [])
+#set($root = $objectFactory.newMap())
+#set($stack = [])
+#set($rf = $objectFactory.newMap())
+#set($void = $rf.put("p", "0"))
+#set($void = $rf.put("ind", 0))
+#set($void = $rf.put("cont", $root))
+#set($void = $rf.put("kind", "map"))
+#set($void = $rf.put("path", ""))
+#set($void = $stack.add($rf))
+#set($lineNo = 0)
+## Text before the model (a title or an explanation above a code block) is skipped up to the first top-level model key.
+#set($started = false)
+#set($skipped = 0)
+#set($yTs0 = $date.systemTime)
+#foreach($ln in $lines)
+  #set($lineNo = $lineNo + 1)
+  #set($raw = "$ln")
+  #set($tr = $raw.trim())
+  #if(!$started && $raw.matches("(version|name|model|uses|bindings):( .*)?"))
+    #set($started = true)
+  #end
+  #if(!$started && $tr != "")
+    #set($skipped = $skipped + 1)
+  #end
+  #if($started && $tr != "" && !$tr.startsWith("#"))
+    #set($ok = true)
+    #set($noInd = $raw.replaceAll("^ +", ""))
+    #set($ind = $raw.length() - $noInd.length())
+    #set($c = $noInd.trim())
+    ## Comment at the end of the line: " #" outside quotes (only when no quote precedes it).
+    #set($ci = $c.indexOf(" #"))
+    #if($ci > 0)
+      #set($cBefore = $c.substring(0, $ci))
+      #if($cBefore.indexOf('"') < 0 && $cBefore.indexOf("'") < 0)
+        #set($c = $cBefore.trim())
+      #end
+    #end
+    #set($dash = false)
+    #if($c == "-")
+      #set($void = $probs.add(["error", $lineNo, "empty list item: write the entry on the same line as the dash"]))
+      #set($ok = false)
+    #elseif($c.startsWith("- "))
+      #set($dash = true)
+      #set($c = $c.substring(2))
+      #set($c = $c.trim())
+    #end
+    #if($ok)
+      ## Find the container of this line: close deeper blocks, open the block of a pending "key:".
+      #set($res = "")
+      #set($guardN = $stack.size())
+      #foreach($g in [1..$guardN])
+        #if($res == "")
+          #set($sl = $stack.size() - 1)
+          #set($top = $stack.get($sl))
+          #if($top.get("p") == "1")
+            #set($kI = $top.get("kI"))
+            #if($ind > $kI || ($dash && $ind == $kI))
+              #if($dash)
+                #set($newC = [])
+                #set($void = $top.put("kind", "list"))
+              #else
+                #set($newC = $objectFactory.newMap())
+                #set($void = $top.put("kind", "map"))
+              #end
+              #set($void = $top.get("pm").put($top.get("pk"), $newC))
+              #set($void = $top.put("cont", $newC))
+              #set($void = $top.put("ind", $ind))
+              #set($void = $top.put("p", "0"))
+              #set($void = $top.put("n", 0))
+              #set($res = "ok")
+            #else
+              #set($void = $stack.remove($sl))
+            #end
+          #elseif($top.get("ind") == $ind)
+            #set($res = "ok")
+          #elseif($top.get("ind") > $ind && $sl > 0)
+            #set($void = $stack.remove($sl))
+          #else
+            #set($res = "bad")
+          #end
+        #end
+      #end
+      #if($res != "ok")
+        #set($void = $probs.add(["error", $lineNo, "unexpected indentation ($ind spaces)"]))
+      #else
+        #set($sl = $stack.size() - 1)
+        #set($top = $stack.get($sl))
+        #set($tc = $top.get("cont"))
+        #set($tPath = $top.get("path"))
+        #if($dash)
+          #if($top.get("kind") != "list")
+            #set($void = $probs.add(["error", $lineNo, "list item where a key was expected"]))
+          #else
+            #set($idx = $top.get("n"))
+            #set($nn = $idx + 1)
+            #set($void = $top.put("n", $nn))
+            #set($itPath = "${tPath}[${idx}]")
+            #if($c.matches("[A-Za-z0-9_.-]+:( .*)?"))
+              #set($m = $objectFactory.newMap())
+              #set($void = $tc.add($m))
+              #set($mi = $ind + 2)
+              #set($mf = $objectFactory.newMap())
+              #set($void = $mf.put("p", "0"))
+              #set($void = $mf.put("ind", $mi))
+              #set($void = $mf.put("cont", $m))
+              #set($void = $mf.put("kind", "map"))
+              #set($void = $mf.put("path", $itPath))
+              #set($void = $stack.add($mf))
+              #set($kvMap = $m)
+              #set($kvInd = $mi)
+              #set($kvPath = $itPath)
+              #dmKv()
+            #else
+              #dmScalar($c)
+              #set($void = $tc.add($dmSc))
+              #set($void = $rows.add([$lineNo, $itPath, $dmDisp]))
+            #end
+          #end
+        #else
+          #if($top.get("kind") != "map")
+            #set($void = $probs.add(["error", $lineNo, "key where a list item was expected"]))
+          #elseif(!$c.matches("[A-Za-z0-9_.-]+:( .*)?"))
+            #set($void = $probs.add(["error", $lineNo, "cannot read the line (expected key: value): $c"]))
+          #else
+            #set($kvMap = $tc)
+            #set($kvInd = $ind)
+            #set($kvPath = $tPath)
+            #dmKv()
+          #end
+        #end
+      #end
+    #end
+  #end
+#end
+#set($yTs1 = $date.systemTime)
+#if($run.containsKey("yaml"))
+  #if($probs.size() == 0 && $rows.size() > 0)
+    #set($void = $sum.add(["S3", "YAML subset parsed (source: $source)", "$lines.size() lines, $rows.size() values, no problem", "ok"]))
+  #elseif($rows.size() > 0)
+    #set($void = $sum.add(["S3", "YAML subset parsed (source: $source)", "$lines.size() lines, $rows.size() values, $probs.size() problems", "info"]))
+  #else
+    #set($void = $sum.add(["S3", "YAML subset parsed (source: $source)", "nothing parsed ($probs.size() problems)", "ko"]))
+  #end
+#end
+
+## ---------------------------------------------------------------- S5 resolve declared documents
+#set($decl = [])
+#set($declSql = "")
+#if($run.containsKey("bind"))
+  #foreach($part in $docsP.split(","))
+    #set($pt = $part.trim())
+    #if($pt != "")
+      #set($segs = [])
+      #foreach($s in $pt.split("/"))
+        #set($void = $segs.add($s.trim()))
+      #end
+      #set($dp = $projectS)
+      #set($dsp = "_default")
+      #set($dn = "")
+      #if($segs.size() == 1)
+        #set($dn = $segs.get(0))
+      #elseif($segs.size() == 2)
+        #set($dsp = $segs.get(0))
+        #set($dn = $segs.get(1))
+      #elseif($segs.size() == 3)
+        #set($dp = $segs.get(0))
+        #set($dsp = $segs.get(1))
+        #set($dn = $segs.get(2))
+      #end
+      #set($void = $decl.add([$pt, $dp, $dsp, $dn]))
+      #if($dn != "")
+        #set($dpQ = $dp.replace("'", "''"))
+        #set($dspQ = $dsp.replace("'", "''"))
+        #set($dnQ = $dn.replace("'", "''"))
+        #if($declSql != "")
+          #set($declSql = "${declSql} OR ")
+        #end
+        #set($declSql = "${declSql}(p.c_id = '${dpQ}' AND m.c_modulefolder = '${dspQ}' AND m.c_id = '${dnQ}')")
+      #end
+    #end
+  #end
+#end
+#set($found = $objectFactory.newMap())
+#set($bindSql = "")
+#set($bTs0 = "")
+#set($bTs1 = "")
+#if($declSql != "")
+  #set($bindSql = "SELECT m.c_uri FROM module m INNER JOIN project p ON p.c_uri = m.fk_uri_project WHERE ${declSql}")
+  #set($bTs0 = $date.systemTime)
+  #set($bMods = $ds.sqlSearch($bindSql))
+  #set($bTs1 = $date.systemTime)
+  #foreach($bm in $bMods)
+    #if(!$bm.isUnresolvable())
+      #set($bk = "$bm.getProjectId()/$bm.getModuleFolder()/$bm.getId()")
+      #set($void = $found.put($bk, $bm))
+    #end
+  #end
+#end
+#if($run.containsKey("bind") && $decl.size() > 0)
+  #set($nFound = 0)
+  #foreach($d in $decl)
+    #set($dk = "$d.get(1)/$d.get(2)/$d.get(3)")
+    #if($found.containsKey($dk))
+      #set($nFound = $nFound + 1)
+    #end
+  #end
+  #set($void = $sum.add(["S5", "Declared documents resolved by one SQL query", "$nFound of $decl.size() found", "info"]))
+#end
+
+## ---------------------------------------------------------------- S6 work item types and link roles of the project
+#set($wiTypes = [])
+#set($linkRoles = [])
+#if($run.containsKey("config"))
+  #set($tp = false)
+  #set($tp = $trackerService.getTrackerProject($projectId))
+  #if($tp)
+    #set($te = false)
+    #set($te = $tp.getWorkItemTypeEnum())
+    #if($te)
+      #foreach($o in $te.getAllOptions())
+        #set($void = $wiTypes.add($o))
+      #end
+    #end
+    #set($le = false)
+    #set($le = $tp.getWorkItemLinkRoleEnum())
+    #if($le)
+      #foreach($o in $le.getAllOptions())
+        #set($void = $linkRoles.add($o))
+      #end
+    #end
+  #end
+  #if($wiTypes.size() > 0)
+    #set($void = $sum.add(["S6", "Work item types (getTrackerProject().getWorkItemTypeEnum())", "$wiTypes.size() types, $linkRoles.size() link roles", "ok"]))
+  #else
+    #set($void = $sum.add(["S6", "Work item types (getTrackerProject().getWorkItemTypeEnum())", "none read ($linkRoles.size() link roles)", "ko"]))
+  #end
+#end
+
+## ---------------------------------------------------------------- S8 work item of another project
+#set($rwi = false)
+#set($rState = "no PROJECT/ID given")
+#set($rTypes = 0)
+#if($run.containsKey("remote") && $remoteP.matches("[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+"))
+  #set($rp = $remoteP.substring(0, $remoteP.indexOf("/")))
+  #set($ri1 = $remoteP.indexOf("/") + 1)
+  #set($rid = $remoteP.substring($ri1))
+  #set($rwi = $trackerService.getWorkItem($rp, $rid))
+  #if(!$rwi)
+    #set($rState = "getWorkItem returned nothing")
+  #elseif($rwi.isUnresolvable())
+    #set($rState = "unresolvable (does not exist or not readable)")
+    #set($rwi = false)
+  #else
+    #set($rState = "read")
+  #end
+  #set($rtp = false)
+  #set($rtp = $trackerService.getTrackerProject($rp))
+  #if($rtp)
+    #set($rte = false)
+    #set($rte = $rtp.getWorkItemTypeEnum())
+    #if($rte)
+      #set($rTypes = $rte.getAllOptions().size())
+    #end
+  #end
+#end
+#if($run.containsKey("remote"))
+  #if($rwi)
+    #set($void = $sum.add(["S8", "Work item of another project", "$remoteP read", "ok"]))
+  #else
+    #set($void = $sum.add(["S8", "Work item of another project", "$rState", "ko"]))
+  #end
+#end
+#set($t1 = $date.systemTime)
+
+## ================================================================ output
+<div class="dms">
+<h4>Data Model spike &middot; project $esc.html($projectS) &middot; test $test &middot; start $t0 ms, end $t1 ms</h4>
+<p>Report the summary table, the problems and the timings. Do not send raw screenshots or PDF exports (they carry the company template).</p>
+<table>
+<tr><th>Spike</th><th>Question</th><th>Result</th><th></th></tr>
+#foreach($s in $sum)
+<tr><td>$s.get(0)</td><td>$esc.html($s.get(1))</td><td>$esc.html($s.get(2))</td><td class="$s.get(3)">$s.get(3)</td></tr>
+#end
+</table>
+
+<h4>EscapeTool getters (S3 prerequisites)</h4>
+<table>
+<tr><th>Expression</th><th>Result</th><th>Length</th></tr>
+<tr><td>esc.b</td><td>$esc.html($escB)</td><td>$escBS.length()</td></tr>
+<tr><td>esc.backslash</td><td>$esc.html($escBackslash)</td><td>$escBackslashS.length()</td></tr>
+<tr><td>esc.h</td><td>$esc.html($escH)</td><td></td></tr>
+<tr><td>esc.hash</td><td>$esc.html($escHash)</td><td></td></tr>
+<tr><td>esc.d</td><td>$esc.html($escD)</td><td></td></tr>
+<tr><td>run-time newline regex</td><td>$esc.html($nlRe)</td><td></td></tr>
+</table>
+
+#if($run.containsKey("locate"))
+<h4>S2 Locate the model item</h4>
+<table>
+<tr><th>Model document</th><td>$esc.html($docState) &middot; space $esc.html($docFolder) &middot; name $esc.html($docName) &middot; revision $esc.html($docRev)</td></tr>
+<tr><th>items().contained()</th><td>$esc.html($ctState) &middot; $rItems.size() items &middot; start $ctTs0 ms, end $ctTs1 ms</td></tr>
+<tr><th>Types (multi-select)</th><td>$esc.html($typeIds) &middot; candidates in the document: $cands.size()</td></tr>
+<tr><th>Type (single select)</th><td>raw $esc.html($typeSingleRaw) &middot; id() $esc.html($typeSingle)</td></tr>
+<tr><th>SQL (same document, types)</th><td>$sqlItems.size() items<br><code>$esc.html($itemSql)</code></td></tr>
+<tr><th>Model item</th><td>$esc.html($miId) &middot; project $esc.html($miProject) &middot; $esc.html($modelHow)</td></tr>
+<tr><th>Revision</th><td>getRevision(): $esc.html($miRev) &middot; getLastRevision(): $esc.html($miLastRev)</td></tr>
+</table>
+<table>
+<tr><th>Contained item (document order)</th><th>Type</th><th>Title</th><th>Candidate</th></tr>
+#set($nShown = 0)
+#foreach($ri in $rItems)
+  #set($nShown = $nShown + 1)
+  #if($nShown <= 40)
+    #set($oi = false)
+    #set($oi = $ri.getOldApi())
+    #if($oi)
+<tr><td>$esc.html($oi.getId())</td><td>$esc.html($oi.getType().getId())</td><td>$esc.html($oi.getTitle())</td><td>#if($cands.contains($oi))yes#end</td></tr>
+    #end
+  #end
+#end
+</table>
+#end
+
+#if($run.containsKey("desc"))
+<h4>S1 Description of the model item</h4>
+<table>
+<tr><th>Open API getDescription()</th><td>type $esc.html($miDescType) &middot; $miHtml.length() characters &middot; newlines $nlCount &middot; no-break space characters $nbspCharCount &middot; characters outside printable ASCII $nonPrintable</td></tr>
+<tr><th>Rendering API fields().description()</th><td>isUnset() $esc.html($rDescUnset) &middot; get() $rDescGet.length() characters &middot; render() $rDescRender.length() characters</td></tr>
+</table>
+<table>
+<tr><th>Markup token</th><th>Count</th></tr>
+#foreach($tc in $tokCounts)
+<tr><td>$esc.html($tc.get(0))</td><td>$tc.get(1)</td></tr>
+#end
+</table>
+#set($rawShown = $miHtml)
+#if($rawShown.length() > $maxChars)
+  #set($rawShown = $rawShown.substring(0, $maxChars))
+#end
+<p>Stored HTML (getContent(), first $maxChars characters):</p>
+<pre>$esc.html($rawShown)</pre>
+#set($rendShown = $rDescRender)
+#if($rendShown.length() > $maxChars)
+  #set($rendShown = $rendShown.substring(0, $maxChars))
+#end
+<p>Rendering API render() (first $maxChars characters):</p>
+<pre>$esc.html($rendShown)</pre>
+#end
+
+#if($run.containsKey("yaml"))
+<h4>S3 YAML subset parser (source: $source) &middot; start $yTs0 ms, end $yTs1 ms</h4>
+<p>$lines.size() lines, $skipped non-empty lines before the first top-level model key skipped, $rows.size() values, $probs.size() problems, top-level keys: $esc.html($root.keySet())</p>
+<table>
+<tr><th>Severity</th><th>Line</th><th>Problem</th></tr>
+#foreach($p in $probs)
+<tr><td class="ko">$p.get(0)</td><td>$p.get(1)</td><td>$esc.html($p.get(2))</td></tr>
+#end
+</table>
+<table>
+<tr><th>Line</th><th>Path</th><th>Value</th></tr>
+#foreach($r in $rows)
+<tr><td>$r.get(0)</td><td class="dm-path">$esc.html($r.get(1))</td><td class="dm-val">$esc.html($r.get(2))</td></tr>
+#end
+</table>
+<p>Text lines given to the parser (after the HTML conversion):</p>
+<pre>#foreach($l in $lines)$velocityCount: [$esc.html($l)]
+#end</pre>
+#end
+
+#if($run.containsKey("bind"))
+<h4>S5 Declared documents &middot; start $bTs0 ms, end $bTs1 ms</h4>
+<table>
+<tr><th>Declared</th><th>Project / space / name</th><th>Found</th><th>Title</th></tr>
+#foreach($d in $decl)
+  #set($dk = "$d.get(1)/$d.get(2)/$d.get(3)")
+  #set($fm = false)
+  #set($fm = $found.get($dk))
+<tr><td>$esc.html($d.get(0))</td><td>$esc.html($dk)</td>#if($fm)<td class="ok">yes</td><td>$esc.html($fm.getTitle())</td>#else<td class="ko">no</td><td></td>#end</tr>
+#end
+</table>
+<code>$esc.html($bindSql)</code>
+#end
+
+#if($run.containsKey("config"))
+<h4>S6 Work item types and link roles of $esc.html($projectS)</h4>
+<table>
+<tr><th>Type id</th><th>Name</th></tr>
+#foreach($o in $wiTypes)
+<tr><td>$esc.html($o.getId())</td><td>$esc.html($o.getName())</td></tr>
+#end
+</table>
+<table>
+<tr><th>Link role id</th><th>Name</th><th>Opposite name</th></tr>
+#foreach($o in $linkRoles)
+<tr><td>$esc.html($o.getId())</td><td>$esc.html($o.getName())</td><td>$esc.html($o.getOppositeName())</td></tr>
+#end
+</table>
+#end
+
+#if($run.containsKey("remote"))
+<h4>S8 Work item of another project</h4>
+<table>
+<tr><th>Requested</th><td>$esc.html($remoteP) &middot; $esc.html($rState) &middot; types of that project: $rTypes</td></tr>
+#if($rwi)
+  #set($rDesc = "")
+  #set($rdo = false)
+  #set($rdo = $rwi.getDescription())
+  #if($rdo)
+    #set($tmp = "")
+    #set($tmp = $rdo.getContent())
+    #set($rDesc = "$tmp")
+  #end
+  #set($rDescShown = $rDesc)
+  #if($rDescShown.length() > 300)
+    #set($rDescShown = $rDescShown.substring(0, 300))
+  #end
+<tr><th>Item</th><td>$esc.html($rwi.getId()) &middot; type $esc.html($rwi.getType().getId()) &middot; $esc.html($rwi.getTitle()) &middot; revision $esc.html($rwi.getRevision())</td></tr>
+<tr><th>Description</th><td>$rDesc.length() characters<pre>$esc.html($rDescShown)</pre></td></tr>
+#end
+</table>
+#end
+
+#if(!$isPdf)
+<h4>S4 REST API from the widget (browser only; nothing runs until a button is clicked)</h4>
+<div class="dms-rest" data-project="$esc.html($miProject)" data-id="$esc.html($miId)">
+<button type="button" data-a="token">1. Token function</button>
+<button type="button" data-a="get">2. GET the model item (token)</button>
+<button type="button" data-a="getnt">3. GET without token (session cookie only)</button>
+<button type="button" data-a="patch">4. PATCH the description back unchanged (after 2)</button>
+<pre class="dms-out">Model item: $esc.html($miProject)/$esc.html($miId)</pre>
+</div>
+<script>
+(function () {
+  var roots = document.querySelectorAll('.dms-rest');
+  var root = roots[roots.length - 1];
+  var out = root.querySelector('.dms-out');
+  var project = root.getAttribute('data-project');
+  var id = root.getAttribute('data-id');
+  var lastDesc = null;
+  function log(t) { out.textContent = out.textContent + String.fromCharCode(10) + t; }
+  function token() {
+    try { return (top.getRestApiToken && top.getRestApiToken()) || null; } catch (e) { return 'error: ' + e; }
+  }
+  function url() {
+    return '/polarion/rest/v1/projects/' + encodeURIComponent(project) + '/workitems/' + encodeURIComponent(id) + '?fields[workitems]=title,description';
+  }
+  function call(method, withToken, body) {
+    var h = { 'Accept': 'application/json' };
+    if (withToken) { h['X-Polarion-REST-Token'] = token(); }
+    if (body) { h['Content-Type'] = 'application/json'; }
+    var t0 = Date.now();
+    return fetch(url(), { method: method, headers: h, credentials: 'same-origin', body: body ? JSON.stringify(body) : undefined })
+      .then(function (r) {
+        return r.text().then(function (txt) {
+          log(method + (withToken ? ' (token)' : ' (no token)') + ': HTTP ' + r.status + ' in ' + (Date.now() - t0) + ' ms');
+          log(txt.substring(0, 1500));
+          return { status: r.status, text: txt };
+        });
+      })
+      .catch(function (e) { log(method + ' failed: ' + e); return null; });
+  }
+  root.addEventListener('click', function (ev) {
+    var a = ev.target.getAttribute && ev.target.getAttribute('data-a');
+    if (!a) { return; }
+    if (!id) { log('No model item located (S2): nothing to call.'); return; }
+    if (a === 'token') {
+      var t = token();
+      log('typeof top.getRestApiToken: ' + (function () { try { return typeof top.getRestApiToken; } catch (e) { return 'error: ' + e; } })());
+      log('token: ' + (t ? 'present, ' + String(t).length + ' characters' : 'none'));
+    } else if (a === 'get' || a === 'getnt') {
+      call('GET', a === 'get').then(function (res) {
+        if (res && res.status === 200 && a === 'get') {
+          try {
+            var j = JSON.parse(res.text);
+            lastDesc = j.data.attributes.description || null;
+            log('description object: ' + JSON.stringify(lastDesc).substring(0, 300));
+          } catch (e) { log('JSON not read: ' + e); }
+        }
+      });
+    } else if (a === 'patch') {
+      if (!lastDesc) { log('Run 2 first (the description read by GET is written back unchanged).'); return; }
+      if (!window.confirm('PATCH the description of ' + project + '/' + id + ' with its current value (no content change, a new revision may be created)?')) { return; }
+      call('PATCH', true, { data: { type: 'workitems', id: project + '/' + id, attributes: { description: lastDesc } } });
+    }
+  });
+})();
+</script>
+#end
+</div>

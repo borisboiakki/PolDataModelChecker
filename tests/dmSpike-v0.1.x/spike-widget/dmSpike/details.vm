@@ -1,0 +1,1 @@
+Diagnostic widget for the data model widgets (dmDefine, dmCheck): reads the model work item of a LiveDoc, shows its description HTML, parses the YAML subset in Velocity, resolves declared documents, lists the project's work item types and link roles, reads a work item of another project and probes the REST API from the browser. Read-only except the explicit REST PATCH button.

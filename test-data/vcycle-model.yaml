@@ -1,0 +1,45 @@
+# Invented V-cycle data model (no customer data). Paste it into the description of the model "text" work item for
+# spike S1/S3 (tests/dmSpike-v0.1.x/spike-tests.md), adapting the type, role and document names to the sandbox project.
+version: 1
+name: V-cycle model
+
+model:
+  roles:
+    SystemSpec:
+      title: System specification
+      items:
+        - type: systemRequirement
+          min: 1
+        - type: heading
+          ignored: true
+      unexpected_types: error
+    SubsystemReq:
+      title: Subsystem requirements
+      items:
+        - { type: subsystemRequirement, min: 1 }
+        - { type: heading, ignored: true }
+    SystemTest:
+      title: System test specification
+      items:
+        - { type: testCase, min: 1 }
+
+  links:
+    - id: L1
+      from: { role: SubsystemReq, type: subsystemRequirement }
+      link_role: satisfies
+      to: { role: SystemSpec, type: systemRequirement }
+      from_min: 1
+      to_min: 1
+      severity: error
+    - id: L2
+      from: { role: SystemTest, type: testCase }
+      link_role: verifies
+      to: { role: SystemSpec, type: systemRequirement }
+      to_min: 1
+      severity: warning
+  unexpected_links: warning
+
+bindings:
+  SystemSpec: ["Specs/System Specification"]
+  SubsystemReq: ["Specs/Subsystem A Requirements", "Specs/Subsystem B Requirements"]
+  SystemTest: ["Tests/System Tests"]

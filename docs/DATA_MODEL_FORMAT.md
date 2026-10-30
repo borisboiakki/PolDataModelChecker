@@ -19,7 +19,9 @@ dedicated LiveDoc, documents referred to by logical role plus binding, one proje
 
 The text is a **YAML subset** (valid YAML): block maps and lists indented with spaces, plain or quoted scalars,
 one-level flow lists `[a, b]` and flow maps `{k: v}` of scalars, `#` comments, `null`/`true`/`false`/integers. No tabs,
-anchors, multi-line scalars or nested flow collections. It is parsed by the widgets in Velocity (ARCHITECTURE §3.3).
+anchors, multi-line scalars or nested flow collections. Keys are plain words (`A-Z a-z 0-9 _ . -`). Text before the
+first top-level key (a title, an explanation) is ignored. It is parsed by the widgets in Velocity (ARCHITECTURE §3.3).
+A complete example: `test-data/vcycle-model.yaml`.
 
 Two parts with different scopes (PO 2026-10-30: the model must be reusable, the documents are declared by the user):
 - `model`: project-neutral (roles, item types, link rules): reusable;
