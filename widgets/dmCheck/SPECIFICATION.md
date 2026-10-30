@@ -94,7 +94,7 @@ PO 2026-10-30: dmCheck is started after dmDefine is completed.
 
 1. **0.1.0** (done) the v1 checks (K3–K5, K15) on verified SQL forms, bindings, report table, Excel, coloured graph, static PDF
    view; dummy model and test structure (T4: `test-data/vcycle-check/`). Spike S10 (T1, T3) run in parallel.
-2. **0.2.0** (done) Drill-down queries (K9). Decision (developer, 2026-10-30, to confirm by the PO with PO_CHECKS 3.7–3.11):
+2. **0.2.0** (done) Drill-down queries (K9). **Decided (PO, 2026-10-30)**:
    the evaluation of 0.1.0 is kept (verified on 2512, its timing on the largest project was fine, and it handles pairs,
    cross-pair and unexpected links in one pass); the S10 set queries are used for the drill-down only, and are not run
    by the widget. A faster evaluation through set queries stays possible if a larger project needs it.

@@ -176,7 +176,7 @@ root classes `dd-root`/`dc-root`; `core.js` optional widget fields `isolatedText
 - Pending checks of the PO on 2512, in order: `docs/PO_CHECKS.md` (§1–§4 done 2026-10-30; open: dmCheck 0.2.0 checks 3.7–3.12;
   §5 later: REST token disabled, 2612). Record each result in the spec / `tests/dmSpike-v0.1.x/spike-tests.md`, then tick it there.
 - Next increments: dmDefine starter generator (S7 done: nested `IN (SELECT MIN(c_uri) … GROUP BY …)` form, run 4), dmCheck 0.2.0 drill-down built (PO 2026-10-30: dmCheck 0.2 first);
-  the 0.1.0 evaluation is kept (decision to confirm with 3.7–3.11). Later: exploded view of the graph (dmDefine D16, then dmCheck K17; PO-agreed design in the specs).
+  the 0.1.0 evaluation is kept (PO 2026-10-30); set queries only for the drill-down. Later: exploded view of the graph (dmDefine D16, then dmCheck K17; PO-agreed design in the specs).
   Specs §8 of each widget list them.
 
 ## Working conventions
