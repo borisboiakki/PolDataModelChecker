@@ -125,6 +125,33 @@ Still open from run 1 (optional): S5 with a named space, another project and a m
 S9 closed. Tab leaves the text area (browser default): indentation in the YAML text tab is typed with spaces; catching
 Tab to insert spaces would be a small editor option, not requested.
 
+### Run 4 on 2512 (2026-10-30, PO; S7 summaries read from photos of the PDF export, not committed)
+
+Project with 151 documents (all spaces, *S7 max documents* 300), 150 holding items. All three variants render.
+
+| Variant | Items read (types query) | Link sources read | Links scanned | Link combinations | Out of scope | start → starter YAML |
+|---|---|---|---|---|---|---|
+| C full scan | 8240 | 8091 (`SELECT DISTINCT ws.c_uri …`) | 26549 | **781** | 0 | **650 ms** (types scan 168 ms, links scan 395 ms) |
+| A representatives (`SELECT MIN(w.c_uri) … GROUP BY`) | 281 | 781 | 4601 | **781** | 0 | **108 ms** |
+| B nested (`… WHERE c_uri IN (SELECT MIN(…) … GROUP BY …)`) | 281 | 375 | 1713 | **781** | 0 | **80 ms** |
+
+Findings:
+- `sqlSearch` **accepts `SELECT MIN(c_uri) … GROUP BY …`** (A) and returns the work item objects, one per group (781 rows
+  for 781 groups, the same item possibly several times); the nested form (B) returns each item once (375 distinct link
+  sources). Both give the **same number of document/type pairs (281) and link combinations (781) as the full scan**.
+  Whether the tables are identical row by row: to confirm by the PO (counts equal in the three summaries).
+- Even the full scan stays well within the 10 s budget on this project (≈ 0.65 s for 8k items), but scales with the
+  items; B is ≈ 8× faster and reads ≈ 20× fewer links.
+- Count method: **`searchInstancesCount` not available** ("method not available"): A and B give representatives, not
+  item counts per type. The starter does not need counts (proposed `min: 1` per observed type); counts, if wanted,
+  would need `GROUP BY … HAVING` style queries (verified form) or the full scan.
+- The page export of the full output is large (≈ 200 pages for 151 documents): the starter generator must show a
+  compact proposal (YAML + summary), not every combination table.
+- Pending (PO): the generated starter YAML opened in dmDefine (problems, usefulness).
+
+Decision proposed for the starter generator (D8): **variant B** (nested), falling back to nothing else needed (A also
+works); full scan not used.
+
 ### Run 3: S9 editor controls (for dmDefine 0.3.0)
 
 Upload the rebuilt `dmSpike.zip` (browser view, any test). In section **S9**: type several lines with leading spaces in
