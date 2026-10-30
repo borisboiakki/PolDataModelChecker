@@ -114,10 +114,10 @@ Still open from run 1 (optional): S5 with a named space, another project and a m
 
 | ID | Result |
 |---|---|
-| S9 | ✅ PO: "everything works". Log: text area `keydown` Enter, space, Ctrl+C, Ctrl+V and its `input` event received, **none prevented by the page**; multi-line text with leading spaces kept (12 lines, indentation shown); input `keydown` and `input` event received (value as typed); `<select>` (not in a `<label>`) `input` and `change` events for "two" and "three"; `navigator.clipboard.writeText`: ok; `execCommand('copy')`: true; download of the `.yaml` started; *Show the values* read the text area, the input and the select. **Not in the log** (each key is logged once): Tab (and the "after Tab, focus" line), Backspace, Ctrl+Z, so not confirmed by the log; the text shows a deleted character, so deleting works. dmDefine does not depend on them (no Tab handling, copy with `navigator.clipboard` then `execCommand`, as verified here) |
+| S9 | ✅ PO: "everything works". Log: text area `keydown` Enter, space, Ctrl+C, Ctrl+V and its `input` event received, **none prevented by the page**; multi-line text with leading spaces kept (12 lines, indentation shown); input `keydown` and `input` event received (value as typed); `<select>` (not in a `<label>`) `input` and `change` events for "two" and "three"; `navigator.clipboard.writeText`: ok; `execCommand('copy')`: true; download of the `.yaml` started; *Show the values* read the text area, the input and the select. Second photo (end of the log): **Backspace** received; **Tab** received and moves the focus to the next control (the input), the browser default, not blocked; **Ctrl+Z** works (PO). dmDefine does not depend on Tab (indentation is typed with spaces; Tab leaves the text area), copy with `navigator.clipboard` then `execCommand`, as verified here) |
 
-S9 closed. Optional: press Tab in the text area once to see where the focus goes (only matters if indentation by Tab is
-wanted in the YAML text tab; today indentation is typed with spaces).
+S9 closed. Tab leaves the text area (browser default): indentation in the YAML text tab is typed with spaces; catching
+Tab to insert spaces would be a small editor option, not requested.
 
 ### Run 3: S9 editor controls (for dmDefine 0.3.0)
 
