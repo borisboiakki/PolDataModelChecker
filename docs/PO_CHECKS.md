@@ -5,7 +5,7 @@ Polarion instance**. Run the checks in this order when you have time; for each o
 screenshots or PDF exports: the repository is public). Findings are then recorded in the specification and in
 `tests/dmSpike-v0.1.x/spike-tests.md`.
 
-Last update: 2026-10-30, dmDefine 0.5.0, dmCheck 0.1.0, dmSpike S7 and S10; §1 done; §1–§4 done (dmDefine 0.5.0 and dmCheck 0.1.0 verified, decisions agreed); §5 later.
+Last update: 2026-10-30 (dmCheck 0.2.0: checks 3.7–3.12 open), dmDefine 0.5.0, dmCheck 0.1.0, dmSpike S7 and S10; §1 done; §1–§4 done (dmDefine 0.5.0 and dmCheck 0.1.0 verified, decisions agreed); §5 later.
 
 ## 1. Spike widget dmSpike (upload `tests/dmSpike-v0.1.x/spike-widget/dmSpike.zip`)
 
@@ -53,6 +53,12 @@ Use a model with the names of your project (start from `test-data/vcycle-model.y
 | 3.4 | ✅ **Done 2026-10-30** (ok). PDF export of the page | rules, documents, violations tables | dmCheck 0.1.0 |
 | 3.5 | ✅ **Done 2026-10-30** (ok). dmCheck on a real model of your largest project | rendering time (seconds), no "limit reached"; the violations make sense | dmCheck 0.1.0 |
 | 3.6 | ✅ **Done 2026-10-30** (ok). A model with an error (e.g. an unknown link role) | the problems, "The model has errors", nothing checked | dmCheck 0.1.0 |
+| 3.7 | **dmCheck 0.2.0** (upload the new `dmCheck.zip`) on the test structure: click the orange line (L2). Under the violations, *Open the items in Polarion*: 3 rows (missing link STD A: 2 items; not covered Solution Spec A: 2 items, Solution Spec B: 1 item). Click "2 items" of STD A | Polarion's work item table opens with the query and lists STA-3 and STA-4. If it opens without the query or with an error: report what you see (the URL form is the open point) | dmCheck 0.2.0 |
+| 3.8 | *Copy query*, then paste it into the query field of the work item table (text query) | the same items as in 3.7 | dmCheck 0.2.0 |
+| 3.9 | Click the role *CustomerSpec*: *unexpected type, Customer Specification: 1 item* | the table lists CUS-6 | dmCheck 0.2.0 |
+| 3.10 | *Table* (section *Drill-down queries*) and *Excel* (sheet *Queries*, links in the Items column) | 12 queries; the links open the table as in 3.7 | dmCheck 0.2.0 |
+| 3.11 | On the real model of your largest project: two or three drill-down links; rendering time | Polarion's table shows the same number of items as dmCheck; rendering time as with 0.1.0 | dmCheck 0.2.0 |
+| 3.12 | Optional: a rule with `from_min: 2` (or `to_min: 2`); its drill-down link | Polarion accepts the query (it adds `GROUP BY … HAVING` in the sub-select, not verified yet) and lists the items with fewer than 2 links | dmCheck 0.2.0 |
 
 ## 4. Decisions to confirm (dmCheck, proposed in `widgets/dmCheck/SPECIFICATION.md` §7)
 

@@ -4,7 +4,7 @@
 ## Velocity 1.4 and writes widgets/dmCheck/dist/dmCheck.zip.
 ## Velocity 1.4 dialect (guide 3.1.9): no map literals, one statement per line, no backslashes in strings.
 ## Model pipeline as dmDefine (dm-read, dm-yaml, dm-model); checks in dm-check.vm (SPECIFICATION K3-K5, K15, K16).
-#set($bwVersion = "0.1.0")
+#set($bwVersion = "0.2.0")
 ## Shared snippet style.vm (shared/vm), inlined by tools/build-widget.py at "## BW_SHARED style.vm".
 ## CSS of the interactive view and the static (PDF/print) table. Root classes: bw-root, cw-root (sister repo), dd-root (dmDefine), dc-root (dmCheck).
 <style>
@@ -1299,6 +1299,10 @@
 ##   $dcViolN  map "rule|kind" -> full count;  $dcSevN map severity -> full count
 ##   $dcStat   map rule id -> map fc, fo (from side: checked, compliant), tc, to (to side), cross, unp, sev
 ##   $dcDocs   list of maps key, roles (list), items (counted), bad (items with a violation), types ("type|n;" text)
+##   $dcQs     drill-down queries (K9, dmCheck 0.2): list of [rule, kind, document key, count, Lucene query] for the
+##             kinds from, to (per document of the rule's side) and unexpected-type (per document). The query lists the
+##             same items as the evaluation: NOT IN form verified on 2512 (dmSpike S10 runs 5 and 5b, also inside a
+##             Lucene SQL:(...) restriction); count = violations of that rule, kind and document
 #set($dcRun = false)
 #set($dcNote = "")
 #set($dcItemN = 0)
@@ -1310,6 +1314,8 @@
 #set($dcSevN = $objectFactory.newMap())
 #set($dcStat = $objectFactory.newMap())
 #set($dcDocs = [])
+#set($dcQs = [])
+#set($dcViolDN = $objectFactory.newMap())
 
 ## Violation [sev, kind, rule, doc, item, msg]: counted always, stored up to $dcListCap per rule and kind.
 ## Arguments are passed by name (Velocity 1.4): the macro uses its own variable names (dca*) so that an argument such
@@ -1327,6 +1333,11 @@
   #set($dcaSn = $dcSevN.get($dcaSev))
   #set($dcaSn = $dcaSn + 1)
   #set($void = $dcSevN.put($dcaSev, $dcaSn))
+  #set($dcaDk = "${dcaR}|${dcaK}|${dcaD}")
+  #set($dcaDn = 0)
+  #set($dcaDn = $dcViolDN.get($dcaDk))
+  #set($dcaDn = $dcaDn + 1)
+  #set($void = $dcViolDN.put($dcaDk, $dcaDn))
   #if($dcaN <= $dcListCap)
     #set($void = $dcViol.add([$dcaSev, "$dcaK", "$dcaR", "$dcaD", $dcaItem, $dcaMsg]))
   #end
@@ -1463,6 +1474,34 @@
       #end
     #end
   #end
+  ## Drill-down helpers (K9). SQL condition of each found document (aliases p, m; changed to pt, mt for the link
+  ## targets) and its project; $dcTySql = quoted type list of $dctL, e.g. 'a','b'.
+  #set($dcDocCond = $objectFactory.newMap())
+  #set($dcDocProj = $objectFactory.newMap())
+  #foreach($dmR in $dmRoles)
+    #foreach($dmD in $dmR.get("docs"))
+      #if($dmD.get("found"))
+        #set($dcCp = $dmD.get("project").replace("'", "''"))
+        #set($dcCs = $dmD.get("space").replace("'", "''"))
+        #set($dcCn = $dmD.get("name").replace("'", "''"))
+        #set($void = $dcDocCond.put($dmD.get("key"), "(p.c_id = '${dcCp}' AND m.c_modulefolder = '${dcCs}' AND m.c_id = '${dcCn}')"))
+        #set($void = $dcDocProj.put($dmD.get("key"), $dmD.get("project")))
+      #end
+    #end
+  #end
+  #macro(dcTypes $dctL)
+    #set($dcTySql = "")
+    #foreach($dctT in $dctL)
+      #if($dcTySql != "")
+        #set($dcTySql = "${dcTySql},")
+      #end
+      #set($dctQ = $dctT.replace("'", "''"))
+      #set($dcTySql = "${dcTySql}'${dctQ}'")
+    #end
+  #end
+  #set($dcItemSql = "SELECT w.c_uri FROM workitem w INNER JOIN module m ON m.c_uri = w.fk_uri_module INNER JOIN project p ON p.c_uri = m.fk_uri_project WHERE ")
+  #set($dcTgtSqlHead = "SELECT t.c_uri FROM workitem t INNER JOIN module mt ON mt.c_uri = t.fk_uri_module INNER JOIN project pt ON pt.c_uri = mt.fk_uri_project WHERE ")
+
   ## Unexpected types: not listed in any role of the document (severity of the first role; ignore = not reported).
   #foreach($dcDk in $dcFound)
     #set($dcListed = [])
@@ -1479,6 +1518,12 @@
       #end
     #end
     #if($dcSev != "ignore")
+      #dcTypes($dcListed)
+      #set($dcQ = "${dcItemSql}$dcDocCond.get($dcDk)")
+      #if($dcTySql != "")
+        #set($dcQ = "${dcQ} AND w.c_type NOT IN (${dcTySql})")
+      #end
+      #set($dcQp = $dcDocProj.get($dcDk))
       #foreach($dcIk in $dcByDoc.get($dcDk))
         #set($dcTy = $dcItems.get($dcIk).get(0))
         #if(!$dcListed.contains($dcTy))
@@ -1486,6 +1531,9 @@
           #dcAdd($dcSev "unexpected-type" "types:$dcFirstRole" $dcDk $dcIk "$dcIid: type $dcTy is not listed in role $dcFirstRole.")
         #end
       #end
+      #set($dcQn = 0)
+      #set($dcQn = $dcViolDN.get("types:${dcFirstRole}|unexpected-type|${dcDk}"))
+      #set($void = $dcQs.add(["types:${dcFirstRole}", "unexpected-type", $dcDk, $dcQn, "project.id:${dcQp} AND SQL:(${dcQ})"]))
     #end
   #end
 
@@ -1526,9 +1574,11 @@
     #dcEnd($dmU.get("from") $dmU.get("ft"))
     #set($dcFrom = $dcCand)
     #set($dcFromSet = $dcCandSet)
+    #set($dcFromTypes = $dcOkTypes)
     #dcEnd($dmU.get("to") $dmU.get("tt"))
     #set($dcTo = $dcCand)
     #set($dcToSet = $dcCandSet)
+    #set($dcToTypes = $dcOkTypes)
     #set($dcPairs = [])
     #foreach($dcP in $dmU.get("pairs"))
       #set($void = $dcPairs.add("$dcP.get(0)>$dcP.get(1)"))
@@ -1612,6 +1662,77 @@
             #end
           #end
         #end
+      #end
+    #end
+    ## Drill-down queries of the rule (K9): one per document of each side with a minimum. Pooled rule: the other side =
+    ## every found document of the other role; paired rule: the documents paired with this one (none: no link counts).
+    #set($dcFromDocs = [])
+    #foreach($dmD in $dmRoleByKey.get($dmU.get("from")).get("docs"))
+      #if($dmD.get("found") && !$dcFromDocs.contains($dmD.get("key")))
+        #set($void = $dcFromDocs.add($dmD.get("key")))
+      #end
+    #end
+    #set($dcToDocs = [])
+    #foreach($dmD in $dmRoleByKey.get($dmU.get("to")).get("docs"))
+      #if($dmD.get("found") && !$dcToDocs.contains($dmD.get("key")))
+        #set($void = $dcToDocs.add($dmD.get("key")))
+      #end
+    #end
+    #set($dcRoleQ = $dmU.get("role").replace("'", "''"))
+    #dcTypes($dcFromTypes)
+    #set($dcFtySql = $dcTySql)
+    #dcTypes($dcToTypes)
+    #set($dcTtySql = $dcTySql)
+    #if($dcFmin > 0 && $dcFtySql != "" && $dcTtySql != "")
+      #foreach($dcDk in $dcFromDocs)
+        #set($dcOther = "")
+        #foreach($dcOk in $dcToDocs)
+          #if(!$dcPaired || $dcPairs.contains("${dcDk}>${dcOk}"))
+            #if($dcOther != "")
+              #set($dcOther = "${dcOther} OR ")
+            #end
+            #set($dcOther = "${dcOther}$dcDocCond.get($dcOk)")
+          #end
+        #end
+        #set($dcQ = "${dcItemSql}$dcDocCond.get($dcDk) AND w.c_type IN (${dcFtySql})")
+        #if($dcOther != "")
+          #set($dcOther = $dcOther.replace("p.c_id", "pt.c_id").replace("m.c_", "mt.c_"))
+          #set($dcHav = "")
+          #if($dcFmin > 1)
+            #set($dcHav = " GROUP BY l.fk_uri_p_workitem HAVING COUNT(*) >= ${dcFmin}")
+          #end
+          #set($dcQ = "${dcQ} AND w.c_uri NOT IN (SELECT l.fk_uri_p_workitem FROM struct_workitem_linkedworkitems l INNER JOIN workitem t ON t.c_uri = l.fk_uri_workitem INNER JOIN module mt ON mt.c_uri = t.fk_uri_module INNER JOIN project pt ON pt.c_uri = mt.fk_uri_project WHERE l.c_role = '${dcRoleQ}' AND (${dcOther}) AND t.c_type IN (${dcTtySql})${dcHav})")
+        #end
+        #set($dcQn = 0)
+        #set($dcQn = $dcViolDN.get("${dcUid}|from|${dcDk}"))
+        #set($dcQp = $dcDocProj.get($dcDk))
+        #set($void = $dcQs.add([$dcUid, "from", $dcDk, $dcQn, "project.id:${dcQp} AND SQL:(${dcQ})"]))
+      #end
+    #end
+    #if($dcTmin > 0 && $dcFtySql != "" && $dcTtySql != "")
+      #foreach($dcDk in $dcToDocs)
+        #set($dcOther = "")
+        #foreach($dcOk in $dcFromDocs)
+          #if(!$dcPaired || $dcPairs.contains("${dcOk}>${dcDk}"))
+            #if($dcOther != "")
+              #set($dcOther = "${dcOther} OR ")
+            #end
+            #set($dcOther = "${dcOther}$dcDocCond.get($dcOk)")
+          #end
+        #end
+        #set($dcTc0 = $dcDocCond.get($dcDk).replace("p.c_id", "pt.c_id").replace("m.c_", "mt.c_"))
+        #set($dcQ = "${dcTgtSqlHead}${dcTc0} AND t.c_type IN (${dcTtySql})")
+        #if($dcOther != "")
+          #set($dcHav = "")
+          #if($dcTmin > 1)
+            #set($dcHav = " GROUP BY l.fk_uri_workitem HAVING COUNT(*) >= ${dcTmin}")
+          #end
+          #set($dcQ = "${dcQ} AND t.c_uri NOT IN (SELECT l.fk_uri_workitem FROM struct_workitem_linkedworkitems l INNER JOIN workitem w ON w.c_uri = l.fk_uri_p_workitem INNER JOIN module m ON m.c_uri = w.fk_uri_module INNER JOIN project p ON p.c_uri = m.fk_uri_project WHERE l.c_role = '${dcRoleQ}' AND (${dcOther}) AND w.c_type IN (${dcFtySql})${dcHav})")
+        #end
+        #set($dcQn = 0)
+        #set($dcQn = $dcViolDN.get("${dcUid}|to|${dcDk}"))
+        #set($dcQp = $dcDocProj.get($dcDk))
+        #set($void = $dcQs.add([$dcUid, "to", $dcDk, $dcQn, "project.id:${dcQp} AND SQL:(${dcQ})"]))
       #end
     #end
     #set($void = $dcSt.put("fc", $dcFc))
@@ -1806,6 +1927,9 @@
 #end
 #foreach($k in $dcViolN.keySet())
 <i class="dc-n" data-k="$esc.html($k)" data-n="$dcViolN.get($k)"></i>
+#end
+#foreach($q in $dcQs)
+<i class="dc-q" data-rule="$esc.html($q.get(0))" data-kind="$q.get(1)" data-doc="$esc.html($q.get(2))" data-n="$q.get(3)" data-q="$esc.html($q.get(4))"></i>
 #end
 #foreach($d in $dcDocs)
   #set($rs = "")
@@ -2646,6 +2770,29 @@
     var p = splitKey(k);
     return itemUrl(p.project, p.rest, '');
   }
+  // Polarion's work item table filtered by a query (drill-down, dmCheck 0.2). The query is the one verified on 2512
+  // (project.id + SQL:(...) restriction, dmSpike S10); opening it through this URL is to be checked on 2512.
+  function queryHref(project, q) {
+    return projectPath(project, '') + '/workitems?query=' + encodeURIComponent(q);
+  }
+
+  function copyText(text, done) {
+    function fallback() {
+      var ta = el('textarea', null, document.body);
+      ta.value = text;
+      ta.select();
+      var ok = false;
+      try { ok = document.execCommand('copy'); } catch (err) { ok = false; }
+      document.body.removeChild(ta);
+      done(ok);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { done(true); }, fallback);
+    } else {
+      fallback();
+    }
+  }
+
   function shortDoc(k, project) {
     return k.indexOf(project + '/') === 0 ? k.substring(project.length + 1) : k;
   }
@@ -2692,6 +2839,11 @@
       docs.push({ key: d.k, roles: parts(d.roles, ';'), items: toInt(d.items), bad: toInt(d.bad),
         types: parts(d.types, ';').map(function (p) { var f = p.split('|'); return { type: f[0], n: toInt(f[1]) }; }) });
     });
+    var queries = [];
+    Array.prototype.forEach.call(root.querySelectorAll('.bw-model .dc-q'), function (e) {
+      var d = e.dataset;
+      queries.push({ rule: d.rule || '', kind: d.kind, doc: d.doc || '', n: toInt(d.n), q: d.q || '' });
+    });
     var probs = [];
     Array.prototype.forEach.call(root.querySelectorAll('.bw-model .dm-p'), function (e) {
       probs.push({ sev: e.dataset.sev, line: toInt(e.dataset.line), msg: e.dataset.msg || '' });
@@ -2711,7 +2863,7 @@
       e.rules.forEach(function (r) { if (r.violations) { e.kinds[r.sev] += r.violations; } });
       if (!e.kinds.error && !e.kinds.warning && !e.kinds.info) { e.meta.ok = true; }
     });
-    return { nodes: nodes, byKey: byKey, rules: rules, viol: viol, docs: docs, probs: probs, edges: edges, counts: counts };
+    return { nodes: nodes, byKey: byKey, rules: rules, viol: viol, docs: docs, probs: probs, edges: edges, counts: counts, queries: queries };
   }
 
   function ruleState(r) { return r.violations ? r.sev : 'ok'; }
@@ -2914,12 +3066,33 @@
     });
   };
 
+  // Drill-down (K9): per document, a link opening the violating items in Polarion's work item table and a Copy button
+  // (paste the query into the table's query field when the link does not apply it).
+  Widget.prototype.drillList = function (box, rule) {
+    var self = this;
+    var qs = this.model.queries.filter(function (q) { return q.rule === rule && q.n > 0; });
+    if (!qs.length) { return; }
+    el('div', { 'class': 'bw-muted' }, box, 'Open the items in Polarion (all of them, not only the listed ones):');
+    var ul = el('ul', { 'class': 'bw-items dc-drill' }, box);
+    qs.forEach(function (q) {
+      var li = el('li', null, ul);
+      el('span', null, li, (KIND_TEXT[q.kind] || q.kind) + ', ' + shortDoc(q.doc, self.project) + ': ');
+      var p = splitKey(q.doc).project;
+      el('a', { href: queryHref(p, q.q), target: '_top', title: 'Polarion work items table with the query of this check' }, li, q.n + ' item' + (q.n === 1 ? '' : 's'));
+      el('span', null, li, ' ');
+      var b = self.button(li, 'Copy query', 'Copy the query, to paste it into the query field of the work items table', function () {
+        copyText(q.q, function (ok) { b.textContent = ok ? 'Copied' : 'Copy failed'; });
+      });
+    });
+  };
+
   Widget.prototype.showDetails = function (e) {
     var self = this;
     var box = this.detailsHead('Rules ' + e.c + ' ' + ARROW + ' ' + e.o);
     e.rules.forEach(function (r) {
       el('div', { 'class': 'dc-' + ruleState(r) }, box, self.ruleSummary(r));
       self.violList(box, self.shownViolations().filter(function (v) { return v.rule === r.id; }), 'Violations of ' + r.id);
+      self.drillList(box, r.id);
     });
   };
 
@@ -2941,9 +3114,11 @@
       el('td', { 'class': 'dc-error' }, tr, shortDoc(d.key, self.project) + ' (not found)');
     });
     this.violList(box, this.shownViolations().filter(function (v) { return v.rule === 'types:' + n.key; }), 'Item type violations');
+    this.drillList(box, 'types:' + n.key);
     n.selfRules.forEach(function (r) {
       el('div', { 'class': 'dc-' + ruleState(r) }, box, self.ruleSummary(r));
       self.violList(box, self.shownViolations().filter(function (v) { return v.rule === r.id; }), 'Violations of ' + r.id);
+      self.drillList(box, r.id);
     });
   };
 
@@ -2971,7 +3146,13 @@
     });
     var probs = [['Severity', 'Line', 'Problem']];
     m.probs.forEach(function (p) { probs.push([p.sev, p.line > 0 ? p.line : '', p.msg]); });
-    return { viol: viol, vLinks: vLinks, rules: rules, docs: docs, dLinks: dLinks, probs: probs };
+    var qs = [['Rule', 'Check', 'Document', 'Items', 'Polarion query (work items table)']];
+    var qLinks = [];
+    m.queries.forEach(function (q) {
+      if (q.n > 0) { qLinks.push({ r: qs.length, c: 3, url: absUrl(queryHref(splitKey(q.doc).project, q.q)) }); }
+      qs.push([q.rule, KIND_TEXT[q.kind] || q.kind, shortDoc(q.doc, self.project), q.n, q.q]);
+    });
+    return { viol: viol, vLinks: vLinks, rules: rules, docs: docs, dLinks: dLinks, probs: probs, qs: qs, qLinks: qLinks };
   };
 
   Widget.prototype.drawTable = function () {
@@ -2992,6 +3173,7 @@
     section('Violations', r.viol, r.vLinks);
     section('Rules', r.rules);
     section('Documents', r.docs, r.dLinks);
+    section('Drill-down queries (open the items of a check in Polarion)', r.qs, r.qLinks);
     if (r.probs.length > 1) { section('Model problems', r.probs); }
   };
 
@@ -3001,6 +3183,7 @@
       { name: 'Rules', rows: r.rules, widths: [10, 26, 16, 26, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10] },
       { name: 'Violations', rows: r.viol, widths: [10, 22, 16, 36, 18, 90], links: r.vLinks },
       { name: 'Documents', rows: r.docs, widths: [36, 24, 12, 12, 12, 50], links: r.dLinks },
+      { name: 'Queries', rows: r.qs, widths: [16, 22, 36, 8, 120], links: r.qLinks },
       { name: 'Model problems', rows: r.probs, widths: [10, 8, 90] }
     ];
     sheets[0].what = 'rules';

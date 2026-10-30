@@ -33,6 +33,10 @@ for w in "${widgets[@]}"; do
   done
   mkdir -p "$out/resources" && cp "$root/widgets/$w/dist/$w/resources/xlsx.js" "$out/resources/"
   node "$root/tools/vtest/$w/browser-check.js" "$out"
+  # dmCheck: the drill-down queries run on an SQLite copy of the test structure and must list the reported items.
+  if [ -f "$root/tools/vtest/$w/sql-check.py" ]; then
+    python3 "$root/tools/vtest/$w/sql-check.py" "$out" "$root"
+  fi
   # Round trip of the editor (dmDefine): the YAML generated in the browser is read again by the Velocity pipeline.
   if [ -f "$out/roundtrip.yaml" ]; then
     java -cp "$out/cls:$cp" "${main%.java}" --roundtrip "$root/widgets/$w/dist/$w" "$out" "$root" 2>&1 | grep -v '^Picked up'

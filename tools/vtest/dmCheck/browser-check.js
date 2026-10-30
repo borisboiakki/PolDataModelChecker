@@ -46,10 +46,22 @@ async function readBook(p, path) {
   const det = await p.textContent('.bw-details');
   expect(det.indexOf('L2:') >= 0 && det.indexOf('(paired)') > 0 && det.indexOf('cross-pair links: 1') > 0 && det.indexOf('Violations of L2 (6)') > 0, 'line details: L2 counters and its 6 violations');
   expect(await p.$$eval('.bw-details a', as => as.some(a => a.getAttribute('href').indexOf('workitem?id=STA-3') > 0)), 'line details: work item links');
+  // Drill-down (dmCheck 0.2): L2 from STD A (STA-3, STA-4), to Solution Spec A (SPA-4, SPA-5) and Solution Spec B (SPB-3).
+  const drill = await p.$$eval('.bw-details .dc-drill li', lis => lis.map(li => ({ t: li.textContent, h: li.querySelector('a').getAttribute('href') })));
+  expect(drill.length === 3 && drill.some(d => d.t.indexOf('missing link (source), Tests/STD A: 2 items') === 0) &&
+    drill.some(d => d.t.indexOf('not covered (target), Specs/Solution Spec A: 2 items') === 0) &&
+    drill.some(d => d.t.indexOf('not covered (target), Specs/Solution Spec B: 1 item') === 0), 'line details: drill-down per document with counts');
+  const dq = decodeURIComponent(drill[0].h.substring(drill[0].h.indexOf('?query=') + 7));
+  expect(drill[0].h.indexOf('/project/DMTEST/workitems?query=') > 0 && dq.indexOf('project.id:DMTEST AND SQL:(SELECT w.c_uri FROM workitem w') === 0 && dq.indexOf(' NOT IN (SELECT l.fk_uri_p_workitem') > 0,
+    'line details: drill-down link = work items table with the Lucene SQL query');
+  await p.click('.bw-details .dc-drill li button');
+  await p.waitForTimeout(200);
+  expect(['Copied', 'Copy failed'].indexOf(await p.textContent('.bw-details .dc-drill li button')) >= 0, 'line details: Copy query answers');
   await p.evaluate(() => Array.from(document.querySelectorAll('.bw-node')).find(n => n.querySelector('title').textContent.indexOf('CustomerSpec') === 0).dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })));
   await p.waitForTimeout(100);
   const rdet = await p.textContent('.bw-details');
   expect(rdet.indexOf('Role CustomerSpec') === 0 && rdet.indexOf('CUS-6: type information is not listed in role CustomerSpec.') > 0, 'role details: documents and the unexpected type');
+  expect(rdet.indexOf('unexpected type, Specs/Customer Specification: 1 item') > 0, 'role details: drill-down of the unexpected type');
 
   // Table view, filters.
   await p.click('button:has-text("Table")');
@@ -68,7 +80,8 @@ async function readBook(p, path) {
   const [dl] = await Promise.all([p.waitForEvent('download'), p.click('button:has-text("Excel")')]);
   await dl.saveAs(dir + '/check.xlsx');
   const book = await readBook(p, dir + '/check.xlsx');
-  expect(JSON.stringify(book.map(s => s.name)) === JSON.stringify(['Rules', 'Violations', 'Documents', 'Model problems']), 'Excel: 4 sheets');
+  expect(JSON.stringify(book.map(s => s.name)) === JSON.stringify(['Rules', 'Violations', 'Documents', 'Queries', 'Model problems']), 'Excel: 5 sheets');
+  expect(book[3].rows.length === 13 && book[3].rows.filter(r => String(r[4]).indexOf('SQL:(') > 0).length === 12, 'Excel: 12 drill-down queries');
   expect(book[1].rows.length === 12 && book[0].rows.length === 4 && book[2].rows.length === 6, 'Excel: 11 violations, 3 rules, 5 documents');
 
   // Model with an error: nothing checked.

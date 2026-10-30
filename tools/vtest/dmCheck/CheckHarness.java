@@ -142,6 +142,10 @@ public class CheckHarness {
         DmMocks.check(h.contains("data-fc=\"6\" data-fo=\"4\" data-tc=\"7\" data-to2=\"4\" data-cross=\"1\" data-unp=\"0\""), "counters L2 (structure.md)");
         DmMocks.check(h.contains("<i class=\"dc-d\" data-k=\"DMTEST/Specs/Customer Specification\" data-roles=\"CustomerSpec;\" data-items=\"5\" data-bad=\"2\""), "document counters (heading ignored, CUS-5 and CUS-6 with a violation)");
         DmMocks.check(h.contains("data-k=\"types:CustomerSpec|unexpected-type\" data-n=\"1\""), "full counts per rule and check");
+        // Drill-down queries (dmCheck 0.2): 5 documents for unexpected types, L1 from 2 + to 1, L2 from 2 + to 2 (P1: no minimum).
+        // tools/vtest/dmCheck/sql-check.py runs them on SQLite and compares with the violations.
+        DmMocks.check(count(h, "<i class=\"dc-q\"") == 12, "drill-down: 12 queries");
+        DmMocks.check(h.contains("<i class=\"dc-q\" data-rule=\"L2\" data-kind=\"from\" data-doc=\"DMTEST/Tests/STD A\" data-n=\"2\""), "drill-down: count per rule, check and document");
 
         // Pooled instead of paired: the cross-pair link of STA-3 counts, no cross-pair violation.
         h = run(dir, out, "pooled", params(modelDoc("Pooled Model", without(modelLines, "pairs:"))), false);

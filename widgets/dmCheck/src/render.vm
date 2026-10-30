@@ -165,6 +165,9 @@
 #foreach($k in $dcViolN.keySet())
 <i class="dc-n" data-k="$esc.html($k)" data-n="$dcViolN.get($k)"></i>
 #end
+#foreach($q in $dcQs)
+<i class="dc-q" data-rule="$esc.html($q.get(0))" data-kind="$q.get(1)" data-doc="$esc.html($q.get(2))" data-n="$q.get(3)" data-q="$esc.html($q.get(4))"></i>
+#end
 #foreach($d in $dcDocs)
   #set($rs = "")
   #foreach($rk in $d.get("roles"))

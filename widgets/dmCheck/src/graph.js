@@ -42,6 +42,29 @@
     var p = splitKey(k);
     return itemUrl(p.project, p.rest, '');
   }
+  // Polarion's work item table filtered by a query (drill-down, dmCheck 0.2). The query is the one verified on 2512
+  // (project.id + SQL:(...) restriction, dmSpike S10); opening it through this URL is to be checked on 2512.
+  function queryHref(project, q) {
+    return projectPath(project, '') + '/workitems?query=' + encodeURIComponent(q);
+  }
+
+  function copyText(text, done) {
+    function fallback() {
+      var ta = el('textarea', null, document.body);
+      ta.value = text;
+      ta.select();
+      var ok = false;
+      try { ok = document.execCommand('copy'); } catch (err) { ok = false; }
+      document.body.removeChild(ta);
+      done(ok);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { done(true); }, fallback);
+    } else {
+      fallback();
+    }
+  }
+
   function shortDoc(k, project) {
     return k.indexOf(project + '/') === 0 ? k.substring(project.length + 1) : k;
   }
@@ -88,6 +111,11 @@
       docs.push({ key: d.k, roles: parts(d.roles, ';'), items: toInt(d.items), bad: toInt(d.bad),
         types: parts(d.types, ';').map(function (p) { var f = p.split('|'); return { type: f[0], n: toInt(f[1]) }; }) });
     });
+    var queries = [];
+    Array.prototype.forEach.call(root.querySelectorAll('.bw-model .dc-q'), function (e) {
+      var d = e.dataset;
+      queries.push({ rule: d.rule || '', kind: d.kind, doc: d.doc || '', n: toInt(d.n), q: d.q || '' });
+    });
     var probs = [];
     Array.prototype.forEach.call(root.querySelectorAll('.bw-model .dm-p'), function (e) {
       probs.push({ sev: e.dataset.sev, line: toInt(e.dataset.line), msg: e.dataset.msg || '' });
@@ -107,7 +135,7 @@
       e.rules.forEach(function (r) { if (r.violations) { e.kinds[r.sev] += r.violations; } });
       if (!e.kinds.error && !e.kinds.warning && !e.kinds.info) { e.meta.ok = true; }
     });
-    return { nodes: nodes, byKey: byKey, rules: rules, viol: viol, docs: docs, probs: probs, edges: edges, counts: counts };
+    return { nodes: nodes, byKey: byKey, rules: rules, viol: viol, docs: docs, probs: probs, edges: edges, counts: counts, queries: queries };
   }
 
   function ruleState(r) { return r.violations ? r.sev : 'ok'; }
@@ -310,12 +338,33 @@
     });
   };
 
+  // Drill-down (K9): per document, a link opening the violating items in Polarion's work item table and a Copy button
+  // (paste the query into the table's query field when the link does not apply it).
+  Widget.prototype.drillList = function (box, rule) {
+    var self = this;
+    var qs = this.model.queries.filter(function (q) { return q.rule === rule && q.n > 0; });
+    if (!qs.length) { return; }
+    el('div', { 'class': 'bw-muted' }, box, 'Open the items in Polarion (all of them, not only the listed ones):');
+    var ul = el('ul', { 'class': 'bw-items dc-drill' }, box);
+    qs.forEach(function (q) {
+      var li = el('li', null, ul);
+      el('span', null, li, (KIND_TEXT[q.kind] || q.kind) + ', ' + shortDoc(q.doc, self.project) + ': ');
+      var p = splitKey(q.doc).project;
+      el('a', { href: queryHref(p, q.q), target: '_top', title: 'Polarion work items table with the query of this check' }, li, q.n + ' item' + (q.n === 1 ? '' : 's'));
+      el('span', null, li, ' ');
+      var b = self.button(li, 'Copy query', 'Copy the query, to paste it into the query field of the work items table', function () {
+        copyText(q.q, function (ok) { b.textContent = ok ? 'Copied' : 'Copy failed'; });
+      });
+    });
+  };
+
   Widget.prototype.showDetails = function (e) {
     var self = this;
     var box = this.detailsHead('Rules ' + e.c + ' ' + ARROW + ' ' + e.o);
     e.rules.forEach(function (r) {
       el('div', { 'class': 'dc-' + ruleState(r) }, box, self.ruleSummary(r));
       self.violList(box, self.shownViolations().filter(function (v) { return v.rule === r.id; }), 'Violations of ' + r.id);
+      self.drillList(box, r.id);
     });
   };
 
@@ -337,9 +386,11 @@
       el('td', { 'class': 'dc-error' }, tr, shortDoc(d.key, self.project) + ' (not found)');
     });
     this.violList(box, this.shownViolations().filter(function (v) { return v.rule === 'types:' + n.key; }), 'Item type violations');
+    this.drillList(box, 'types:' + n.key);
     n.selfRules.forEach(function (r) {
       el('div', { 'class': 'dc-' + ruleState(r) }, box, self.ruleSummary(r));
       self.violList(box, self.shownViolations().filter(function (v) { return v.rule === r.id; }), 'Violations of ' + r.id);
+      self.drillList(box, r.id);
     });
   };
 
@@ -367,7 +418,13 @@
     });
     var probs = [['Severity', 'Line', 'Problem']];
     m.probs.forEach(function (p) { probs.push([p.sev, p.line > 0 ? p.line : '', p.msg]); });
-    return { viol: viol, vLinks: vLinks, rules: rules, docs: docs, dLinks: dLinks, probs: probs };
+    var qs = [['Rule', 'Check', 'Document', 'Items', 'Polarion query (work items table)']];
+    var qLinks = [];
+    m.queries.forEach(function (q) {
+      if (q.n > 0) { qLinks.push({ r: qs.length, c: 3, url: absUrl(queryHref(splitKey(q.doc).project, q.q)) }); }
+      qs.push([q.rule, KIND_TEXT[q.kind] || q.kind, shortDoc(q.doc, self.project), q.n, q.q]);
+    });
+    return { viol: viol, vLinks: vLinks, rules: rules, docs: docs, dLinks: dLinks, probs: probs, qs: qs, qLinks: qLinks };
   };
 
   Widget.prototype.drawTable = function () {
@@ -388,6 +445,7 @@
     section('Violations', r.viol, r.vLinks);
     section('Rules', r.rules);
     section('Documents', r.docs, r.dLinks);
+    section('Drill-down queries (open the items of a check in Polarion)', r.qs, r.qLinks);
     if (r.probs.length > 1) { section('Model problems', r.probs); }
   };
 
@@ -397,6 +455,7 @@
       { name: 'Rules', rows: r.rules, widths: [10, 26, 16, 26, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10] },
       { name: 'Violations', rows: r.viol, widths: [10, 22, 16, 36, 18, 90], links: r.vLinks },
       { name: 'Documents', rows: r.docs, widths: [36, 24, 12, 12, 12, 50], links: r.dLinks },
+      { name: 'Queries', rows: r.qs, widths: [16, 22, 36, 8, 120], links: r.qLinks },
       { name: 'Model problems', rows: r.probs, widths: [10, 8, 90] }
     ];
     sheets[0].what = 'rules';

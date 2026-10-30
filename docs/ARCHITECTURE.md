@@ -175,7 +175,7 @@ documents (join `project`, filter on `c_moduleFolder` and `c_moduleName` per pro
 copies are included only when declared (PO). An unresolvable or not found document is a problem, and its role is
 checked on the documents found.
 
-## 4. dmCheck: data and evaluation (0.1.0 built; T1 = dmSpike S10 for faster forms)
+## 4. dmCheck: data and evaluation (0.1.0 built and verified on 2512; 0.2.0 drill-down queries)
 
 **As built in 0.1.0** (`shared/vm/dm-check.vm`, verified SQL forms only): (1) one query for the items of all declared
 documents (`WHERE (` the binding conditions of `dm-model.vm` `)`), cap 20 000; (2) one query for the link sources
@@ -208,8 +208,17 @@ Outputs per rule: a counter (checked items, compliant items) and the violation l
 message), capped at the "list cap" with the full count kept (as docCoverage `uncCap`). Unresolvable link targets are
 skipped and counted as a data-quality note.
 
-Drill-down [T3]: per rule, a Lucene string `project.id:P AND document.id:"…" AND type:T AND SQL:(…)` (forms verified in
-advImpact's spike: `document.id` and `SQL:(…)` restrictions), opened as a Polarion work item query URL.
+**Drill-down (0.2.0, K9; T1/T3 = dmSpike S10 runs 5 and 5b)**: the evaluation stays as in 0.1.0 (verified on 2512,
+fast enough on the PO's largest project, and it covers pairs, cross-pair and unexpected links in one pass). In addition
+`dm-check.vm` writes, per rule and per document of each side with a minimum, the set query of the verified S10 form
+(`SELECT w.c_uri … WHERE <document> AND w.c_type IN (…) AND w.c_uri NOT IN (SELECT l.fk_uri_p_workitem … WHERE
+l.c_role = 'R' AND (<other documents>) AND t.c_type IN (…))`, mirrored for the targets; other documents = every
+document of the other role (pooled) or the documents paired with this one (paired); `from_min`/`to_min` > 1 add
+`GROUP BY … HAVING COUNT(*) >= n` inside the sub-select, not verified on 2512), and per document the unexpected-type
+query (`c_type NOT IN` the listed types). Each is wrapped as `project.id:P AND SQL:(…)` (accepted by `queryWorkItems`,
+S10) and opened in Polarion's work item table (`#/project/P/workitems?query=…`, URL form to check on 2512) or copied.
+The queries are not run by the widget (no cost on the render); `tools/vtest/dmCheck/sql-check.py` runs them on an SQLite
+copy of the test structure and checks that each lists exactly the items of the evaluation.
 
 Performance target: < 2 s for ~100 documents / 20 000 items (sizing of the sister repo). Number of queries ≈ 2 + 2 per
 link rule. Chunk `IN` lists at 500 ids (guide §11.5.9).
@@ -234,6 +243,7 @@ values escaped with `$esc.html`, separators replaced inside values, caps with wa
 | `dc-v` (violation) | `data-sev`, `data-kind` (`missing-type`, `too-many`, `unexpected-type`, `from`, `to`, `cross-pair`, `unpaired`, `unexpected-link`), `data-rule` (rule id, `types:<role>`, or empty for unexpected links), `data-doc` (`project/space/name`), `data-item` (`project/id`), `data-msg` | dmCheck 0.1.0 |
 | `dc-n` (full count) | `data-k` (`rule|kind`), `data-n` | dmCheck 0.1.0 |
 | `dc-d` (document) | `data-k`, `data-roles` (`R;…`), `data-items` (counted), `data-bad` (with a violation), `data-types` (`type|n;…`) | dmCheck 0.1.0 |
+| `dc-q` (drill-down query) | `data-rule` (rule id or `types:<role>`), `data-kind` (`from`, `to`, `unexpected-type`), `data-doc` (`project/space/name`), `data-n` (violations of that rule, kind and document), `data-q` (Lucene `project.id:P AND SQL:(…)`) | dmCheck 0.2.0 |
 
 `|` and `;` inside values are replaced by a space.
 
@@ -267,8 +277,9 @@ optional widget fields added: `isolatedText` and `searchText`. Widget code:
   only; without model text the forms start empty. Round-trip test: the generated YAML is read again by the Velocity
   pipeline and must give the same roles, rules and pairs (`DefineHarness --roundtrip`, run by `tools/test-widget.sh`).
 - **dmCheck `graph.js`**: same graph, coloured by compliance (green = all compliant, orange = warnings only, red =
-  errors; counts on edges and nodes); a click lists the violations; a report table filtered by severity, rule and
-  document; Excel sheets Summary, Item types, Required links, Unexpected links, Model.
+  errors; counts on edges and nodes); a click lists the violations and, from 0.2.0, the drill-down per document (link to
+  Polarion's work item table with the query, *Copy query*); table (violations, rules, documents, drill-down queries);
+  Excel sheets Rules, Violations, Documents, Queries (0.2.0), Model problems.
 
 Constraints of the inlined JS (enforced by the build): no `$`, `#`, backslash or non-ASCII character (`HASH`,
 `String.fromCharCode`). The YAML serializer must respect them, and `#` comments are produced from `HASH`. Toolbar

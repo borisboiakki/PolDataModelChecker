@@ -13,6 +13,10 @@
 ##   $dcViolN  map "rule|kind" -> full count;  $dcSevN map severity -> full count
 ##   $dcStat   map rule id -> map fc, fo (from side: checked, compliant), tc, to (to side), cross, unp, sev
 ##   $dcDocs   list of maps key, roles (list), items (counted), bad (items with a violation), types ("type|n;" text)
+##   $dcQs     drill-down queries (K9, dmCheck 0.2): list of [rule, kind, document key, count, Lucene query] for the
+##             kinds from, to (per document of the rule's side) and unexpected-type (per document). The query lists the
+##             same items as the evaluation: NOT IN form verified on 2512 (dmSpike S10 runs 5 and 5b, also inside a
+##             Lucene SQL:(...) restriction); count = violations of that rule, kind and document
 #set($dcRun = false)
 #set($dcNote = "")
 #set($dcItemN = 0)
@@ -24,6 +28,8 @@
 #set($dcSevN = $objectFactory.newMap())
 #set($dcStat = $objectFactory.newMap())
 #set($dcDocs = [])
+#set($dcQs = [])
+#set($dcViolDN = $objectFactory.newMap())
 
 ## Violation [sev, kind, rule, doc, item, msg]: counted always, stored up to $dcListCap per rule and kind.
 ## Arguments are passed by name (Velocity 1.4): the macro uses its own variable names (dca*) so that an argument such
@@ -41,6 +47,11 @@
   #set($dcaSn = $dcSevN.get($dcaSev))
   #set($dcaSn = $dcaSn + 1)
   #set($void = $dcSevN.put($dcaSev, $dcaSn))
+  #set($dcaDk = "${dcaR}|${dcaK}|${dcaD}")
+  #set($dcaDn = 0)
+  #set($dcaDn = $dcViolDN.get($dcaDk))
+  #set($dcaDn = $dcaDn + 1)
+  #set($void = $dcViolDN.put($dcaDk, $dcaDn))
   #if($dcaN <= $dcListCap)
     #set($void = $dcViol.add([$dcaSev, "$dcaK", "$dcaR", "$dcaD", $dcaItem, $dcaMsg]))
   #end
@@ -177,6 +188,34 @@
       #end
     #end
   #end
+  ## Drill-down helpers (K9). SQL condition of each found document (aliases p, m; changed to pt, mt for the link
+  ## targets) and its project; $dcTySql = quoted type list of $dctL, e.g. 'a','b'.
+  #set($dcDocCond = $objectFactory.newMap())
+  #set($dcDocProj = $objectFactory.newMap())
+  #foreach($dmR in $dmRoles)
+    #foreach($dmD in $dmR.get("docs"))
+      #if($dmD.get("found"))
+        #set($dcCp = $dmD.get("project").replace("'", "''"))
+        #set($dcCs = $dmD.get("space").replace("'", "''"))
+        #set($dcCn = $dmD.get("name").replace("'", "''"))
+        #set($void = $dcDocCond.put($dmD.get("key"), "(p.c_id = '${dcCp}' AND m.c_modulefolder = '${dcCs}' AND m.c_id = '${dcCn}')"))
+        #set($void = $dcDocProj.put($dmD.get("key"), $dmD.get("project")))
+      #end
+    #end
+  #end
+  #macro(dcTypes $dctL)
+    #set($dcTySql = "")
+    #foreach($dctT in $dctL)
+      #if($dcTySql != "")
+        #set($dcTySql = "${dcTySql},")
+      #end
+      #set($dctQ = $dctT.replace("'", "''"))
+      #set($dcTySql = "${dcTySql}'${dctQ}'")
+    #end
+  #end
+  #set($dcItemSql = "SELECT w.c_uri FROM workitem w INNER JOIN module m ON m.c_uri = w.fk_uri_module INNER JOIN project p ON p.c_uri = m.fk_uri_project WHERE ")
+  #set($dcTgtSqlHead = "SELECT t.c_uri FROM workitem t INNER JOIN module mt ON mt.c_uri = t.fk_uri_module INNER JOIN project pt ON pt.c_uri = mt.fk_uri_project WHERE ")
+
   ## Unexpected types: not listed in any role of the document (severity of the first role; ignore = not reported).
   #foreach($dcDk in $dcFound)
     #set($dcListed = [])
@@ -193,6 +232,12 @@
       #end
     #end
     #if($dcSev != "ignore")
+      #dcTypes($dcListed)
+      #set($dcQ = "${dcItemSql}$dcDocCond.get($dcDk)")
+      #if($dcTySql != "")
+        #set($dcQ = "${dcQ} AND w.c_type NOT IN (${dcTySql})")
+      #end
+      #set($dcQp = $dcDocProj.get($dcDk))
       #foreach($dcIk in $dcByDoc.get($dcDk))
         #set($dcTy = $dcItems.get($dcIk).get(0))
         #if(!$dcListed.contains($dcTy))
@@ -200,6 +245,9 @@
           #dcAdd($dcSev "unexpected-type" "types:$dcFirstRole" $dcDk $dcIk "$dcIid: type $dcTy is not listed in role $dcFirstRole.")
         #end
       #end
+      #set($dcQn = 0)
+      #set($dcQn = $dcViolDN.get("types:${dcFirstRole}|unexpected-type|${dcDk}"))
+      #set($void = $dcQs.add(["types:${dcFirstRole}", "unexpected-type", $dcDk, $dcQn, "project.id:${dcQp} AND SQL:(${dcQ})"]))
     #end
   #end
 
@@ -240,9 +288,11 @@
     #dcEnd($dmU.get("from") $dmU.get("ft"))
     #set($dcFrom = $dcCand)
     #set($dcFromSet = $dcCandSet)
+    #set($dcFromTypes = $dcOkTypes)
     #dcEnd($dmU.get("to") $dmU.get("tt"))
     #set($dcTo = $dcCand)
     #set($dcToSet = $dcCandSet)
+    #set($dcToTypes = $dcOkTypes)
     #set($dcPairs = [])
     #foreach($dcP in $dmU.get("pairs"))
       #set($void = $dcPairs.add("$dcP.get(0)>$dcP.get(1)"))
@@ -326,6 +376,77 @@
             #end
           #end
         #end
+      #end
+    #end
+    ## Drill-down queries of the rule (K9): one per document of each side with a minimum. Pooled rule: the other side =
+    ## every found document of the other role; paired rule: the documents paired with this one (none: no link counts).
+    #set($dcFromDocs = [])
+    #foreach($dmD in $dmRoleByKey.get($dmU.get("from")).get("docs"))
+      #if($dmD.get("found") && !$dcFromDocs.contains($dmD.get("key")))
+        #set($void = $dcFromDocs.add($dmD.get("key")))
+      #end
+    #end
+    #set($dcToDocs = [])
+    #foreach($dmD in $dmRoleByKey.get($dmU.get("to")).get("docs"))
+      #if($dmD.get("found") && !$dcToDocs.contains($dmD.get("key")))
+        #set($void = $dcToDocs.add($dmD.get("key")))
+      #end
+    #end
+    #set($dcRoleQ = $dmU.get("role").replace("'", "''"))
+    #dcTypes($dcFromTypes)
+    #set($dcFtySql = $dcTySql)
+    #dcTypes($dcToTypes)
+    #set($dcTtySql = $dcTySql)
+    #if($dcFmin > 0 && $dcFtySql != "" && $dcTtySql != "")
+      #foreach($dcDk in $dcFromDocs)
+        #set($dcOther = "")
+        #foreach($dcOk in $dcToDocs)
+          #if(!$dcPaired || $dcPairs.contains("${dcDk}>${dcOk}"))
+            #if($dcOther != "")
+              #set($dcOther = "${dcOther} OR ")
+            #end
+            #set($dcOther = "${dcOther}$dcDocCond.get($dcOk)")
+          #end
+        #end
+        #set($dcQ = "${dcItemSql}$dcDocCond.get($dcDk) AND w.c_type IN (${dcFtySql})")
+        #if($dcOther != "")
+          #set($dcOther = $dcOther.replace("p.c_id", "pt.c_id").replace("m.c_", "mt.c_"))
+          #set($dcHav = "")
+          #if($dcFmin > 1)
+            #set($dcHav = " GROUP BY l.fk_uri_p_workitem HAVING COUNT(*) >= ${dcFmin}")
+          #end
+          #set($dcQ = "${dcQ} AND w.c_uri NOT IN (SELECT l.fk_uri_p_workitem FROM struct_workitem_linkedworkitems l INNER JOIN workitem t ON t.c_uri = l.fk_uri_workitem INNER JOIN module mt ON mt.c_uri = t.fk_uri_module INNER JOIN project pt ON pt.c_uri = mt.fk_uri_project WHERE l.c_role = '${dcRoleQ}' AND (${dcOther}) AND t.c_type IN (${dcTtySql})${dcHav})")
+        #end
+        #set($dcQn = 0)
+        #set($dcQn = $dcViolDN.get("${dcUid}|from|${dcDk}"))
+        #set($dcQp = $dcDocProj.get($dcDk))
+        #set($void = $dcQs.add([$dcUid, "from", $dcDk, $dcQn, "project.id:${dcQp} AND SQL:(${dcQ})"]))
+      #end
+    #end
+    #if($dcTmin > 0 && $dcFtySql != "" && $dcTtySql != "")
+      #foreach($dcDk in $dcToDocs)
+        #set($dcOther = "")
+        #foreach($dcOk in $dcFromDocs)
+          #if(!$dcPaired || $dcPairs.contains("${dcOk}>${dcDk}"))
+            #if($dcOther != "")
+              #set($dcOther = "${dcOther} OR ")
+            #end
+            #set($dcOther = "${dcOther}$dcDocCond.get($dcOk)")
+          #end
+        #end
+        #set($dcTc0 = $dcDocCond.get($dcDk).replace("p.c_id", "pt.c_id").replace("m.c_", "mt.c_"))
+        #set($dcQ = "${dcTgtSqlHead}${dcTc0} AND t.c_type IN (${dcTtySql})")
+        #if($dcOther != "")
+          #set($dcHav = "")
+          #if($dcTmin > 1)
+            #set($dcHav = " GROUP BY l.fk_uri_workitem HAVING COUNT(*) >= ${dcTmin}")
+          #end
+          #set($dcQ = "${dcQ} AND t.c_uri NOT IN (SELECT l.fk_uri_workitem FROM struct_workitem_linkedworkitems l INNER JOIN workitem w ON w.c_uri = l.fk_uri_p_workitem INNER JOIN module m ON m.c_uri = w.fk_uri_module INNER JOIN project p ON p.c_uri = m.fk_uri_project WHERE l.c_role = '${dcRoleQ}' AND (${dcOther}) AND w.c_type IN (${dcFtySql})${dcHav})")
+        #end
+        #set($dcQn = 0)
+        #set($dcQn = $dcViolDN.get("${dcUid}|to|${dcDk}"))
+        #set($dcQp = $dcDocProj.get($dcDk))
+        #set($void = $dcQs.add([$dcUid, "to", $dcDk, $dcQn, "project.id:${dcQp} AND SQL:(${dcQ})"]))
       #end
     #end
     #set($void = $dcSt.put("fc", $dcFc))

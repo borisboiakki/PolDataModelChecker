@@ -1,6 +1,6 @@
 # Specification — Data model check widget (dmCheck)
 
-**Status:** v0.3, 2026-10-30. **dmCheck 0.1.0 implemented** (`widgets/dmCheck/src`, shared `dm-check.vm`: K1, K3–K8,
+**Status:** v0.4, 2026-10-30. **dmCheck 0.2.0** adds the drill-down queries (K9; tested on mocks, in Chromium and on an SQLite copy of the test structure; checks on 2512: `docs/PO_CHECKS.md` 3.7–3.11). **dmCheck 0.1.0 implemented** (`widgets/dmCheck/src`, shared `dm-check.vm`: K1, K3–K8,
 K10, K12, K14–K16), tested with Velocity 1.4 on mocks built from `test-data/vcycle-check/` and in Chromium; **verified by the PO
 on 2512 (2026-10-30, `docs/PO_CHECKS.md` 3.1–3.6: test structure with the expected violations, details, table, Excel,
 PDF, a real model of the largest project, a model with an error)**. Spike S10 (T1, T3) prepared. Open questions of §7 all decided by the PO (2026-10-30). Items marked `[?]` are open or need verification on a Polarion instance.
@@ -32,7 +32,7 @@ Same as dmDefine (C1–C8), plus:
 | K6 | **Report table**: one row per violation with rule id, severity, check kind, document, work item (clickable link), message; filter by severity/rule/document | Must (done, 0.1.0) | 1 |
 | K7 | **Excel export**: Summary sheet (counts per rule, % compliant), one sheet per check kind, model used (revision) | Must (done, 0.1.0) | 1 |
 | K8 | **Graph**: model documents as nodes, link rules as edges, coloured green/orange/red with counts (compliant items / total); click an edge or node to list its violations | Must (done, 0.1.0) | 1 |
-| K9 | **Drill-down**: each rule offers a Lucene query (and link) listing the violating items in Polarion's table view for bulk correction `[?]` how to express "items without a link of role R to document D" in Lucene on 2512 and 2612 (`linkedWorkItemsOf` follows incoming links only; SQL: `SQL:(…)` restriction) | Should | 1 or 2 |
+| K9 | **Drill-down** (done, 0.2.0): per rule and per document of each side with a minimum (missing link, not covered), and per document for unexpected types, a Lucene query `project.id:P AND SQL:(… NOT IN (…))` (form verified by S10 runs 5/5b) listing **all** the violating items (not only the listed ones), with the count; a link opens Polarion's work item table with the query `[?]` URL form `#/project/P/workitems?query=…` to check on 2512; *Copy query* to paste it into the table's query field. Shown in the line and role details, the table (section *Drill-down queries*) and Excel (sheet *Queries*). Not offered for cross-pair links, unexpected links, unpaired documents and missing types (listed in full, or no item to list) | Should | 2 |
 | K10 | PDF/print static view: summary + violation table + static graph, no JS | Must (done, 0.1.0) | 1 |
 | K11 | Collection context (check the model on the documents of a collection at the pinned revisions), as docCoverage F17 | Could | 3 |
 | K12 | Cross-project documents in bindings (as dmDefine 0.4.0: links between declared documents of different projects count) | Should (done, 0.1.0; on mocks) | 1 |
@@ -94,6 +94,9 @@ PO 2026-10-30: dmCheck is started after dmDefine is completed.
 
 1. **0.1.0** (done) the v1 checks (K3–K5, K15) on verified SQL forms, bindings, report table, Excel, coloured graph, static PDF
    view; dummy model and test structure (T4: `test-data/vcycle-check/`). Spike S10 (T1, T3) run in parallel.
-2. **0.2.0** Drill-down queries (K9, after T3), faster set queries if T1 confirms them.
+2. **0.2.0** (done) Drill-down queries (K9). Decision (developer, 2026-10-30, to confirm by the PO with PO_CHECKS 3.7–3.11):
+   the evaluation of 0.1.0 is kept (verified on 2512, its timing on the largest project was fine, and it handles pairs,
+   cross-pair and unexpected links in one pass); the S10 set queries are used for the drill-down only, and are not run
+   by the widget. A faster evaluation through set queries stays possible if a larger project needs it.
 3. **0.3.0** Collection context; later: orphans, wrong document, field rules.
 4. Later: exploded view (K17), after dmDefine D16.

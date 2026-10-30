@@ -10,7 +10,7 @@ Previews below are rendered from mock data (`tools/test-widget.sh`, test structu
 2. **Administration → Velocity Widgets → Upload**. No server restart, no extension.
 3. The widget appears in the widget list of LiveReport pages as *Data Model Check*.
 
-Target: Polarion 2512; not verified on an instance yet (`docs/PO_CHECKS.md` §3); 2612 not verified.
+Target: Polarion 2512 (0.1.0 verified on 2512, `docs/PO_CHECKS.md` §3; the 0.2.0 drill-down: checks 3.7–3.11); 2612 not verified.
 
 ## Parameters
 
@@ -50,8 +50,13 @@ dmDefine), dmCheck lists them and checks nothing.
   rules (counters, violations with links to the work items), a role for its documents and type results.
 - **Show** checkboxes (errors, warnings, info, compliant) filter the lines and the violations; *Filter violations*
   filters the table by text.
-- **Table**: violations, rules (checked / compliant per side, cross-pair links, unpaired documents), documents.
-- **Excel**: sheets Rules, Violations (links to documents and work items), Documents, Model problems.
+- **Open the items in Polarion** (0.2.0): in the details of a line (missing links, targets not covered) and of a role
+  (unexpected types), one row per document with the number of items: the link opens Polarion's work item table with a
+  query that lists **all** those items (also those beyond the list cap), for bulk correction; *Copy query* copies the
+  query, to paste into the query field of the work item table if the link does not apply it.
+- **Table**: violations, rules (checked / compliant per side, cross-pair links, unpaired documents), documents,
+  drill-down queries.
+- **Excel**: sheets Rules, Violations (links to documents and work items), Documents, Queries, Model problems.
 - **PDF export**: rules, documents and violations tables.
 
 ![dmCheck graph (mock data)](preview-graph.png)

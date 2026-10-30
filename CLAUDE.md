@@ -15,7 +15,9 @@ requirements linked with `satisfies` → tests linked with `verifies`). Two widg
   to validate on 2512: `docs/PO_CHECKS.md`, keep it up to date with every new feature).
   PO 2026-10-30: dmDefine is completed before dmCheck is started.
 - **dmCheck** (`widgets/dmCheck/`): reads the same model, checks the real documents/items/links, reports violations
-  (table, Excel, graph coloured by compliance, Lucene drill-down later). **0.1.0 built and verified on 2512 (PO_CHECKS §3)** (`shared/vm/dm-check.vm`,
+  (table, Excel, graph coloured by compliance, drill-down). **0.1.0 built and verified on 2512 (PO_CHECKS §3); 0.2.0 built:
+  drill-down queries (S10 NOT IN form inside Lucene `SQL:(…)`), checked on an SQLite copy of the test structure by
+  `tools/vtest/dmCheck/sql-check.py`; to check on 2512: PO_CHECKS 3.7–3.12** (`shared/vm/dm-check.vm`,
   verified SQL forms only; harness `tools/vtest/dmCheck/` builds its mock project from
   `test-data/vcycle-check/structure.md` and expects exactly the violations listed there: keep both in line).
 
@@ -171,10 +173,10 @@ root classes `dd-root`/`dc-root`; `core.js` optional widget fields `isolatedText
 
 ## Where the work stands (read first in a new session)
 
-- Pending checks of the PO on 2512, in order: `docs/PO_CHECKS.md` (dmSpike all done, all done (§1–§4, 2026-10-30); §5 later: REST token
-  disabled, 2612). Record each result in the spec / `tests/dmSpike-v0.1.x/spike-tests.md`, then tick it there.
-- Next increments: dmDefine starter generator (S7 done: nested `IN (SELECT MIN(c_uri) … GROUP BY …)` form, run 4), dmCheck 0.2 (faster set queries, drill-down: S10 run 5
-  and 5b: NOT IN, also inside Lucene SQL:(…), gives the reference's non-empty lists). Later: exploded view of the graph (dmDefine D16, then dmCheck K17; PO-agreed design in the specs).
+- Pending checks of the PO on 2512, in order: `docs/PO_CHECKS.md` (§1–§4 done 2026-10-30; open: dmCheck 0.2.0 checks 3.7–3.12;
+  §5 later: REST token disabled, 2612). Record each result in the spec / `tests/dmSpike-v0.1.x/spike-tests.md`, then tick it there.
+- Next increments: dmDefine starter generator (S7 done: nested `IN (SELECT MIN(c_uri) … GROUP BY …)` form, run 4), dmCheck 0.2.0 drill-down built (PO 2026-10-30: dmCheck 0.2 first);
+  the 0.1.0 evaluation is kept (decision to confirm with 3.7–3.11). Later: exploded view of the graph (dmDefine D16, then dmCheck K17; PO-agreed design in the specs).
   Specs §8 of each widget list them.
 
 ## Working conventions
