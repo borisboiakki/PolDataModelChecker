@@ -110,6 +110,15 @@ an instance with the REST token disabled (no `top.getRestApiToken`, or 401) → 
 
 Still open from run 1 (optional): S5 with a named space, another project and a missing document.
 
+### Run 3 on 2512 (2026-10-30, PO; S9 box, read from a photo of the screen, not committed)
+
+| ID | Result |
+|---|---|
+| S9 | ✅ PO: "everything works". Log: text area `keydown` Enter, space, Ctrl+C, Ctrl+V and its `input` event received, **none prevented by the page**; multi-line text with leading spaces kept (12 lines, indentation shown); input `keydown` and `input` event received (value as typed); `<select>` (not in a `<label>`) `input` and `change` events for "two" and "three"; `navigator.clipboard.writeText`: ok; `execCommand('copy')`: true; download of the `.yaml` started; *Show the values* read the text area, the input and the select. **Not in the log** (each key is logged once): Tab (and the "after Tab, focus" line), Backspace, Ctrl+Z, so not confirmed by the log; the text shows a deleted character, so deleting works. dmDefine does not depend on them (no Tab handling, copy with `navigator.clipboard` then `execCommand`, as verified here) |
+
+S9 closed. Optional: press Tab in the text area once to see where the focus goes (only matters if indentation by Tab is
+wanted in the YAML text tab; today indentation is typed with spaces).
+
 ### Run 3: S9 editor controls (for dmDefine 0.3.0)
 
 Upload the rebuilt `dmSpike.zip` (browser view, any test). In section **S9**: type several lines with leading spaces in
