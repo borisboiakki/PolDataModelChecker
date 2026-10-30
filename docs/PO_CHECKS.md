@@ -5,7 +5,7 @@ Polarion instance**. Run the checks in this order when you have time; for each o
 screenshots or PDF exports: the repository is public). Findings are then recorded in the specification and in
 `tests/dmSpike-v0.1.x/spike-tests.md`.
 
-Last update: 2026-10-30, dmDefine 0.5.0, dmCheck 0.1.0, dmSpike S7 and S10; §1 done.
+Last update: 2026-10-30, dmDefine 0.5.0, dmCheck 0.1.0, dmSpike S7 and S10; §1 done; 2.1–2.7 done.
 
 ## 1. Spike widget dmSpike (upload `tests/dmSpike-v0.1.x/spike-widget/dmSpike.zip`)
 
@@ -24,13 +24,13 @@ Use a model with the names of your project (start from `test-data/vcycle-model.y
 
 | # | Check | Expected | Version |
 |---|---|---|---|
-| 2.1 | Upload; the widget and its icon in the widget list | upload accepted | 0.1.0 |
-| 2.2 | Parameters: model document, type Text by default; the model item found **without** the id parameter (model text starting with comment lines) | the graph of the model | 0.1.0 |
-| 2.3 | A correct model: no problem; graph, role and line details, *Model text* (line numbers equal to the lines of the editor, empty lines counted once), *Table*, *Excel*, *SVG* | as described in `docs/dmDefine/install.md` | 0.1.0 |
-| 2.4 | Mistakes on purpose: unknown type, unknown link role, missing document, wrong indentation | each problem with the right line | 0.1.0 |
-| 2.5 | PDF export of the page | problems, roles and rules tables | 0.1.0 |
-| 2.6 | Pairs: use case 3 of the modelling guide (names adapted); then a pair written the wrong way round, and a document left out of the pairs | no problem; then an error and a warning | 0.2.0 |
-| 2.7 | **Editor**: *Edit model* on your model: forms prefilled; change something with the pickers (type, link role, document), *Generate YAML*, *Copy*; paste into the model item as plain text (Ctrl+Shift+V), save, *Reload page* | the change is shown, no problem | 0.3.0 |
+| 2.1 | ✅ **Done 2026-10-30** (upload accepted, widget loads). Upload; the widget and its icon in the widget list | upload accepted | 0.1.0 |
+| 2.2 | ✅ **Done 2026-10-30** (model interpreted correctly). Parameters: model document, type Text by default; the model item found **without** the id parameter (model text starting with comment lines) | the graph of the model | 0.1.0 |
+| 2.3 | ✅ **Done 2026-10-30** (everything fine). A correct model: no problem; graph, role and line details, *Model text* (line numbers equal to the lines of the editor, empty lines counted once), *Table*, *Excel*, *SVG* | as described in `docs/dmDefine/install.md` | 0.1.0 |
+| 2.4 | ✅ **Done 2026-10-30** (errors identified correctly). Mistakes on purpose: unknown type, unknown link role, missing document, wrong indentation | each problem with the right line | 0.1.0 |
+| 2.5 | ✅ **Done 2026-10-30** (PDF, SVG and Copy YAML work). PDF export of the page | problems, roles and rules tables | 0.1.0 |
+| 2.6 | ✅ **Done 2026-10-30** (pairs work). Pairs: use case 3 of the modelling guide (names adapted); then a pair written the wrong way round, and a document left out of the pairs | no problem; then an error and a warning | 0.2.0 |
+| 2.7 | ✅ **Done 2026-10-30** (editor round trip works). **Editor**: *Edit model* on your model: forms prefilled; change something with the pickers (type, link role, document), *Generate YAML*, *Copy*; paste into the model item as plain text (Ctrl+Shift+V), save, *Reload page* | the change is shown, no problem | 0.3.0 |
 | 2.8 | Editor with no model: a page with the widget and no model document selected (or an empty model document): *Edit model*, add a role, a type, a document, *Generate YAML*, paste into a new Text item, select that document in the parameters | the new model is shown | 0.3.0 |
 | 2.9 | Editor on a model with an error: only the *YAML text* tab | forms disabled, text shown | 0.3.0 |
 | 2.10 | **uses:** in project B, a Text item with `version: 1`, `uses: "A/ID"` (ID = the model item of project A) and `bindings:` with documents of project B | roles and rules of A, documents of B, header "roles and rules from A/ID (revision …)", link *Open referenced model* | 0.4.0 |
