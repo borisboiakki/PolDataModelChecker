@@ -185,12 +185,30 @@ async function clickNode(p, key) {
   await p.click('button:has-text("Generate YAML")');
   fs.writeFileSync(dir + '/roundtrip-paired.yaml', await p.$eval('.dd-ta', t => t.value));
 
+  // ---------------------------------------------------------------- uses: reference
+  await p.goto('file://' + dir + '/uses.html');
+  await p.waitForTimeout(300);
+  expect((await p.textContent('.dd-head')).indexOf('roles and rules from SYSENG/SE-12') >= 0, 'uses: header names the referenced model');
+  expect((await p.$$('.bw-node')).length === 3 && (await p.$$('a:has-text("Open referenced model")')).length === 1, 'uses: graph of the referenced roles, link to the referenced model');
+  await p.click('button:has-text("Edit model")');
+  const usesSecs = await p.$$eval('.dd-ed-forms .dd-sec .dd-h', hs => hs.map(h => h.textContent));
+  expect(usesSecs.length === 4 && usesSecs[1].indexOf('Roles and rules (from SYSENG/SE-12, read only here)') === 0, 'uses editor: roles and rules read only, documents and pairs editable');
+  await p.click('button:has-text("Generate YAML")');
+  const yamlU = await p.$eval('.dd-ta', t => t.value);
+  fs.writeFileSync(dir + '/roundtrip-uses.yaml', yamlU);
+  expect(yamlU.indexOf('uses: "SYSENG/SE-12"') > 0 && yamlU.indexOf('model:') < 0 && yamlU.indexOf('  SubsystemReq: ["Specs/Subsystem A Requirements"]') > 0, 'uses editor: YAML keeps uses and writes the local part only');
+
   // ---------------------------------------------------------------- no model yet: forms on an empty model
   await p.goto('file://' + dir + '/nodoc.html');
   await p.waitForTimeout(300);
   await p.click('button:has-text("Edit model")');
   expect((await p.textContent('.dd-ed-note')).indexOf('No model yet') === 0 && (await p.$$('.dd-ed-forms .dd-card')).length === 0, 'editor without model: empty forms');
   expect((await p.textContent('.dd-ed-checks')).indexOf('Add at least one document role') >= 0, 'editor without model: check asks for a role');
+  await p.fill('.dd-ed-forms input[placeholder^="project/id"]', 'SYSENG/SE-12');
+  await p.dispatchEvent('.dd-ed-forms input[placeholder^="project/id"]', 'change');
+  await p.click('button:has-text("Generate YAML")');
+  const yamlN = await p.$eval('.dd-ta', t => t.value);
+  expect(yamlN === 'version: 1' + String.fromCharCode(10) + 'uses: "SYSENG/SE-12"' + String.fromCharCode(10), 'editor without model: start by reusing a model (uses)');
 
   // ---------------------------------------------------------------- PDF view (static, no script)
   await p.goto('file://' + dir + '/pdf.html');

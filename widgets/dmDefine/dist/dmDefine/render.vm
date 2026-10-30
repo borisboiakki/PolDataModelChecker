@@ -5,7 +5,7 @@
 ## Velocity 1.4 dialect (guide 3.1.9): no map literals, one statement per line, no backslashes in strings.
 ## Model pipeline (docs/ARCHITECTURE.md 3): dm-read.vm (model item -> text lines), dm-yaml.vm (YAML subset -> paths),
 ## dm-model.vm (roles, rules, bindings, validation). Graph edge "to>from": o = target role (left), c = source role.
-#set($bwVersion = "0.3.0")
+#set($bwVersion = "0.4.0")
 ## Shared snippet style.vm (shared/vm), inlined by tools/build-widget.py at "## BW_SHARED style.vm".
 ## CSS of the interactive view and the static (PDF/print) table. Root classes: bw-root, cw-root (sister repo), dd-root (dmDefine), dc-root (dmCheck).
 <style>
@@ -247,10 +247,12 @@
 #end
 
 ## Description HTML -> text lines: br and block ends are line breaks, other tags removed, U+00A0 -> space, entities decoded.
-## Source newlines (pre blocks) are line breaks when the backslash is available.
+## Source newlines (pre blocks) are line breaks when the backslash is available. Macro: also used for the model of a
+## uses: reference (dm-model.vm). Input $dmHtmlIn, output $dmLines.
+#macro(dmHtmlLines)
 #set($dmLines = [])
-#if($dmHtml != "")
-  #set($dmT = $dmHtml)
+#if($dmHtmlIn != "")
+  #set($dmT = $dmHtmlIn)
   #if($bs != "")
     #set($dmRe = "${bs}r?${bs}n")
     #set($dmT = $dmT.replaceAll($dmRe, "@NL@"))
@@ -278,6 +280,9 @@
     #end
   #end
 #end
+#end
+#set($dmHtmlIn = $dmHtml)
+#dmHtmlLines()
 ## Shared snippet dm-yaml.vm (shared/vm), inlined by tools/build-widget.py at "## BW_SHARED dm-yaml.vm".
 ## YAML subset parser in Velocity 1.4 (docs/DATA_MODEL_FORMAT.md 2, docs/ARCHITECTURE.md 3.3). Prototype verified on 2512
 ## (dmSpike run 1: the stored model parsed with 0 problems in about 4 ms).
@@ -290,13 +295,8 @@
 ##   $dmCnt   path of a list -> number of entries
 ##   $dmLine  path -> line number (1-based, in $dmLines)
 ## Problems are added to $dmProbs as [severity, line, message]; the parser never stops the page.
-#set($dmKind = $objectFactory.newMap())
-#set($dmVal = $objectFactory.newMap())
-#set($dmKeys = $objectFactory.newMap())
-#set($dmCnt = $objectFactory.newMap())
-#set($dmLine = $objectFactory.newMap())
-#set($void = $dmKind.put("", "map"))
-#set($void = $dmKeys.put("", []))
+## The parser is the macro dmParse (called at the end of this snippet for the model item, and by dm-model.vm for the model
+## of a uses: reference); each call starts new maps.
 #set($dmKeyRe = "[A-Za-z0-9_-]+:( .*)?")
 
 ## Unquote a scalar: 'x' or "x" -> x (no escape sequences in the subset).
@@ -410,6 +410,14 @@
   #end
 #end
 
+#macro(dmParse)
+#set($dmKind = $objectFactory.newMap())
+#set($dmVal = $objectFactory.newMap())
+#set($dmKeys = $objectFactory.newMap())
+#set($dmCnt = $objectFactory.newMap())
+#set($dmLine = $objectFactory.newMap())
+#set($void = $dmKind.put("", "map"))
+#set($void = $dmKeys.put("", []))
 #set($dmStack = [])
 #set($dmRf = $objectFactory.newMap())
 #set($void = $dmRf.put("p", "0"))
@@ -560,6 +568,8 @@
 #if(!$dmStarted && $dmLines.size() > 0)
   #set($void = $dmProbs.add(["error", 0, "No line starts with version:, name:, model:, uses: or bindings: (no model found in the description)."]))
 #end
+#end
+#dmParse()
 ## Shared snippet dm-model.vm (shared/vm), inlined by tools/build-widget.py at "## BW_SHARED dm-model.vm".
 ## Normalizes and validates the parsed model and resolves the declared documents (docs/DATA_MODEL_FORMAT.md,
 ## docs/ARCHITECTURE.md 3.4-3.6). Needs dm-read.vm and dm-yaml.vm ($dmKind, $dmVal, $dmKeys, $dmCnt, $dmLine, $dmProbs).
@@ -651,6 +661,124 @@
 #set($dmCheckTypes = $dmTypeNames.size() > 0)
 #set($dmCheckRoles = $dmRoleNames.size() > 0)
 
+## ---------------------------------------------------------------- uses: reference (ARCHITECTURE 3.4, dmDefine 0.4.0)
+## uses: "PROJECT/ID" (or "ID" in the current project) names a work item holding a model: part. Its model part replaces
+## the local one; bindings and pairs stay local. One level only; no local model: part; no revision pinning yet.
+## Output: $dmUses ("project/id" or ""), $dmUsesItem, $dmUsesRev. Problems of the referenced text carry line 0 and the
+## reference in the message (the line links show the local text).
+#set($dmUses = "")
+#set($dmUsesRev = "")
+#set($dmUsesItem = false)
+#dmGet("uses")
+#set($dmUsesRaw = $dmGv.trim())
+#if($dmUsesRaw != "")
+  #dmLineOf("uses")
+  #set($dmUl = $dmLo)
+  #set($dmUp = $dmProjectId)
+  #set($dmUi = $dmUsesRaw)
+  #if($dmUsesRaw.indexOf("/") > 0)
+    #set($dmUslash = $dmUsesRaw.indexOf("/"))
+    #set($dmUp = $dmUsesRaw.substring(0, $dmUslash))
+    #set($dmUslash = $dmUslash + 1)
+    #set($dmUi = $dmUsesRaw.substring($dmUslash))
+  #end
+  #dmKindOf("model")
+  #if($dmUsesRaw.indexOf("@") >= 0)
+    #set($void = $dmProbs.add(["error", $dmUl, "uses: $dmUsesRaw: a fixed revision (@) is not supported yet; write project/id."]))
+  #elseif(!$dmUp.matches("[A-Za-z0-9_.-]+") || !$dmUi.matches("[A-Za-z0-9_.-]+"))
+    #set($void = $dmProbs.add(["error", $dmUl, "uses: $dmUsesRaw is not project/id of a work item."]))
+  #elseif($dmKo != "")
+    #set($void = $dmProbs.add(["error", $dmUl, "With uses:, the model comes from $dmUsesRaw: remove the local model: part (bindings and pairs stay here)."]))
+  #else
+    #set($dmUw = false)
+    #set($dmUw = $trackerService.getWorkItem($dmUp, $dmUi))
+    #if(!$dmUw || $dmUw.isUnresolvable())
+      #set($void = $dmProbs.add(["error", $dmUl, "uses: work item $dmUp/$dmUi not found (or not readable)."]))
+    #else
+      #set($dmUses = "${dmUp}/${dmUi}")
+      #set($dmUsesItem = $dmUw)
+      #set($dmTmp = "")
+      #set($dmTmp = $dmUw.getLastRevision())
+      #set($dmUsesRev = "$dmTmp")
+      #set($dmUh = "")
+      #set($dmUdo = false)
+      #set($dmUdo = $dmUw.getDescription())
+      #if($dmUdo)
+        #set($dmTmp = "")
+        #set($dmTmp = $dmUdo.getContent())
+        #set($dmUh = "$dmTmp")
+      #end
+      ## Keep the local maps and text, parse the referenced text, then merge its model part into the local maps.
+      #set($dmLKind = $dmKind)
+      #set($dmLVal = $dmVal)
+      #set($dmLKeys = $dmKeys)
+      #set($dmLCnt = $dmCnt)
+      #set($dmLLine = $dmLine)
+      #set($dmLLines = $dmLines)
+      #set($dmLStarted = $dmStarted)
+      #set($dmP0 = $dmProbs.size())
+      #set($dmHtmlIn = $dmUh)
+      #dmHtmlLines()
+      #dmParse()
+      #set($dmP1 = $dmProbs.size() - 1)
+      #if($dmP1 >= $dmP0)
+        #foreach($dmI in [$dmP0..$dmP1])
+          #set($dmPo = $dmProbs.get($dmI))
+          #set($dmPm = "Referenced model ${dmUses}")
+          #if($dmPo.get(1) > 0)
+            #set($dmPm = "${dmPm} line $dmPo.get(1)")
+          #end
+          #set($dmPm = "${dmPm}: $dmPo.get(2)")
+          #set($void = $dmProbs.set($dmI, [$dmPo.get(0), 0, $dmPm]))
+        #end
+      #end
+      #set($dmRk = "")
+      #set($dmRk = $dmKind.get("model"))
+      #set($dmRuses = "")
+      #set($dmRuses = $dmKind.get("uses"))
+      #if("$dmRuses" != "")
+        #set($void = $dmProbs.add(["error", $dmUl, "The model of $dmUses itself uses another model: only one level of uses: is allowed."]))
+      #elseif("$dmRk" != "map")
+        #set($void = $dmProbs.add(["error", $dmUl, "Work item $dmUses has no model: part (roles, links) in its description."]))
+      #else
+        #foreach($dmPk in $dmKind.keySet())
+          #set($dmPks = "$dmPk")
+          #if($dmPks == "model" || $dmPks.startsWith("model."))
+            #set($void = $dmLKind.put($dmPk, $dmKind.get($dmPk)))
+            #set($dmPv = false)
+            #set($dmPv = $dmVal.get($dmPk))
+            #if($dmPv)
+              #set($void = $dmLVal.put($dmPk, $dmPv))
+            #end
+            #set($dmPv = false)
+            #set($dmPv = $dmKeys.get($dmPk))
+            #if($dmPv)
+              #set($void = $dmLKeys.put($dmPk, $dmPv))
+            #end
+            #set($dmPv = false)
+            #set($dmPv = $dmCnt.get($dmPk))
+            #if($dmPv)
+              #set($void = $dmLCnt.put($dmPk, $dmPv))
+            #end
+            #set($void = $dmLLine.put($dmPk, 0))
+          #end
+        #end
+        #set($dmRootKeys = $dmLKeys.get(""))
+        #if(!$dmRootKeys.contains("model"))
+          #set($void = $dmRootKeys.add("model"))
+        #end
+      #end
+      #set($dmKind = $dmLKind)
+      #set($dmVal = $dmLVal)
+      #set($dmKeys = $dmLKeys)
+      #set($dmCnt = $dmLCnt)
+      #set($dmLine = $dmLLine)
+      #set($dmLines = $dmLLines)
+      #set($dmStarted = $dmLStarted)
+    #end
+  #end
+#end
+
 ## ---------------------------------------------------------------- top level
 #set($dmRoles = [])
 #set($dmRoleByKey = $objectFactory.newMap())
@@ -663,11 +791,6 @@
 #set($dmHasText = $dmLines.size() > 0)
 #if($dmHasText && $dmStarted)
   #dmUnknownKeys("" ["version", "name", "description", "model", "bindings", "pairs", "uses"])
-  #dmKindOf("uses")
-  #if($dmKo != "")
-    #dmLineOf("uses")
-    #set($void = $dmProbs.add(["error", $dmLo, "uses: (reuse of a model of another project by reference) is not supported by this version. Copy or branch the model document instead."]))
-  #end
   #if($dmVersion == "")
     #set($void = $dmProbs.add(["warning", 0, "version: missing (version 1 assumed)."]))
   #elseif($dmVersion != "1")
@@ -675,7 +798,7 @@
     #set($void = $dmProbs.add(["warning", $dmLo, "version: $dmVersion is not known by this widget (version 1 expected)."]))
   #end
   #dmKindOf("model")
-  #if($dmKo != "map")
+  #if($dmKo != "map" && $dmUsesRaw == "")
     #set($void = $dmProbs.add(["error", 0, "model: missing or not a block of keys (roles, links)."]))
   #end
   #dmUnknownKeys("model" ["roles", "links", "unexpected_links", "description"])
@@ -1257,6 +1380,12 @@
     #set($itemLabel = "${itemLabel} (revision ${dmItemRev})")
   #end
 #end
+#if($dmUses != "")
+  #set($itemLabel = "${itemLabel}, roles and rules from ${dmUses}")
+  #if($dmUsesRev != "")
+    #set($itemLabel = "${itemLabel} (revision ${dmUsesRev})")
+  #end
+#end
 
 #if($isStatic && !$dmOpt && $dmItemIdP == "")
 <div class="dd-root"><div class="bw-muted"><b>Data Model Definition</b>: select the model document (and, if needed, the model work item) in the widget parameters. <span class="bw-muted">(widget v$bwVersion)</span></div></div>
@@ -1341,7 +1470,7 @@
   #end
   #set($void = $roleData.add([$r, $ts, $ds, $b]))
 #end
-<div class="dd-root" data-project="$esc.html($dmProjectId)" data-version="$bwVersion" data-height="$graphHeight" data-item="$esc.html($dmItemId)" data-item-project="$esc.html($dmItemProject)" data-rev="$esc.html($dmItemRev)" data-doc="$esc.html($dmDocKey)" data-name="$esc.html($dmName)" data-unexp="$dmUnexpLinks" data-errors="$dmErrors" data-text="$hasText">
+<div class="dd-root" data-project="$esc.html($dmProjectId)" data-version="$bwVersion" data-height="$graphHeight" data-item="$esc.html($dmItemId)" data-item-project="$esc.html($dmItemProject)" data-rev="$esc.html($dmItemRev)" data-doc="$esc.html($dmDocKey)" data-name="$esc.html($dmName)" data-unexp="$dmUnexpLinks" data-errors="$dmErrors" data-text="$hasText" data-uses="$esc.html($dmUses)" data-uses-raw="$esc.html($dmUsesRaw)" data-uses-rev="$esc.html($dmUsesRev)">
 <div class="dd-head"><b>Data Model Definition</b>#if($dmName != "") &mdash; $esc.html($dmName)#end &mdash; model $esc.html($itemLabel) <span class="bw-muted">(widget v$bwVersion)</span></div>
 <div class="bw-model" style="display:none">
 #foreach($rd in $roleData)
@@ -2245,6 +2374,7 @@
     M.name = pv('name');
     M.description = pv('description');
     M.unexpLinks = pv('model.unexpected_links');
+    M.uses = pv('uses');
     M.roles = pk('model.roles').map(function (key) {
       var b = 'model.roles.' + key;
       return {
@@ -2277,7 +2407,7 @@
   }
 
   function edEmptyModel() {
-    return { version: '1', name: '', description: '', unexpLinks: '', roles: [], links: [], bindings: {}, pairs: {} };
+    return { version: '1', name: '', description: '', unexpLinks: '', uses: '', roles: [], links: [], bindings: {}, pairs: {} };
   }
 
   // Header (lines before the first top-level key) and what the forms cannot keep: inner comments and unknown keys.
@@ -2329,6 +2459,10 @@
     L.push('version: ' + (M.version || '1'));
     kv('', 'name', M.name);
     kv('', 'description', M.description);
+    if (M.uses) {
+      // uses: the roles and rules stay in the referenced item; only the local part is written.
+      L.push('uses: ' + edDocQuote(M.uses));
+    } else {
     L.push('');
     L.push('model:');
     L.push('  roles:');
@@ -2366,6 +2500,7 @@
       });
     }
     kv('  ', 'unexpected_links', M.unexpLinks);
+    }
     var bound = M.roles.filter(function (r) { return (M.bindings[r.key] || []).length; });
     if (bound.length) {
       L.push('');
@@ -2398,8 +2533,16 @@
     var out = [];
     function add(sev, msg) { out.push({ sev: sev, msg: msg }); }
     var keys = {};
-    if (!M.roles.length) { add('error', 'Add at least one document role.'); }
+    if (M.uses) {
+      if (M.uses.indexOf('@') >= 0 || M.uses.split('/').length > 2 || !M.uses.split('/').every(function (x) { return edOnly(x, ED_KEY_CHARS + '.') && x; })) {
+        add('error', 'Reuse: write the model work item as project/id (e.g. SYSENG/SE-12) or id.');
+      }
+      if (!M.roles.length) { add('info', 'The roles and rules of ' + M.uses + ' appear after the YAML is pasted and the page reloaded; then choose the documents.'); }
+      M.roles.forEach(function (r) { keys[r.key] = true; if (!(M.bindings[r.key] || []).length) { add('warning', 'Role ' + r.key + ' has no document.'); } });
+    }
+    if (!M.uses && !M.roles.length) { add('error', 'Add at least one document role.'); }
     M.roles.forEach(function (r, i) {
+      if (M.uses) { return; }
       var name = r.key || ('role ' + (i + 1));
       if (!edIsKey(r.key)) { add('error', 'Role ' + name + ': the key must be made of letters, digits, _ and - (no space).'); }
       if (keys[r.key]) { add('error', 'Role key ' + r.key + ' is used twice.'); }
@@ -2416,6 +2559,8 @@
     var ids = {};
     M.links.forEach(function (k, i) {
       var name = k.id || ('rule ' + (i + 1));
+      if (M.uses) { ids[k.id] = true; }
+      if (M.uses) { edCheckPairs(M, k, name, add); return; }
       if (!edIsKey(k.id)) { add('error', 'Rule ' + name + ': the id must be made of letters, digits, _ and -.'); }
       if (ids[k.id]) { add('error', 'Rule id ' + k.id + ' is used twice.'); }
       ids[k.id] = true;
@@ -2424,6 +2569,12 @@
       if (!k.linkRole) { add('error', 'Rule ' + name + ': choose the link role.'); }
       else if (roleIds.length && roleIds.indexOf(k.linkRole) < 0) { add('error', 'Rule ' + name + ': link role ' + k.linkRole + ' does not exist in the project.'); }
       ['fmin', 'tmin'].forEach(function (f) { if (k[f] !== '' && !edIsInt(k[f])) { add('error', 'Rule ' + name + ': the minimum must be a whole number.'); } });
+      edCheckPairs(M, k, name, add);
+    });
+    return out;
+  }
+
+  function edCheckPairs(M, k, name, add) {
       var pairs = M.pairs[k.id];
       if (pairs) {
         if (!pairs.length) { add('warning', 'Rule ' + name + ' is paired but has no pair.'); }
@@ -2434,8 +2585,6 @@
           if (!edDocFlowSafe(p[0]) || !edDocFlowSafe(p[1])) { add('error', 'Rule ' + name + ': a document of a pair contains a comma or a bracket (not possible in pairs).'); }
         });
       }
-    });
-    return out;
   }
 
   // ------------------------------------------------------------------ editor
@@ -2651,13 +2800,31 @@
     this.input(row, M.name, 'e.g. V-cycle model', function (v) { M.name = v; changed(); }, 260);
     this.label(row, 'Description');
     this.input(row, M.description, 'optional', function (v) { M.description = v; changed(); }, 360);
-    row = el('div', { 'class': 'dd-row' }, g);
-    this.label(row, 'Links that match no rule');
-    this.seg(row, ED_UNEXP_LINKS, M.unexpLinks, 'ignore', function (v) { M.unexpLinks = v; changed(); });
+    if (M.uses || !M.roles.length) {
+      row = el('div', { 'class': 'dd-row' }, g);
+      this.label(row, 'Reuse the roles and rules of');
+      this.input(row, M.uses, 'project/id of a model work item (optional)', function (v) { M.uses = v; changed(); }, 260, function () { rerender(); });
+      el('span', { 'class': 'bw-muted' }, row, M.uses ? 'The roles and rules are edited in that work item; here: documents and pairs.' : 'Empty: the model is written here.');
+    }
+    if (!M.uses) {
+      row = el('div', { 'class': 'dd-row' }, g);
+      this.label(row, 'Links that match no rule');
+      this.seg(row, ED_UNEXP_LINKS, M.unexpLinks, 'ignore', function (v) { M.unexpLinks = v; changed(); });
+    }
 
+    if (M.uses) {
+      var us = this.section(box, 'Roles and rules (from ' + M.uses + ', read only here)');
+      M.roles.forEach(function (r) {
+        el('div', { 'class': 'bw-muted' }, us, r.key + (r.title ? ' ' + DASH + ' ' + r.title : '') + ': ' + (r.items.map(function (i) { return i.type; }).join(', ') || DASH));
+      });
+      M.links.forEach(function (k) {
+        el('div', { 'class': 'bw-muted' }, us, k.id + ': ' + k.fromRole + ' ' + k.linkRole + ' ' + k.toRole);
+      });
+    }
     // Roles
-    var rs = this.section(box, 'Document roles');
+    var rs = M.uses ? null : this.section(box, 'Document roles');
     M.roles.forEach(function (r, ri) {
+      if (M.uses) { return; }
       var card = el('div', { 'class': 'dd-card' }, rs);
       var top = el('div', { 'class': 'dd-row' }, card);
       self.label(top, 'Role key');
@@ -2690,14 +2857,15 @@
       });
       self.w.button(card, '+ Work item type', 'Add a work item type to the role', function () { r.items.push({ type: '', min: '', max: '', ignored: false, description: '' }); rerender(); });
     });
-    this.w.button(rs, '+ Role', 'Add a document role', function () {
+    if (!M.uses) this.w.button(rs, '+ Role', 'Add a document role', function () {
       M.roles.push({ key: 'Role' + (M.roles.length + 1), title: '', description: '', unexp: '', items: [] });
       rerender();
     });
 
     // Link rules
-    var ls = this.section(box, 'Link rules (from = link source, where the link is stored; to = link target)');
+    var ls = M.uses ? null : this.section(box, 'Link rules (from = link source, where the link is stored; to = link target)');
     M.links.forEach(function (k, ki) {
+      if (M.uses) { return; }
       var card = el('div', { 'class': 'dd-card' }, ls);
       var top = el('div', { 'class': 'dd-row' }, card);
       self.label(top, 'Id');
@@ -2727,7 +2895,7 @@
       self.label(r3, 'Description');
       self.input(r3, k.description, 'optional', function (v) { k.description = v; changed(); }, 220);
     });
-    this.w.button(ls, '+ Rule', 'Add a link rule', function () {
+    if (!M.uses) this.w.button(ls, '+ Rule', 'Add a link rule', function () {
       var n = M.links.length + 1;
       var used = M.links.map(function (k) { return k.id; });
       while (used.indexOf('L' + n) >= 0) { n++; }
@@ -3011,6 +3179,9 @@
     this.searchText = 'Highlight roles';
     this.arrowAtOrigin = true;
     this.item = { id: ds.item || '', project: ds.itemProject || this.project, rev: ds.rev || '' };
+    // uses: reference (0.4.0): roles and rules come from another work item ("project/id").
+    this.uses = ds.uses || '';
+    this.usesRev = ds.usesRev || '';
     this.unexp = ds.unexp || 'ignore';
     var st = this.state;
     st.mode = 'all';
@@ -3040,6 +3211,11 @@
     });
     if (this.item.id) {
       var a = el('a', { href: itemUrl(this.item.project, this.item.id, ''), target: '_top', title: 'Open the model work item to edit the model' }, more, 'Open model item');
+      if (this.uses) {
+        var sl = this.uses.indexOf('/');
+        var u = el('a', { href: itemUrl(this.uses.substring(0, sl), this.uses.substring(sl + 1), ''), target: '_top', title: 'Open the referenced model (roles and rules), used through uses:' }, more, 'Open referenced model');
+        u.style.alignSelf = 'center';
+      }
       a.style.alignSelf = 'center';
     }
     this.buildAreas();

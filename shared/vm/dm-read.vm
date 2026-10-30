@@ -164,10 +164,12 @@
 #end
 
 ## Description HTML -> text lines: br and block ends are line breaks, other tags removed, U+00A0 -> space, entities decoded.
-## Source newlines (pre blocks) are line breaks when the backslash is available.
+## Source newlines (pre blocks) are line breaks when the backslash is available. Macro: also used for the model of a
+## uses: reference (dm-model.vm). Input $dmHtmlIn, output $dmLines.
+#macro(dmHtmlLines)
 #set($dmLines = [])
-#if($dmHtml != "")
-  #set($dmT = $dmHtml)
+#if($dmHtmlIn != "")
+  #set($dmT = $dmHtmlIn)
   #if($bs != "")
     #set($dmRe = "${bs}r?${bs}n")
     #set($dmT = $dmT.replaceAll($dmRe, "@NL@"))
@@ -195,3 +197,6 @@
     #end
   #end
 #end
+#end
+#set($dmHtmlIn = $dmHtml)
+#dmHtmlLines()

@@ -63,7 +63,7 @@ bindings:                      # local: the documents of this project (or projec
   SubsystemReq: ["Specs/Subsystem A Requirements", "Specs/Subsystem B Requirements"]
 ```
 
-Reuse by reference (dmDefine 0.2.0, ARCHITECTURE §3.4): the local item holds only
+Reuse by reference (`uses:`, dmDefine 0.4.0, ARCHITECTURE §3.4): the local item holds only
 
 ```yaml
 version: 1
@@ -120,7 +120,7 @@ unpaired). dmCheck will evaluate it (planned, 0.1.0). dmDefine 0.1.0 ignored `pa
 | `…severity` | `error`, `warning`, `info` | `error` | value |
 | `model.unexpected_links` | `error`, `warning`, `info`, `ignore` | `ignore` | value |
 | `bindings.<Role>` | document or list of documents: `name` (default space), `space/name`, `project/space/name` | — | role defined; document exists; declared once; a role without document: warning |
-| `uses` | — | — | not supported in 0.1.0 (error) |
+| `uses` | `"PROJECT/ID"` or `"ID"`: work item holding the `model` part | none: the model is local | item found; no local `model:` part; the referenced model has a `model:` part and no `uses:` itself (one level); no revision pinning (`@`) yet. The referenced model is validated against the current project's configuration; its problems are reported as "Referenced model P/ID line N: …"; its own bindings and pairs are ignored |
 | `pairs.<rule id>[]` | `[source document, target document]` | rule pooled | rule id exists; source declared for the `from` role, target for the `to` role; duplicates (warning); documents of the two roles in no pair (warning) (§2.1, dmDefine 0.2.0) |
 
 Unknown keys are warnings (ignored). Problems carry the line of the model text.
@@ -142,9 +142,11 @@ Link direction follows Polarion: the link is stored on the source item and point
 ## 4. Open points
 
 - Binding by document type / name pattern: dropped from v1 (PO: documents are declared explicitly). May return later.
-- Reuse: `uses:` one level, no local override of `model` keys in v0.2; pinning a revision (`PROJ/ID@rev`) later.
+- Reuse: `uses:` one level, no local override of `model` keys; pinning a revision (`PROJ/ID@rev`) later (read API to
+  spike).
 - Versioning of the model: baselines/revisions of the model LiveDoc give it for free; the checker should show the
   revision of the model it used.
 - Schema evolution: the `version:` number; unknown keys are warnings, not errors.
-- Documents of another project in `bindings` (`project/space/name`) are resolved by the same SQL query, but this form
-  is not verified on 2512 yet (dmSpike S5 run 3), and their types are validated against the current project only.
+- Documents of another project in `bindings` (`project/space/name`) are resolved by the same SQL query (tested on mocks,
+  not verified on 2512 yet: `docs/PO_CHECKS.md` 1.2, 2.13); types and link roles are validated against the current
+  project's configuration only.

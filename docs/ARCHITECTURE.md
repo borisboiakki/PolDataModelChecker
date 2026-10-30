@@ -71,7 +71,7 @@ Shared snippets, inlined at build time (`## BW_SHARED <file>`), variables prefix
 | `shared/vm/dm-model.vm` | Project configuration, schema and configuration validation, roles/rules, binding resolution, pairs (§3.5, §3.6) |
 | existing `style.vm` | Reused (root classes `dd-root`, `dc-root` added) |
 
-`uses:` (§3.4) is not implemented yet: dmDefine 0.1.0 reports it as an error.
+`uses:` (§3.4) is implemented since dmDefine 0.4.0.
 
 ### 3.1 Parameters (both widgets)
 
@@ -144,12 +144,15 @@ Reuse mechanisms, in order of increments:
 1. **Copy or branch the model LiveDoc** to the other project (native Polarion, no code). The copy is then edited:
    bindings always, rules if needed. This works from 0.1.0. Changes to the original are not propagated except through
    Polarion's own branch merge.
-2. **Reference** (planned for 0.2.0, the YAML split is designed for it from 0.1.0): the local item holds
+2. **Reference** (**built in dmDefine 0.4.0**): the local item holds
    `uses: "PROJ/WI-123"` plus its own `bindings:`. The referenced item is read with
    `$trackerService.getWorkItem(projectId, id)` (guide §12.1 pattern) and its `model` part is used. Only one level is
    allowed: a referenced item that itself `uses` another is an error. Its `bindings` are ignored. Local `model` keys are
-   not allowed in v0.2 (no override semantics yet). Optional pinning `PROJ/WI-123@revision` later, with the read API
-   to spike [S8].
+   not allowed (no override semantics). Pinning `PROJ/WI-123@revision` later, with the read API to spike.
+   As built: `dm-read.vm` and `dm-yaml.vm` expose the HTML conversion and the parser as macros (`dmHtmlLines`,
+   `dmParse`); `dm-model.vm` keeps the local path maps, parses the referenced description, rewrites its problems
+   ("Referenced model P/ID line N: …", line 0) and copies its `model…` paths into the local maps (line 0), so the rest
+   of the validation and the editor see one merged model. Page model: `data-uses`, `data-uses-rev`.
    The referenced model is validated against the **checked project's** configuration, since its types and roles must
    exist there.
 
@@ -305,6 +308,7 @@ T1) there.
 | 0.1.0 | **Built**: pipeline §3 (without `uses:`), graph, table, documents, problems, exports, PDF | — |
 | 0.2.0 | **Built**: `pairs` validated and shown (rule details, table, Excel sheet, PDF column) | — (started after dmDefine is completed, PO) |
 | 0.3.0 | **Built**: editor (forms + YAML text, Copy, Download, start from an empty model) | — |
+| 0.4.0 | **Built**: `uses:` reference, documents of other projects (tested on mocks) | — |
 | 0.2.0 | `uses:` reference, starter generator, editor + Copy | 0.1.0: three v1 checks, report, Excel, coloured graph, PDF |
 | 0.3.0 | REST save (if S4 positive), cross-project bindings | drill-down, cross-project documents |
 | later | — | collection context, orphans, wrong document, field rules |

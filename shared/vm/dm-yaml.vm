@@ -10,13 +10,8 @@
 ##   $dmCnt   path of a list -> number of entries
 ##   $dmLine  path -> line number (1-based, in $dmLines)
 ## Problems are added to $dmProbs as [severity, line, message]; the parser never stops the page.
-#set($dmKind = $objectFactory.newMap())
-#set($dmVal = $objectFactory.newMap())
-#set($dmKeys = $objectFactory.newMap())
-#set($dmCnt = $objectFactory.newMap())
-#set($dmLine = $objectFactory.newMap())
-#set($void = $dmKind.put("", "map"))
-#set($void = $dmKeys.put("", []))
+## The parser is the macro dmParse (called at the end of this snippet for the model item, and by dm-model.vm for the model
+## of a uses: reference); each call starts new maps.
 #set($dmKeyRe = "[A-Za-z0-9_-]+:( .*)?")
 
 ## Unquote a scalar: 'x' or "x" -> x (no escape sequences in the subset).
@@ -130,6 +125,14 @@
   #end
 #end
 
+#macro(dmParse)
+#set($dmKind = $objectFactory.newMap())
+#set($dmVal = $objectFactory.newMap())
+#set($dmKeys = $objectFactory.newMap())
+#set($dmCnt = $objectFactory.newMap())
+#set($dmLine = $objectFactory.newMap())
+#set($void = $dmKind.put("", "map"))
+#set($void = $dmKeys.put("", []))
 #set($dmStack = [])
 #set($dmRf = $objectFactory.newMap())
 #set($void = $dmRf.put("p", "0"))
@@ -280,3 +283,5 @@
 #if(!$dmStarted && $dmLines.size() > 0)
   #set($void = $dmProbs.add(["error", 0, "No line starts with version:, name:, model:, uses: or bindings: (no model found in the description)."]))
 #end
+#end
+#dmParse()

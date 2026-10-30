@@ -59,6 +59,7 @@
     M.name = pv('name');
     M.description = pv('description');
     M.unexpLinks = pv('model.unexpected_links');
+    M.uses = pv('uses');
     M.roles = pk('model.roles').map(function (key) {
       var b = 'model.roles.' + key;
       return {
@@ -91,7 +92,7 @@
   }
 
   function edEmptyModel() {
-    return { version: '1', name: '', description: '', unexpLinks: '', roles: [], links: [], bindings: {}, pairs: {} };
+    return { version: '1', name: '', description: '', unexpLinks: '', uses: '', roles: [], links: [], bindings: {}, pairs: {} };
   }
 
   // Header (lines before the first top-level key) and what the forms cannot keep: inner comments and unknown keys.
@@ -143,6 +144,10 @@
     L.push('version: ' + (M.version || '1'));
     kv('', 'name', M.name);
     kv('', 'description', M.description);
+    if (M.uses) {
+      // uses: the roles and rules stay in the referenced item; only the local part is written.
+      L.push('uses: ' + edDocQuote(M.uses));
+    } else {
     L.push('');
     L.push('model:');
     L.push('  roles:');
@@ -180,6 +185,7 @@
       });
     }
     kv('  ', 'unexpected_links', M.unexpLinks);
+    }
     var bound = M.roles.filter(function (r) { return (M.bindings[r.key] || []).length; });
     if (bound.length) {
       L.push('');
@@ -212,8 +218,16 @@
     var out = [];
     function add(sev, msg) { out.push({ sev: sev, msg: msg }); }
     var keys = {};
-    if (!M.roles.length) { add('error', 'Add at least one document role.'); }
+    if (M.uses) {
+      if (M.uses.indexOf('@') >= 0 || M.uses.split('/').length > 2 || !M.uses.split('/').every(function (x) { return edOnly(x, ED_KEY_CHARS + '.') && x; })) {
+        add('error', 'Reuse: write the model work item as project/id (e.g. SYSENG/SE-12) or id.');
+      }
+      if (!M.roles.length) { add('info', 'The roles and rules of ' + M.uses + ' appear after the YAML is pasted and the page reloaded; then choose the documents.'); }
+      M.roles.forEach(function (r) { keys[r.key] = true; if (!(M.bindings[r.key] || []).length) { add('warning', 'Role ' + r.key + ' has no document.'); } });
+    }
+    if (!M.uses && !M.roles.length) { add('error', 'Add at least one document role.'); }
     M.roles.forEach(function (r, i) {
+      if (M.uses) { return; }
       var name = r.key || ('role ' + (i + 1));
       if (!edIsKey(r.key)) { add('error', 'Role ' + name + ': the key must be made of letters, digits, _ and - (no space).'); }
       if (keys[r.key]) { add('error', 'Role key ' + r.key + ' is used twice.'); }
@@ -230,6 +244,8 @@
     var ids = {};
     M.links.forEach(function (k, i) {
       var name = k.id || ('rule ' + (i + 1));
+      if (M.uses) { ids[k.id] = true; }
+      if (M.uses) { edCheckPairs(M, k, name, add); return; }
       if (!edIsKey(k.id)) { add('error', 'Rule ' + name + ': the id must be made of letters, digits, _ and -.'); }
       if (ids[k.id]) { add('error', 'Rule id ' + k.id + ' is used twice.'); }
       ids[k.id] = true;
@@ -238,6 +254,12 @@
       if (!k.linkRole) { add('error', 'Rule ' + name + ': choose the link role.'); }
       else if (roleIds.length && roleIds.indexOf(k.linkRole) < 0) { add('error', 'Rule ' + name + ': link role ' + k.linkRole + ' does not exist in the project.'); }
       ['fmin', 'tmin'].forEach(function (f) { if (k[f] !== '' && !edIsInt(k[f])) { add('error', 'Rule ' + name + ': the minimum must be a whole number.'); } });
+      edCheckPairs(M, k, name, add);
+    });
+    return out;
+  }
+
+  function edCheckPairs(M, k, name, add) {
       var pairs = M.pairs[k.id];
       if (pairs) {
         if (!pairs.length) { add('warning', 'Rule ' + name + ' is paired but has no pair.'); }
@@ -248,8 +270,6 @@
           if (!edDocFlowSafe(p[0]) || !edDocFlowSafe(p[1])) { add('error', 'Rule ' + name + ': a document of a pair contains a comma or a bracket (not possible in pairs).'); }
         });
       }
-    });
-    return out;
   }
 
   // ------------------------------------------------------------------ editor
@@ -465,13 +485,31 @@
     this.input(row, M.name, 'e.g. V-cycle model', function (v) { M.name = v; changed(); }, 260);
     this.label(row, 'Description');
     this.input(row, M.description, 'optional', function (v) { M.description = v; changed(); }, 360);
-    row = el('div', { 'class': 'dd-row' }, g);
-    this.label(row, 'Links that match no rule');
-    this.seg(row, ED_UNEXP_LINKS, M.unexpLinks, 'ignore', function (v) { M.unexpLinks = v; changed(); });
+    if (M.uses || !M.roles.length) {
+      row = el('div', { 'class': 'dd-row' }, g);
+      this.label(row, 'Reuse the roles and rules of');
+      this.input(row, M.uses, 'project/id of a model work item (optional)', function (v) { M.uses = v; changed(); }, 260, function () { rerender(); });
+      el('span', { 'class': 'bw-muted' }, row, M.uses ? 'The roles and rules are edited in that work item; here: documents and pairs.' : 'Empty: the model is written here.');
+    }
+    if (!M.uses) {
+      row = el('div', { 'class': 'dd-row' }, g);
+      this.label(row, 'Links that match no rule');
+      this.seg(row, ED_UNEXP_LINKS, M.unexpLinks, 'ignore', function (v) { M.unexpLinks = v; changed(); });
+    }
 
+    if (M.uses) {
+      var us = this.section(box, 'Roles and rules (from ' + M.uses + ', read only here)');
+      M.roles.forEach(function (r) {
+        el('div', { 'class': 'bw-muted' }, us, r.key + (r.title ? ' ' + DASH + ' ' + r.title : '') + ': ' + (r.items.map(function (i) { return i.type; }).join(', ') || DASH));
+      });
+      M.links.forEach(function (k) {
+        el('div', { 'class': 'bw-muted' }, us, k.id + ': ' + k.fromRole + ' ' + k.linkRole + ' ' + k.toRole);
+      });
+    }
     // Roles
-    var rs = this.section(box, 'Document roles');
+    var rs = M.uses ? null : this.section(box, 'Document roles');
     M.roles.forEach(function (r, ri) {
+      if (M.uses) { return; }
       var card = el('div', { 'class': 'dd-card' }, rs);
       var top = el('div', { 'class': 'dd-row' }, card);
       self.label(top, 'Role key');
@@ -504,14 +542,15 @@
       });
       self.w.button(card, '+ Work item type', 'Add a work item type to the role', function () { r.items.push({ type: '', min: '', max: '', ignored: false, description: '' }); rerender(); });
     });
-    this.w.button(rs, '+ Role', 'Add a document role', function () {
+    if (!M.uses) this.w.button(rs, '+ Role', 'Add a document role', function () {
       M.roles.push({ key: 'Role' + (M.roles.length + 1), title: '', description: '', unexp: '', items: [] });
       rerender();
     });
 
     // Link rules
-    var ls = this.section(box, 'Link rules (from = link source, where the link is stored; to = link target)');
+    var ls = M.uses ? null : this.section(box, 'Link rules (from = link source, where the link is stored; to = link target)');
     M.links.forEach(function (k, ki) {
+      if (M.uses) { return; }
       var card = el('div', { 'class': 'dd-card' }, ls);
       var top = el('div', { 'class': 'dd-row' }, card);
       self.label(top, 'Id');
@@ -541,7 +580,7 @@
       self.label(r3, 'Description');
       self.input(r3, k.description, 'optional', function (v) { k.description = v; changed(); }, 220);
     });
-    this.w.button(ls, '+ Rule', 'Add a link rule', function () {
+    if (!M.uses) this.w.button(ls, '+ Rule', 'Add a link rule', function () {
       var n = M.links.length + 1;
       var used = M.links.map(function (k) { return k.id; });
       while (used.indexOf('L' + n) >= 0) { n++; }

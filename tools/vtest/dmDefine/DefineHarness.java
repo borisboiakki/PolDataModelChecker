@@ -16,6 +16,13 @@ public class DefineHarness {
 
     static final String P = "DMTEST";
     static DmMocks.Module modelDoc, errorsDoc, syntaxDoc, emptyDoc, pairedDoc, pairErrDoc;
+    static final Map<String, DmMocks.Module> USES_DOCS = new LinkedHashMap<String, DmMocks.Module>();
+
+    /** Local part of a model that reuses the roles and rules of SYSENG/SE-12 (uses:, dmDefine 0.4.0). */
+    static final String[] USES_MODEL = {
+        "# Local part: roles and rules come from the shared model", "version: 1", "name: Reused V-cycle", "uses: \"SYSENG/SE-12\"",
+        "bindings:", "  SystemSpec: [\"Specs/System Specification\"]", "  SubsystemReq: [\"Specs/Subsystem A Requirements\"]",
+        "  SystemTest: [\"Tests/System Tests\", \"SYSENG/Tests/Shared Tests\"]" };
 
     /** Use case 3 of docs/MODELING_GUIDE.md: pooled satisfies, paired verifies. */
     static final String[] PAIRED_MODEL = {
@@ -88,6 +95,24 @@ public class DefineHarness {
         DmMocks.ITEMS.add(new DmMocks.WorkItem(emptyDoc, P, "DM-40", "heading", "Nothing", ""));
         DmMocks.ITEMS.add(new DmMocks.WorkItem(pairedDoc, P, "DM-50", "text", "Paired", DmMocks.asStoredHtml(Arrays.asList(PAIRED_MODEL))));
         DmMocks.ITEMS.add(new DmMocks.WorkItem(pairErrDoc, P, "DM-60", "text", "Pair errors", DmMocks.asStoredHtml(Arrays.asList(PAIR_ERRORS_MODEL))));
+        DmMocks.MODULES.add(new DmMocks.Module("SYSENG", "Tests", "Shared Tests", "Shared Tests"));
+        // Shared models in another project (no document needed: read with getWorkItem, verified on 2512 by dmSpike S8).
+        DmMocks.ITEMS.add(new DmMocks.WorkItem(null, "SYSENG", "SE-12", "text", "Shared model", DmMocks.asStoredHtml(sample)));
+        DmMocks.ITEMS.add(new DmMocks.WorkItem(null, "SYSENG", "SE-13", "text", "Nested", DmMocks.asStoredHtml(Arrays.asList("version: 1", "uses: \"SYSENG/SE-12\""))));
+        DmMocks.ITEMS.add(new DmMocks.WorkItem(null, "SYSENG", "SE-14", "text", "No model", DmMocks.asStoredHtml(Arrays.asList("version: 1", "name: nothing"))));
+        DmMocks.ITEMS.add(new DmMocks.WorkItem(null, "SYSENG", "SE-15", "text", "Broken", DmMocks.asStoredHtml(Arrays.asList(
+            "version: 1", "model:", "  roles:", "    A:", "      items:", "        - { type: text }", "     bad: indentation"))));
+        String[][] uses = { { "uses", "SYSENG/SE-12" }, { "uses-nested", "SYSENG/SE-13" }, { "uses-missing", "NOPE/X-1" },
+            { "uses-rev", "SYSENG/SE-12@100" }, { "uses-nomodel", "SYSENG/SE-14" }, { "uses-broken", "SYSENG/SE-15" } };
+        for (String[] u : uses) {
+            DmMocks.Module d = new DmMocks.Module(P, "Model", "Model " + u[0], "Model " + u[0]);
+            DmMocks.MODULES.add(d);
+            List<String> lines = new ArrayList<String>(Arrays.asList(USES_MODEL));
+            lines.set(3, "uses: \"" + u[1] + "\"");
+            if (!u[0].equals("uses")) { lines = lines.subList(0, 4); }
+            DmMocks.ITEMS.add(new DmMocks.WorkItem(d, P, "DM-U-" + u[0], "text", "Uses", DmMocks.asStoredHtml(lines)));
+            USES_DOCS.put(u[0], d);
+        }
     }
 
     static Map<String, DmMocks.Param> params(DmMocks.Module doc, String itemId) {
@@ -139,6 +164,7 @@ public class DefineHarness {
             buildTestSet(args[3]);
             roundTrip(args[1], args[2], "sample", args[2] + "/roundtrip.yaml", "browser");
             roundTrip(args[1], args[2], "paired", args[2] + "/roundtrip-paired.yaml", "paired");
+            roundTrip(args[1], args[2], "uses", args[2] + "/roundtrip-uses.yaml", "uses");
             System.out.println("dmDefine round trip: all checks passed");
             return;
         }
@@ -178,7 +204,7 @@ public class DefineHarness {
             "must be a whole number (found: x)", "Link role unknown_role does not exist", "role Nowhere is not defined in model.roles",
             "Rule id L1 is used twice", "type testCase is not listed in the items of role SystemSpec",
             "severity must be error, warning or info (found: fatal)", "Document DMTEST/Specs/Missing Doc not found",
-            "bindings: Other is not a role", "Role SubsystemReq has no document in bindings", "uses: (reuse"
+            "bindings: Other is not a role", "Role SubsystemReq has no document in bindings", "With uses:, the model comes from X/Y-1: remove the local model: part"
         };
         for (String e : expected) { DmMocks.check(h.contains(e), "errors: problem reported: " + e); }
         DmMocks.check(h.contains("data-sev=\"error\" data-line=\"8\" data-msg=\"model.roles.SystemSpec.items[0]: min is greater than max.\""), "errors: line number of a problem");
@@ -215,6 +241,27 @@ public class DefineHarness {
         };
         for (String e : pairExpected) { DmMocks.check(h.contains(e), "pair errors: " + e); }
         DmMocks.check(count(h, "<i class=\"dm-p\"") == pairExpected.length, "pair errors: no other problem");
+
+        h = run(dir, out, "uses", params(USES_DOCS.get("uses"), ""), false);
+        DmMocks.check(count(h, "<i class=\"dm-p\"") == 0, "uses: no problem");
+        DmMocks.check(count(h, "<i class=\"dm-r\"") == 3 && count(h, "<i class=\"dm-l\"") == 2, "uses: roles and rules of the referenced model");
+        DmMocks.check(h.contains("data-uses=\"SYSENG/SE-12\"") && h.contains("data-uses-rev=\"4712\"") && h.contains("roles and rules from SYSENG/SE-12 (revision 4712)"), "uses: reference and revision shown");
+        DmMocks.check(h.contains("data-k=\"SubsystemReq\"") && h.contains("Specs/Subsystem A Requirements|DMTEST|Specs|Subsystem A Requirements|1|"), "uses: local bindings");
+        DmMocks.check(h.contains("SYSENG/Tests/Shared Tests|SYSENG|Tests|Shared Tests|1|Shared Tests;"), "cross-project document (project/space/name) resolved");
+        DmMocks.check(count(h, "<i class=\"dm-y\"") == USES_MODEL.length, "uses: the model text is the local text");
+        DmMocks.check(h.contains("data-p=\"model.roles.SystemSpec.items[0].type\"") && h.contains("data-p=\"uses\" data-k=\"scalar\" data-v=\"SYSENG/SE-12\""), "uses: editor data holds the merged model and uses");
+        String[][] usesErr = {
+            { "uses-nested", "The model of SYSENG/SE-13 itself uses another model: only one level of uses: is allowed." },
+            { "uses-missing", "uses: work item NOPE/X-1 not found (or not readable)." },
+            { "uses-rev", "uses: SYSENG/SE-12@100: a fixed revision (@) is not supported yet; write project/id." },
+            { "uses-nomodel", "Work item SYSENG/SE-14 has no model: part (roles, links) in its description." },
+            { "uses-broken", "data-line=\"0\" data-msg=\"Referenced model SYSENG/SE-15 line 7: Unexpected indentation (5 spaces).\"" } };
+        for (String[] u : usesErr) {
+            h = run(dir, out, u[0], params(USES_DOCS.get(u[0]), ""), false);
+            DmMocks.check(h.contains(u[1]), u[0] + ": " + u[1]);
+        }
+        h = run(dir, out, "pdf-uses", params(USES_DOCS.get("uses"), ""), true);
+        DmMocks.check(h.contains("roles and rules from SYSENG/SE-12") && h.contains("<td>SystemTest</td>"), "PDF uses: header and roles");
 
         h = run(dir, out, "nodoc", params(null, ""), false);
         DmMocks.check(h.contains("No model document is selected") && h.contains("<script") && h.contains("data-text=\"0\""), "no document: interactive view (editor available), info problem");

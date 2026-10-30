@@ -16,6 +16,7 @@ reports a type, a link role or a document that does not exist).
 | Feature | dmDefine (show, validate) | dmCheck (check the data) |
 |---|---|---|
 | Roles, item types, link rules, `from_min` / `to_min`, bindings, several documents per role (pooled) | since 0.1.0 | planned (0.1.0) |
+| `uses:` (one model for several projects, use case 7), documents of other projects | since 0.4.0 | planned (0.1.0) |
 | `pairs:` (paired documents, use cases 3 and 4) | since 0.2.0 (0.1.0 ignored it with the warning "Unknown key pairs (ignored)") | planned (0.1.0) |
 
 dmCheck is not built yet: the "dmCheck reports" parts below describe what it will check.
@@ -321,6 +322,35 @@ bindings:
 ```
 
 In the dmDefine graph, P1 and R1 are listed in the role boxes (loop sign), L1 is drawn as a line.
+
+## Use case 7 — one model for several projects (`uses:`)
+
+The roles and rules are written once, in a model work item of a central project (here `SYSENG/SE-12`, written like
+use case 1, its own `bindings` are ignored). Each project that follows this model has a small model item that names the
+central one and lists its own documents (and pairs). Changing the central model changes it for every project; the
+widget shows "roles and rules from SYSENG/SE-12 (revision …)" and a link to open it.
+
+```yaml
+# Local part: the roles and rules come from the central model
+version: 1
+name: V-cycle of project B
+uses: "SYSENG/SE-12"
+
+bindings:
+  CustomerSpec: ["Specs/Customer Specification"]
+  SystemSpec: ["Specs/System Specification", "SYSENG/Specs/Common System Specification"]
+  SystemTest: ["Tests/System Test Specification"]
+```
+
+- Only one level: the central model must not itself `use` another model, and the local item must not have a
+  `model:` part.
+- The types and link roles of the central model must exist in each project (dmDefine checks them against the project
+  where the widget runs).
+- A document of another project is written `project/space/name` (here `SYSENG/Specs/Common System Specification`).
+- In *Edit model*, the roles and rules are read only; documents and pairs are edited, and *Generate YAML* keeps
+  `uses:`. On an empty model, fill *Reuse the roles and rules of* to start this way.
+- The alternative without a reference: copy or branch the model document into the project (each copy then evolves on
+  its own).
 
 ## Choosing between pooled, paired and one role per document
 

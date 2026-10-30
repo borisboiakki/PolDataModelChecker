@@ -10,8 +10,9 @@ documents) and **check the real data against it**. Typical case: the V-cycle (sy
 requirements linked with `satisfies` → tests linked with `verifies`). Two widgets, built iteratively:
 
 - **dmDefine** (`widgets/dmDefine/`): reads the model, shows it (graph + table), validates it, helps to edit it.
-  **0.3.0 built** (0.1.0 read, validate, show; 0.2.0 pairs; 0.3.0 editor: forms + YAML text, `src/editor.js`; tested on
-  mocks and in Chromium with a round trip of the generated YAML; to validate on 2512, spike S9 pending).
+  **0.4.0 built** (0.1.0 read, validate, show; 0.2.0 pairs; 0.3.0 editor: forms + YAML text, `src/editor.js`; 0.4.0
+  `uses:` + documents of other projects; tested on mocks and in Chromium with a round trip of the generated YAML;
+  to validate on 2512: `docs/PO_CHECKS.md`, keep it up to date with every new feature).
   PO 2026-10-30: dmDefine is completed before dmCheck is started.
 - **dmCheck** (`widgets/dmCheck/`): reads the same model, checks the real documents/items/links, reports violations
   (table, Excel, graph coloured by compliance, Lucene drill-down).
@@ -127,6 +128,7 @@ Polarion_Development_Guide.md  Polarion best practices (copied from the sister r
 docs/DATA_MODEL_FORMAT.md      model YAML format (contract between dmDefine and dmCheck; pairs since dmDefine 0.2.0)
 docs/MODELING_GUIDE.md         user guide: use cases with example models (keep the examples valid: they parse with no
                                problem in dmDefine)
+docs/PO_CHECKS.md              ordered to-do list of the checks the PO runs on 2512 (update it with every increment)
 docs/ARCHITECTURE.md           architecture of this repo (preliminary, revised after the spikes)
 docs/reference/                architecture document of the sister widgets (reference for the reused parts)
 widgets/<w>/src/               widget sources (as in the sister repo: render.vm with markers "## BW_SHARED <file>" and

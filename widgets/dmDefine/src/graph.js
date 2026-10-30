@@ -152,6 +152,9 @@
     this.searchText = 'Highlight roles';
     this.arrowAtOrigin = true;
     this.item = { id: ds.item || '', project: ds.itemProject || this.project, rev: ds.rev || '' };
+    // uses: reference (0.4.0): roles and rules come from another work item ("project/id").
+    this.uses = ds.uses || '';
+    this.usesRev = ds.usesRev || '';
     this.unexp = ds.unexp || 'ignore';
     var st = this.state;
     st.mode = 'all';
@@ -181,6 +184,11 @@
     });
     if (this.item.id) {
       var a = el('a', { href: itemUrl(this.item.project, this.item.id, ''), target: '_top', title: 'Open the model work item to edit the model' }, more, 'Open model item');
+      if (this.uses) {
+        var sl = this.uses.indexOf('/');
+        var u = el('a', { href: itemUrl(this.uses.substring(0, sl), this.uses.substring(sl + 1), ''), target: '_top', title: 'Open the referenced model (roles and rules), used through uses:' }, more, 'Open referenced model');
+        u.style.alignSelf = 'center';
+      }
       a.style.alignSelf = 'center';
     }
     this.buildAreas();

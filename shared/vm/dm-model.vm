@@ -89,6 +89,124 @@
 #set($dmCheckTypes = $dmTypeNames.size() > 0)
 #set($dmCheckRoles = $dmRoleNames.size() > 0)
 
+## ---------------------------------------------------------------- uses: reference (ARCHITECTURE 3.4, dmDefine 0.4.0)
+## uses: "PROJECT/ID" (or "ID" in the current project) names a work item holding a model: part. Its model part replaces
+## the local one; bindings and pairs stay local. One level only; no local model: part; no revision pinning yet.
+## Output: $dmUses ("project/id" or ""), $dmUsesItem, $dmUsesRev. Problems of the referenced text carry line 0 and the
+## reference in the message (the line links show the local text).
+#set($dmUses = "")
+#set($dmUsesRev = "")
+#set($dmUsesItem = false)
+#dmGet("uses")
+#set($dmUsesRaw = $dmGv.trim())
+#if($dmUsesRaw != "")
+  #dmLineOf("uses")
+  #set($dmUl = $dmLo)
+  #set($dmUp = $dmProjectId)
+  #set($dmUi = $dmUsesRaw)
+  #if($dmUsesRaw.indexOf("/") > 0)
+    #set($dmUslash = $dmUsesRaw.indexOf("/"))
+    #set($dmUp = $dmUsesRaw.substring(0, $dmUslash))
+    #set($dmUslash = $dmUslash + 1)
+    #set($dmUi = $dmUsesRaw.substring($dmUslash))
+  #end
+  #dmKindOf("model")
+  #if($dmUsesRaw.indexOf("@") >= 0)
+    #set($void = $dmProbs.add(["error", $dmUl, "uses: $dmUsesRaw: a fixed revision (@) is not supported yet; write project/id."]))
+  #elseif(!$dmUp.matches("[A-Za-z0-9_.-]+") || !$dmUi.matches("[A-Za-z0-9_.-]+"))
+    #set($void = $dmProbs.add(["error", $dmUl, "uses: $dmUsesRaw is not project/id of a work item."]))
+  #elseif($dmKo != "")
+    #set($void = $dmProbs.add(["error", $dmUl, "With uses:, the model comes from $dmUsesRaw: remove the local model: part (bindings and pairs stay here)."]))
+  #else
+    #set($dmUw = false)
+    #set($dmUw = $trackerService.getWorkItem($dmUp, $dmUi))
+    #if(!$dmUw || $dmUw.isUnresolvable())
+      #set($void = $dmProbs.add(["error", $dmUl, "uses: work item $dmUp/$dmUi not found (or not readable)."]))
+    #else
+      #set($dmUses = "${dmUp}/${dmUi}")
+      #set($dmUsesItem = $dmUw)
+      #set($dmTmp = "")
+      #set($dmTmp = $dmUw.getLastRevision())
+      #set($dmUsesRev = "$dmTmp")
+      #set($dmUh = "")
+      #set($dmUdo = false)
+      #set($dmUdo = $dmUw.getDescription())
+      #if($dmUdo)
+        #set($dmTmp = "")
+        #set($dmTmp = $dmUdo.getContent())
+        #set($dmUh = "$dmTmp")
+      #end
+      ## Keep the local maps and text, parse the referenced text, then merge its model part into the local maps.
+      #set($dmLKind = $dmKind)
+      #set($dmLVal = $dmVal)
+      #set($dmLKeys = $dmKeys)
+      #set($dmLCnt = $dmCnt)
+      #set($dmLLine = $dmLine)
+      #set($dmLLines = $dmLines)
+      #set($dmLStarted = $dmStarted)
+      #set($dmP0 = $dmProbs.size())
+      #set($dmHtmlIn = $dmUh)
+      #dmHtmlLines()
+      #dmParse()
+      #set($dmP1 = $dmProbs.size() - 1)
+      #if($dmP1 >= $dmP0)
+        #foreach($dmI in [$dmP0..$dmP1])
+          #set($dmPo = $dmProbs.get($dmI))
+          #set($dmPm = "Referenced model ${dmUses}")
+          #if($dmPo.get(1) > 0)
+            #set($dmPm = "${dmPm} line $dmPo.get(1)")
+          #end
+          #set($dmPm = "${dmPm}: $dmPo.get(2)")
+          #set($void = $dmProbs.set($dmI, [$dmPo.get(0), 0, $dmPm]))
+        #end
+      #end
+      #set($dmRk = "")
+      #set($dmRk = $dmKind.get("model"))
+      #set($dmRuses = "")
+      #set($dmRuses = $dmKind.get("uses"))
+      #if("$dmRuses" != "")
+        #set($void = $dmProbs.add(["error", $dmUl, "The model of $dmUses itself uses another model: only one level of uses: is allowed."]))
+      #elseif("$dmRk" != "map")
+        #set($void = $dmProbs.add(["error", $dmUl, "Work item $dmUses has no model: part (roles, links) in its description."]))
+      #else
+        #foreach($dmPk in $dmKind.keySet())
+          #set($dmPks = "$dmPk")
+          #if($dmPks == "model" || $dmPks.startsWith("model."))
+            #set($void = $dmLKind.put($dmPk, $dmKind.get($dmPk)))
+            #set($dmPv = false)
+            #set($dmPv = $dmVal.get($dmPk))
+            #if($dmPv)
+              #set($void = $dmLVal.put($dmPk, $dmPv))
+            #end
+            #set($dmPv = false)
+            #set($dmPv = $dmKeys.get($dmPk))
+            #if($dmPv)
+              #set($void = $dmLKeys.put($dmPk, $dmPv))
+            #end
+            #set($dmPv = false)
+            #set($dmPv = $dmCnt.get($dmPk))
+            #if($dmPv)
+              #set($void = $dmLCnt.put($dmPk, $dmPv))
+            #end
+            #set($void = $dmLLine.put($dmPk, 0))
+          #end
+        #end
+        #set($dmRootKeys = $dmLKeys.get(""))
+        #if(!$dmRootKeys.contains("model"))
+          #set($void = $dmRootKeys.add("model"))
+        #end
+      #end
+      #set($dmKind = $dmLKind)
+      #set($dmVal = $dmLVal)
+      #set($dmKeys = $dmLKeys)
+      #set($dmCnt = $dmLCnt)
+      #set($dmLine = $dmLLine)
+      #set($dmLines = $dmLLines)
+      #set($dmStarted = $dmLStarted)
+    #end
+  #end
+#end
+
 ## ---------------------------------------------------------------- top level
 #set($dmRoles = [])
 #set($dmRoleByKey = $objectFactory.newMap())
@@ -101,11 +219,6 @@
 #set($dmHasText = $dmLines.size() > 0)
 #if($dmHasText && $dmStarted)
   #dmUnknownKeys("" ["version", "name", "description", "model", "bindings", "pairs", "uses"])
-  #dmKindOf("uses")
-  #if($dmKo != "")
-    #dmLineOf("uses")
-    #set($void = $dmProbs.add(["error", $dmLo, "uses: (reuse of a model of another project by reference) is not supported by this version. Copy or branch the model document instead."]))
-  #end
   #if($dmVersion == "")
     #set($void = $dmProbs.add(["warning", 0, "version: missing (version 1 assumed)."]))
   #elseif($dmVersion != "1")
@@ -113,7 +226,7 @@
     #set($void = $dmProbs.add(["warning", $dmLo, "version: $dmVersion is not known by this widget (version 1 expected)."]))
   #end
   #dmKindOf("model")
-  #if($dmKo != "map")
+  #if($dmKo != "map" && $dmUsesRaw == "")
     #set($void = $dmProbs.add(["error", 0, "model: missing or not a block of keys (roles, links)."]))
   #end
   #dmUnknownKeys("model" ["roles", "links", "unexpected_links", "description"])

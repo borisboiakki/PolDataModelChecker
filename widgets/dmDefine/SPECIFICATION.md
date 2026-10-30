@@ -1,7 +1,7 @@
 # Specification — Data model definition widget (dmDefine)
 
 **Status:** v0.2, 2026-10-30. Spike dmSpike runs 1–2 done on 2512 (`tests/dmSpike-v0.1.x/spike-tests.md`). Widget
-**0.1.0 implemented** (`widgets/dmDefine/src`: D1–D7, D11, D13), **0.2.0** adds the pairs (D14), **0.3.0** the editor (D9); tested with Velocity 1.4 on mocks and in Chromium; open checks
+**0.1.0 implemented** (`widgets/dmDefine/src`: D1–D7, D11, D13), **0.2.0** adds the pairs (D14), **0.3.0** the editor (D9), **0.4.0** `uses:` and documents of other projects (D15, D12); tested with Velocity 1.4 on mocks and in Chromium; open checks
 on the instance in §9. Items marked `[?]` are open or need verification on a Polarion instance.
 
 ## 1. Goal
@@ -39,7 +39,8 @@ The model is stored in Polarion (SPEC §6) and read by **dmCheck** (`widgets/dmC
 | D9 | **In-widget editor** producing the YAML text to copy into the model item (details and decisions: §7.8, PO 2026-10-30): a **form editor** (general settings, roles with their item types, link rules, documents per role, pairs) whose lists come from the project configuration and the project's documents, and a **YAML text editor**; *Copy* and *Download* of the generated YAML; start from an empty model when the project has none | Should (done, 0.3.0) | 0.3.0 |
 | D10 | **REST write-back**: "Save to Polarion" updates the description of the model item from the browser; hidden when the REST API is unreachable | Could | 3 (after spike S4) |
 | D11 | Show the revision of the model LiveDoc / item used; link to open the model item for editing | Should (done: item revision from `getLastRevision()`) | 1 |
-| D12 | Cross-project documents in bindings (`project/space/document`) | Should (form accepted by 0.1.0, not verified on 2512) | 2 |
+| D12 | Cross-project documents in bindings (`project/space/document`) | Should (done, 0.4.0: resolved and tested on mocks; check on 2512 pending) | 0.4.0 |
+| D15 | **`uses:` reference** (decision 5, ARCHITECTURE §3.4): roles and rules from a model item of another (or the same) project, bindings and pairs local; one level; shown in the header with the revision and a link; editor in a "local part" mode (roles and rules read only) | Should (done, 0.4.0) | 0.4.0 |
 | D14 | **Pairs** (`pairs:` section, dmCheck K15): validate it (the rule id exists; each pair is `[source document, target document]`; the source document is declared for the rule's `from` role and the target for its `to` role) and show it (rule details, table, Excel). Documents of the two roles in no pair: warning | Should (done, 0.2.0) | 2 |
 | D13 | **Model text** view with line numbers (problem lines marked, a click on a problem shows its line) and **Copy YAML** (copies the text, e.g. to reuse the model in another project) | Should (done) | 1 |
 
@@ -125,13 +126,14 @@ PO 2026-10-30: dmDefine is completed before dmCheck is started.
    model text, Copy YAML. Reuse by copying/branching the model LiveDoc.
 2. **0.2.0** (done) pairs (D14).
 3. **0.3.0** (done; PO 2026-10-30: item 2 of the list first) in-widget editor with Copy (D9); spike S9 to run on 2512.
-4. Next increments: `uses:` reference (§3.4 of the architecture, S8 verified) and cross-project documents (D12, S5
-   run 3); REST write-back (D10, checks of spike S4 listed in `tests/dmSpike-v0.1.x/spike-tests.md`); starter generator
+4. **0.4.0** (done) `uses:` reference (D15, S8 verified) and documents of other projects (D12).
+5. Next increments: REST write-back (D10, checks of spike S4 listed in `tests/dmSpike-v0.1.x/spike-tests.md`); starter generator
    (D8, spike S7).
 
-## 9. Open checks for 0.1.0 / 0.2.0 on 2512
+## 9. Open checks on 2512
 
-Only verifiable on the instance (the harness uses mocks):
+Only verifiable on the instance (the harness uses mocks). The ordered to-do list for the PO, with what to report, is
+`docs/PO_CHECKS.md`.
 
 a. Upload of `dmDefine.zip` (entries ≤ 30 characters: `dmDefine/resources/xlsx.js` = 26) and the widget icon.
 b. Model document selector and default type `text`; the model item found without the id parameter (the model text
@@ -146,5 +148,7 @@ h. 0.3.0 (with spike S9, run 3): *Edit model* opens the forms prefilled from the
    roles, documents of the project) work; *Generate YAML*, *Copy*, *Download*; the copied YAML pasted into the model item
    (plain text) reads with no problem and gives the same graph; a model with errors opens in the text editor only; with no
    model item, the forms start empty.
+i. 0.4.0: `uses:` (valid, wrong id, with a local model part), editor in the local-part mode, a binding to a document
+   of another project (PO_CHECKS 1.2, 2.10–2.13).
 g. 0.2.0: use case 3 of `docs/MODELING_GUIDE.md` (names adapted) shows no problem, the pairs in the details, table and
    Excel; a reversed pair and a document in no pair are reported.

@@ -51,6 +51,9 @@ The widget reads the first item of the type with a line starting with `version:`
   The lines above `version:` and the `description` fields are kept; comments inside the model are not (the editor says
   so). A model with errors opens in the *YAML text* tab only. With no model item yet, the forms start empty: paste the
   generated text into a new `text` work item of the model document.
+- **Reuse a model of another project** (0.4.0): a model item with `uses: "PROJECT/ID"` and its own `bindings` takes
+  the roles and rules of that item (see use case 7 of `docs/MODELING_GUIDE.md`); the header names it, *Open referenced
+  model* opens it. Documents of another project are written `project/space/name`.
 - You can also edit the description of the model item directly (*Open model item*), save, *Reload page*.
 - PDF export: tables of problems, roles and rules.
 
