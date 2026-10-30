@@ -309,6 +309,7 @@ T1) there.
 | 0.2.0 | **Built**: `pairs` validated and shown (rule details, table, Excel sheet, PDF column) | — (started after dmDefine is completed, PO) |
 | 0.3.0 | **Built**: editor (forms + YAML text, Copy, Download, start from an empty model) | — |
 | 0.4.0 | **Built**: `uses:` reference, documents of other projects (tested on mocks) | — |
+| 0.5.0 | **Built**: *Save to Polarion* (REST, optional, tested with a mocked REST API) | — |
 | 0.2.0 | `uses:` reference, starter generator, editor + Copy | 0.1.0: three v1 checks, report, Excel, coloured graph, PDF |
 | 0.3.0 | REST save (if S4 positive), cross-project bindings | drill-down, cross-project documents |
 | later | — | collection context, orphans, wrong document, field rules |

@@ -4,7 +4,7 @@ Siemens Polarion **LiveReport widgets** to formalize the **data model** of a pro
 
 | Widget | Purpose | Status | Docs |
 |---|---|---|---|
-| <img src="docs/dmDefine/icon.svg" width="32" alt=""> **dmDefine** — Data Model Definition | A key user / project admin formalizes the main documents (roles), the work item types each must contain and the links between them (e.g. V-cycle: `satisfies`). Shows the model as a graph and tables, validates it against the project configuration, lists the problems with their line | **0.4.0** (built and tested on mocks; 0.2.0 = document pairs, 0.3.0 = form editor, 0.4.0 = `uses:` and documents of other projects; to validate on 2512: [checks](docs/PO_CHECKS.md)) | [install](docs/dmDefine/install.md) · [specification](widgets/dmDefine/SPECIFICATION.md) |
+| <img src="docs/dmDefine/icon.svg" width="32" alt=""> **dmDefine** — Data Model Definition | A key user / project admin formalizes the main documents (roles), the work item types each must contain and the links between them (e.g. V-cycle: `satisfies`). Shows the model as a graph and tables, validates it against the project configuration, lists the problems with their line | **0.5.0** (built and tested on mocks; 0.2.0 = document pairs, 0.3.0 = form editor, 0.4.0 = `uses:` and documents of other projects, 0.5.0 = Save to Polarion (REST); to validate on 2512: [checks](docs/PO_CHECKS.md)) | [install](docs/dmDefine/install.md) · [specification](widgets/dmDefine/SPECIFICATION.md) |
 | **dmCheck** — Data Model Check | Checks the real documents, items and links against the model: required links, unexpected links, required item types. Report as table and Excel, graph coloured by compliance, drill-down queries | Specification draft | [specification](widgets/dmCheck/SPECIFICATION.md) |
 
 ![dmDefine preview rendered from the sample model (mock data)](docs/dmDefine/preview-graph.png)
@@ -19,7 +19,8 @@ hand-written dummy model.
 
 - Target **Polarion 2512**, compatible with **2612** (not verified yet).
 - Deployed by a Polarion admin as Velocity widget zips (Administration → Velocity Widgets); no server-side extension.
-- Editing the model: copy/paste into the model work item first; REST write-back later, always with the manual fallback.
+- Editing the model: form editor, then copy/paste into the model work item, or *Save to Polarion* through the REST API
+  when it is available (optional, copy/paste always works).
 - Developed **incrementally**: specification → architecture → spikes on a real instance → implementation, one widget at a time.
 
 ## Status and plan
@@ -32,7 +33,7 @@ This repository was started from [polarion_branches_copies_widget](https://githu
 3. Spikes with diagnostic widgets in `tests/`: **dmSpike** ([run sheet](tests/dmSpike-v0.1.x/spike-tests.md)) for the
    model item, the YAML parser in Velocity, bindings, configuration and REST (**done on 2512: model reading, parser, configuration and REST GET/PATCH confirmed**); SQL of the checks later.
 4. **dmDefine**: 0.1.0 (read, validate, show), 0.2.0 (document pairs), 0.3.0 (form editor) and 0.4.0 (`uses:`,
-   documents of other projects) built; checks to run on 2512: [docs/PO_CHECKS.md](docs/PO_CHECKS.md); the next dmDefine increments are listed
+   documents of other projects), 0.5.0 (Save to Polarion through REST) built; checks to run on 2512: [docs/PO_CHECKS.md](docs/PO_CHECKS.md); the next dmDefine increments are listed
    in its specification (§8). dmCheck (spike on the SQL of the checks, then 0.1.0) starts after dmDefine is completed.
 
 ## Repository contents

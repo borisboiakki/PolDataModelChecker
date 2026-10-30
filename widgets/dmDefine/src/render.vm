@@ -5,7 +5,7 @@
 ## Velocity 1.4 dialect (guide 3.1.9): no map literals, one statement per line, no backslashes in strings.
 ## Model pipeline (docs/ARCHITECTURE.md 3): dm-read.vm (model item -> text lines), dm-yaml.vm (YAML subset -> paths),
 ## dm-model.vm (roles, rules, bindings, validation). Graph edge "to>from": o = target role (left), c = source role.
-#set($bwVersion = "0.4.0")
+#set($bwVersion = "0.5.0")
 ## BW_SHARED style.vm
 <style>
   .dd-head { margin-bottom: 4px; }
@@ -57,6 +57,12 @@
 ## BW_SHARED dm-yaml.vm
 ## BW_SHARED dm-model.vm
 
+#set($restSave = "auto")
+#set($tmp = "")
+#set($tmp = $parameters.restSave.singleValue())
+#if("$tmp" == "off")
+  #set($restSave = "off")
+#end
 #set($graphHeight = 500)
 #set($tmp = "")
 #set($tmp = $parameters.height.value())
@@ -219,7 +225,7 @@
   #end
   #set($void = $roleData.add([$r, $ts, $ds, $b]))
 #end
-<div class="dd-root" data-project="$esc.html($dmProjectId)" data-version="$bwVersion" data-height="$graphHeight" data-item="$esc.html($dmItemId)" data-item-project="$esc.html($dmItemProject)" data-rev="$esc.html($dmItemRev)" data-doc="$esc.html($dmDocKey)" data-name="$esc.html($dmName)" data-unexp="$dmUnexpLinks" data-errors="$dmErrors" data-text="$hasText" data-uses="$esc.html($dmUses)" data-uses-raw="$esc.html($dmUsesRaw)" data-uses-rev="$esc.html($dmUsesRev)">
+<div class="dd-root" data-project="$esc.html($dmProjectId)" data-version="$bwVersion" data-height="$graphHeight" data-item="$esc.html($dmItemId)" data-item-project="$esc.html($dmItemProject)" data-rev="$esc.html($dmItemRev)" data-doc="$esc.html($dmDocKey)" data-name="$esc.html($dmName)" data-unexp="$dmUnexpLinks" data-errors="$dmErrors" data-text="$hasText" data-uses="$esc.html($dmUses)" data-uses-raw="$esc.html($dmUsesRaw)" data-uses-rev="$esc.html($dmUsesRev)" data-rest="$restSave">
 <div class="dd-head"><b>Data Model Definition</b>#if($dmName != "") &mdash; $esc.html($dmName)#end &mdash; model $esc.html($itemLabel) <span class="bw-muted">(widget v$bwVersion)</span></div>
 <div class="bw-model" style="display:none">
 #foreach($rd in $roleData)

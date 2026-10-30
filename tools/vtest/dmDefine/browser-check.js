@@ -215,6 +215,95 @@ async function clickNode(p, key) {
   await p.screenshot({ path: dir + '/shot-pdf.png', fullPage: true });
   expect((await p.$$('script')).length === 0 && (await p.$$('.dd-static table')).length === 2, 'PDF view: static tables, no script');
 
+  // ---------------------------------------------------------------- Save to Polarion (REST), served over HTTP with a
+  // mocked REST API (the Polarion behaviour itself is checked on 2512: docs/PO_CHECKS.md)
+  {
+    const http = require('http');
+    const path = require('path');
+    const server = http.createServer((req, res) => {
+      const f = path.join(dir, decodeURIComponent(req.url.split('?')[0]));
+      if (!f.startsWith(dir) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); res.end(); return; }
+      res.writeHead(200, { 'Content-Type': f.endsWith('.js') ? 'text/javascript' : 'text/html; charset=utf-8' });
+      fs.createReadStream(f).pipe(res);
+    });
+    await new Promise(r => server.listen(0, '127.0.0.1', r));
+    const base = 'http://127.0.0.1:' + server.address().port;
+    const lines = await (async () => { await p.goto('file://' + dir + '/browser.html'); return p.$$eval('.dm-y', ys => ys.map(y => y.getAttribute('data-t'))); })();
+    const stored = lines.map(l => '<span style="font-size: 10pt;line-height: 1.5;">' + l.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;') + '</span><br/>').join('');
+    const rest = { html: stored, patches: [], patchStatus: 204, getStatus: 200 };
+    const r = await b.newPage({ viewport: { width: 1220, height: 900 } });
+    r.on('pageerror', e => errors.push(String(e)));
+    const dialogs = [];
+    let accept = true;
+    r.on('dialog', d => { dialogs.push(d.message()); (d.message().indexOf('Reload the page now') >= 0 ? d.dismiss() : (accept ? d.accept() : d.dismiss())); });
+    await r.route('**/polarion/rest/v1/**', async (route, req) => {
+      const hdr = req.headers()['x-polarion-rest-token'];
+      if (hdr !== 'TOKEN-1') { return route.fulfill({ status: 401, body: '{"errors":[{"status":"401","detail":"No access token"}]}' }); }
+      if (req.method() === 'GET') {
+        if (rest.getStatus !== 200) { return route.fulfill({ status: rest.getStatus, body: '{"errors":[{"status":"' + rest.getStatus + '"}]}' }); }
+        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { type: 'workitems', id: 'DMTEST/DM-3', attributes: { description: { type: 'text/html', value: rest.html } } } }) });
+      }
+      if (req.method() === 'PATCH') {
+        expect(req.url().indexOf('?') < 0, 'REST: PATCH without query parameter');
+        const body = JSON.parse(req.postData());
+        rest.patches.push(body);
+        if (rest.patchStatus !== 204) { return route.fulfill({ status: rest.patchStatus, body: '{"errors":[{"status":"' + rest.patchStatus + '","detail":"Forbidden"}]}' }); }
+        rest.html = body.data.attributes.description.value;
+        return route.fulfill({ status: 204, body: '' });
+      }
+      return route.fulfill({ status: 405 });
+    });
+    async function openEditor(withToken) {
+      await r.addInitScript(t => { if (t) { window.getRestApiToken = () => t; } }, withToken ? 'TOKEN-1' : '');
+      await r.goto(base + '/browser.html');
+      await r.waitForTimeout(300);
+      await r.click('button:has-text("Edit model")');
+      await r.click('.dd-ed-head button:has-text("YAML text")');
+      await r.waitForTimeout(200);
+    }
+    await openEditor(true);
+    expect(await r.$eval('.dd-ed-text button:has-text("Save to Polarion")', x => x.style.display !== 'none'), 'REST: Save shown after a successful probe');
+    expect((await r.textContent('.dd-rest')).indexOf('DMTEST/DM-3') >= 0, 'REST: target named');
+    // Save an edited text.
+    await r.$eval('.dd-ta', t => { t.value = t.value.replace('name: V-cycle model', 'name: V-cycle model (saved)'); });
+    await r.click('button:has-text("Save to Polarion")');
+    await r.waitForTimeout(400);
+    expect(rest.patches.length === 1, 'REST: one PATCH');
+    const pb = rest.patches[0];
+    expect(pb.data.type === 'workitems' && pb.data.id === 'DMTEST/DM-3' && pb.data.attributes.description.type === 'text/html', 'REST: PATCH body (type, id, text/html)');
+    expect(pb.data.attributes.description.value.indexOf('&nbsp;&nbsp;roles:<br/>') > 0 && pb.data.attributes.description.value.indexOf('name: V-cycle model (saved)<br/>') > 0, 'REST: description HTML (indentation as non-breaking spaces, one br per line)');
+    fs.writeFileSync(dir + '/rest-patched.html', pb.data.attributes.description.value);
+    expect(dialogs[0].indexOf('Replace the description of DMTEST/DM-3') === 0, 'REST: confirmation before saving');
+    expect((await r.textContent('.dd-ed-text')).indexOf('Saved to DMTEST/DM-3') >= 0, 'REST: saved and read back');
+    // The item changed since the page was loaded (it now holds the saved text): warning, refused.
+    accept = false;
+    await r.click('button:has-text("Save to Polarion")');
+    await r.waitForTimeout(300);
+    expect(dialogs[dialogs.length - 1].indexOf('was changed since this page was loaded') > 0 && rest.patches.length === 1, 'REST: conflict warning, not saved when refused');
+    // No permission.
+    accept = true;
+    rest.html = stored;
+    rest.patchStatus = 403;
+    await r.click('button:has-text("Save to Polarion")');
+    await r.waitForTimeout(300);
+    expect((await r.textContent('.dd-ed-text')).indexOf('Not saved: no permission') >= 0, 'REST: 403 explained');
+    // Probe refused (GET 404) and no token: Save not shown, explanation.
+    rest.getStatus = 404;
+    await openEditor(true);
+    expect(await r.$eval('.dd-ed-text button:has-text("Save to Polarion")', x => x.style.display === 'none') && (await r.textContent('.dd-rest')).indexOf('not found') > 0, 'REST: probe refused, Save hidden');
+    const r2 = await b.newPage();
+    await r2.goto(base + '/browser.html');
+    await r2.waitForTimeout(300);
+    await r2.click('button:has-text("Edit model")');
+    expect((await r2.textContent('.dd-rest')).indexOf('no REST token in this session') > 0, 'REST: no token, Save not offered');
+    await r2.goto(base + '/restoff.html');
+    await r2.waitForTimeout(300);
+    await r2.click('button:has-text("Edit model")');
+    expect((await r2.textContent('.dd-rest')).indexOf('switched off in the widget parameters') > 0, 'REST: switched off by the parameter');
+    await r.screenshot({ path: dir + '/shot-rest.png', fullPage: true });
+    server.close();
+  }
+
   expect(errors.length === 0, 'no JavaScript error (' + errors.join('; ') + ')');
   await b.close();
 })().catch(e => { console.error(e.message || e); process.exit(1); });

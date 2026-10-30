@@ -5,7 +5,7 @@
 ## Velocity 1.4 dialect (guide 3.1.9): no map literals, one statement per line, no backslashes in strings.
 ## Model pipeline (docs/ARCHITECTURE.md 3): dm-read.vm (model item -> text lines), dm-yaml.vm (YAML subset -> paths),
 ## dm-model.vm (roles, rules, bindings, validation). Graph edge "to>from": o = target role (left), c = source role.
-#set($bwVersion = "0.4.0")
+#set($bwVersion = "0.5.0")
 ## Shared snippet style.vm (shared/vm), inlined by tools/build-widget.py at "## BW_SHARED style.vm".
 ## CSS of the interactive view and the static (PDF/print) table. Root classes: bw-root, cw-root (sister repo), dd-root (dmDefine), dc-root (dmCheck).
 <style>
@@ -1308,6 +1308,12 @@
   #end
 #end
 
+#set($restSave = "auto")
+#set($tmp = "")
+#set($tmp = $parameters.restSave.singleValue())
+#if("$tmp" == "off")
+  #set($restSave = "off")
+#end
 #set($graphHeight = 500)
 #set($tmp = "")
 #set($tmp = $parameters.height.value())
@@ -1470,7 +1476,7 @@
   #end
   #set($void = $roleData.add([$r, $ts, $ds, $b]))
 #end
-<div class="dd-root" data-project="$esc.html($dmProjectId)" data-version="$bwVersion" data-height="$graphHeight" data-item="$esc.html($dmItemId)" data-item-project="$esc.html($dmItemProject)" data-rev="$esc.html($dmItemRev)" data-doc="$esc.html($dmDocKey)" data-name="$esc.html($dmName)" data-unexp="$dmUnexpLinks" data-errors="$dmErrors" data-text="$hasText" data-uses="$esc.html($dmUses)" data-uses-raw="$esc.html($dmUsesRaw)" data-uses-rev="$esc.html($dmUsesRev)">
+<div class="dd-root" data-project="$esc.html($dmProjectId)" data-version="$bwVersion" data-height="$graphHeight" data-item="$esc.html($dmItemId)" data-item-project="$esc.html($dmItemProject)" data-rev="$esc.html($dmItemRev)" data-doc="$esc.html($dmDocKey)" data-name="$esc.html($dmName)" data-unexp="$dmUnexpLinks" data-errors="$dmErrors" data-text="$hasText" data-uses="$esc.html($dmUses)" data-uses-raw="$esc.html($dmUsesRaw)" data-uses-rev="$esc.html($dmUsesRev)" data-rest="$restSave">
 <div class="dd-head"><b>Data Model Definition</b>#if($dmName != "") &mdash; $esc.html($dmName)#end &mdash; model $esc.html($itemLabel) <span class="bw-muted">(widget v$bwVersion)</span></div>
 <div class="bw-model" style="display:none">
 #foreach($rd in $roleData)
@@ -3001,7 +3007,136 @@
     if (this.w.item.id) {
       el('a', { href: itemUrl(this.w.item.project, this.w.item.id, ''), target: '_blank', title: 'Open the model work item in a new tab' }, row, 'Open model item');
     }
+    this.saveBtn = this.w.button(row, 'Save to Polarion', 'Write this text into the description of the model work item (REST API)', function () { self.save(); });
+    this.saveBtn.style.display = 'none';
     this.copied = el('span', { 'class': 'bw-muted' }, row, '');
+    this.restInfo = el('div', { 'class': 'bw-muted dd-rest' }, p, '');
+    this.probeRest();
+  };
+
+  // ------------------------------------------------------------------ Save to Polarion (REST, dmDefine 0.5.0, SPEC D10)
+  // Optional: the button is shown only when the session REST token exists and a GET of the model item answers 200
+  // (verified on 2512, dmSpike S4: GET 200 with the token, 401 without; PATCH of the description 204). Copy and paste
+  // always stay available. Before the PATCH the item is read again: if its text changed since the page was loaded, the
+  // user is asked. After the PATCH the item is read back and compared.
+
+  function restToken() {
+    try { return top.getRestApiToken && typeof top.getRestApiToken === 'function' ? top.getRestApiToken() : null; } catch (e) { return null; }
+  }
+
+  function restUrl(project, id, withFields) {
+    return '/polarion/rest/v1/projects/' + encodeURIComponent(project) + '/workitems/' + encodeURIComponent(id) +
+      (withFields ? '?fields[workitems]=description' : '');
+  }
+
+  function restCall(method, url, token, body) {
+    var h = { 'Accept': 'application/json', 'X-Polarion-REST-Token': token };
+    if (body) { h['Content-Type'] = 'application/json'; }
+    return fetch(url, { method: method, headers: h, credentials: 'same-origin', body: body ? JSON.stringify(body) : undefined })
+      .then(function (r) { return r.text().then(function (t) { return { status: r.status, text: t }; }); });
+  }
+
+  // Description HTML -> text lines, as shared/vm/dm-read.vm does on the server.
+  function htmlToLines(html) {
+    var NB = String.fromCharCode(160);
+    var t = String(html || '').split(NB).join(' ').split(String.fromCharCode(13)).join('');
+    t = t.replace(/<span[^>]*>[ ]*<br[^>]*>[ ]*<.span>/gi, '');
+    t = t.split(String.fromCharCode(10)).join('@NL@');
+    t = t.replace(/<br[^>]*>/gi, '@NL@').replace(/<.(p|div|li|pre|h[1-6]|tr)>/gi, '@NL@').replace(/<[^>]*>/g, '');
+    t = t.split('&nbsp;').join(' ').split('&' + HASH + '160;').join(' ').split('&lt;').join('<').split('&gt;').join('>');
+    t = t.split('&quot;').join('"').split('&' + HASH + '34;').join('"').split('&' + HASH + '39;').join("'").split('&apos;').join("'");
+    t = t.split('&amp;').join('&');
+    var lines = t.split('@NL@');
+    while (lines.length && lines[lines.length - 1].trim() === '') { lines.pop(); }
+    return lines;
+  }
+
+  // Text -> description HTML: one line per br, characters escaped, leading spaces as non-breaking spaces (as the
+  // Polarion editor keeps the indentation, dmSpike S1).
+  function linesToHtml(text) {
+    var lines = String(text).split(String.fromCharCode(13)).join('').split(String.fromCharCode(10));
+    while (lines.length && lines[lines.length - 1].trim() === '') { lines.pop(); }
+    return lines.map(function (l) {
+      var i = 0;
+      while (i < l.length && l.charAt(i) === ' ') { i++; }
+      var body = l.substring(i).split('&').join('&amp;').split('<').join('&lt;').split('>').join('&gt;').split('"').join('&quot;');
+      return new Array(i + 1).join('&nbsp;') + body + '<br/>';
+    }).join('');
+  }
+
+  function sameLines(a, b) {
+    var x = a.map(function (l) { return l.replace(/ +/g, ' ').trim(); });
+    var y = b.map(function (l) { return l.replace(/ +/g, ' ').trim(); });
+    return x.join('|') === y.join('|') && a.map(function (l) { return l.length - l.replace(/^ +/, '').length; }).join(',') ===
+      b.map(function (l) { return l.length - l.replace(/^ +/, '').length; }).join(',');
+  }
+
+  function restError(st, txt) {
+    var detail = '';
+    try { var j = JSON.parse(txt); detail = j.errors && j.errors[0] ? (j.errors[0].detail || j.errors[0].title || '') : ''; } catch (e) { detail = ''; }
+    var why = st === 401 ? 'the REST API refused the session token' :
+      st === 403 ? 'no permission to change this work item (or the REST endpoint is not allowed for you)' :
+      st === 404 ? 'the model work item was not found' :
+      st === 409 ? 'the work item was changed or locked by someone else' : 'HTTP ' + st;
+    return why + (detail ? ' (' + detail + ')' : '');
+  }
+
+  Editor.prototype.probeRest = function () {
+    var self = this;
+    var w = this.w;
+    var info = this.restInfo;
+    function off(msg) { self.rest = null; info.textContent = 'Save to Polarion is not available: ' + msg + '. Use Copy and paste the text into the model work item.'; }
+    if (w.root.dataset.rest === 'off') { off('switched off in the widget parameters'); return; }
+    if (!w.item.id) { off('there is no model work item yet (create a Text work item in the model document, paste the text, then Save works on the next page load)'); return; }
+    var token = restToken();
+    if (!token) { off('no REST token in this session (the REST API token may be disabled on this server)'); return; }
+    info.textContent = 'Checking the REST API' + ELLIPSIS;
+    restCall('GET', restUrl(w.item.project, w.item.id, true), token).then(function (r) {
+      if (r.status !== 200) { off(restError(r.status, r.text)); return; }
+      self.rest = { token: token };
+      self.saveBtn.style.display = '';
+      info.textContent = 'Save to Polarion writes the text into the description of ' + w.item.project + '/' + w.item.id +
+        ' (a new revision; the history keeps the previous one).';
+    }, function (e) { off('the REST API could not be reached (' + e + ')'); });
+  };
+
+  Editor.prototype.save = function () {
+    var self = this;
+    var w = this.w;
+    if (!this.rest) { return; }
+    var text = this.ta.value;
+    var url = restUrl(w.item.project, w.item.id, false);
+    var target = w.item.project + '/' + w.item.id;
+    var token = restToken() || this.rest.token;
+    var msg = this.copied;
+    msg.textContent = 'Reading the model work item' + ELLIPSIS;
+    restCall('GET', restUrl(w.item.project, w.item.id, true), token).then(function (r) {
+      if (r.status !== 200) { msg.textContent = 'Not saved: ' + restError(r.status, r.text) + '.'; return null; }
+      var current = [];
+      try { current = htmlToLines(JSON.parse(r.text).data.attributes.description.value); } catch (e) { current = []; }
+      var changed = !sameLines(current, w.model.lines);
+      var q = changed ?
+        'The description of ' + target + ' was changed since this page was loaded (by you or someone else). Replace it anyway with this text?' :
+        'Replace the description of ' + target + ' with this text? (A new revision; the history keeps the previous one.)';
+      if (!window.confirm(q)) { msg.textContent = 'Not saved.'; return null; }
+      msg.textContent = 'Saving' + ELLIPSIS;
+      var body = { data: { type: 'workitems', id: target, attributes: { description: { type: 'text/html', value: linesToHtml(text) } } } };
+      return restCall('PATCH', url, token, body).then(function (p) {
+        if (p.status !== 204 && p.status !== 200) { msg.textContent = 'Not saved: ' + restError(p.status, p.text) + '.'; return null; }
+        return restCall('GET', restUrl(w.item.project, w.item.id, true), token).then(function (g) {
+          var back = [];
+          try { back = htmlToLines(JSON.parse(g.text).data.attributes.description.value); } catch (e) { back = []; }
+          var want = String(text).split(String.fromCharCode(13)).join('').split(String.fromCharCode(10));
+          while (want.length && want[want.length - 1].trim() === '') { want.pop(); }
+          var ok = g.status === 200 && sameLines(back, want);
+          msg.textContent = ok ? 'Saved to ' + target + '. Reload page to read the new model.' :
+            'Saved, but the text read back differs from the text sent: open the model work item and check it.';
+          self.saved = ok;
+          if (ok && window.confirm('Saved. Reload the page now to read the new model?')) { window.location.reload(); }
+          return null;
+        });
+      });
+    }).catch(function (e) { msg.textContent = 'Not saved: the REST API could not be reached (' + e + ').'; });
   };
 
   Editor.prototype.generate = function () {

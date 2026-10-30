@@ -11,7 +11,7 @@ requirements linked with `satisfies` → tests linked with `verifies`). Two widg
 
 - **dmDefine** (`widgets/dmDefine/`): reads the model, shows it (graph + table), validates it, helps to edit it.
   **0.4.0 built** (0.1.0 read, validate, show; 0.2.0 pairs; 0.3.0 editor: forms + YAML text, `src/editor.js`; 0.4.0
-  `uses:` + documents of other projects; tested on mocks and in Chromium with a round trip of the generated YAML;
+  `uses:` + documents of other projects; 0.5.0 Save to Polarion (REST, optional); tested on mocks and in Chromium with a round trip of the generated YAML;
   to validate on 2512: `docs/PO_CHECKS.md`, keep it up to date with every new feature).
   PO 2026-10-30: dmDefine is completed before dmCheck is started.
 - **dmCheck** (`widgets/dmCheck/`): reads the same model, checks the real documents/items/links, reports violations

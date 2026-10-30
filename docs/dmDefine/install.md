@@ -30,6 +30,7 @@ Target: Polarion 2512 (verified with the spike widget); 2612 not verified yet.
 | Model work item type | Type of the model item (default Text) |
 | Model work item id | Optional: the id of the model item, when the document holds several items of the type |
 | Graph height in pixels | Height of the graph area (default 500) |
+| Save to Polarion (REST API) in the editor | *When available* (default) or *Off* (copy and paste only) |
 
 The widget reads the first item of the type with a line starting with `version:`, `model:` or `uses:`.
 
@@ -51,6 +52,12 @@ The widget reads the first item of the type with a line starting with `version:`
   The lines above `version:` and the `description` fields are kept; comments inside the model are not (the editor says
   so). A model with errors opens in the *YAML text* tab only. With no model item yet, the forms start empty: paste the
   generated text into a new `text` work item of the model document.
+- **Save to Polarion** (0.5.0): in the *YAML text* tab, when the REST API can be used from the page (session REST
+  token, read access to the model item), *Save to Polarion* writes the text into the model work item directly (it asks
+  first, warns when the item changed since the page was loaded, and reads it back); then *Reload page*. When it is not
+  available, the line below the text says why; *Copy* and paste always work. The widget parameter *Save to Polarion*
+  = Off removes it. The admin property `com.siemens.polarion.rest.security.restApiToken.enabled=true` and the user's
+  REST permissions are needed (guide §8.2).
 - **Reuse a model of another project** (0.4.0): a model item with `uses: "PROJECT/ID"` and its own `bindings` takes
   the roles and rules of that item (see use case 7 of `docs/MODELING_GUIDE.md`); the header names it, *Open referenced
   model* opens it. Documents of another project are written `project/space/name`.

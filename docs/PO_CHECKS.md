@@ -5,7 +5,7 @@ Polarion instance**. Run the checks in this order when you have time; for each o
 screenshots or PDF exports: the repository is public). Findings are then recorded in the specification and in
 `tests/dmSpike-v0.1.x/spike-tests.md`.
 
-Last update: 2026-10-30, dmDefine 0.4.0.
+Last update: 2026-10-30, dmDefine 0.5.0.
 
 ## 1. Spike widget dmSpike (upload `tests/dmSpike-v0.1.x/spike-widget/dmSpike.zip`)
 
@@ -35,8 +35,13 @@ Use a model with the names of your project (start from `test-data/vcycle-model.y
 | 2.12 | uses: *Edit model*: roles and rules read only, documents and pairs editable; *Generate YAML* keeps `uses:` | as described | 0.4.0 |
 | 2.13 | A binding to a document of another project (`PROJECT/Space/Name`) | found, link opens it | 0.4.0 |
 
+| 2.14 | **Save to Polarion**: *Edit model* → *YAML text*: the button *Save to Polarion* is shown and the line below names the model item. Change something (e.g. the name), *Save to Polarion*, accept; then *Reload page* | "Saved to P/ID"; after reload the change is shown, no problem | 0.5.0 |
+| 2.15 | After 2.14: open the model work item: the description shows the YAML with its indentation; its **history** shows a new revision | indentation kept, new revision | 0.5.0 |
+| 2.16 | Save twice without reloading the page (or change the item in another tab first) | a warning "was changed since this page was loaded" | 0.5.0 |
+| 2.17 | With a user who can read but not edit the model item | Save shown, then "Not saved: no permission …" (or Save not shown) | 0.5.0 |
+| 2.18 | Widget parameter *Save to Polarion* = Off | no Save button, "switched off in the widget parameters" | 0.5.0 |
+
 ## 3. Later (not needed now)
 
-- REST *Save to Polarion* (dmDefine, later increment): PATCH of a changed model and read-back, revision in the history,
-  a user without edit rights, an instance with the REST token disabled (list in `tests/dmSpike-v0.1.x/spike-tests.md`).
+- On an instance where the REST API token is disabled: no Save button, "no REST token in this session".
 - Polarion 2612: repeat 1.1, 2.2, 2.3, 2.7 and the dmSpike runs 1–2 (S1, S3, S4).

@@ -1,7 +1,7 @@
 # Specification — Data model definition widget (dmDefine)
 
 **Status:** v0.2, 2026-10-30. Spike dmSpike runs 1–2 done on 2512 (`tests/dmSpike-v0.1.x/spike-tests.md`). Widget
-**0.1.0 implemented** (`widgets/dmDefine/src`: D1–D7, D11, D13), **0.2.0** adds the pairs (D14), **0.3.0** the editor (D9), **0.4.0** `uses:` and documents of other projects (D15, D12); tested with Velocity 1.4 on mocks and in Chromium; open checks
+**0.1.0 implemented** (`widgets/dmDefine/src`: D1–D7, D11, D13), **0.2.0** adds the pairs (D14), **0.3.0** the editor (D9), **0.4.0** `uses:` and documents of other projects (D15, D12), **0.5.0** *Save to Polarion* (D10); tested with Velocity 1.4 on mocks and in Chromium; open checks
 on the instance in §9. Items marked `[?]` are open or need verification on a Polarion instance.
 
 ## 1. Goal
@@ -37,7 +37,7 @@ The model is stored in Polarion (SPEC §6) and read by **dmCheck** (`widgets/dmC
 | D7 | Excel and SVG export of the model; PDF/print static view | Should (done) | 1 |
 | D8 | **Starter generator**: propose a model skeleton from the real data (documents, item types per document, observed link roles between documents, as in docCoverage), to be corrected by the user and pasted into the model item | Should | 2 |
 | D9 | **In-widget editor** producing the YAML text to copy into the model item (details and decisions: §7.8, PO 2026-10-30): a **form editor** (general settings, roles with their item types, link rules, documents per role, pairs) whose lists come from the project configuration and the project's documents, and a **YAML text editor**; *Copy* and *Download* of the generated YAML; start from an empty model when the project has none | Should (done, 0.3.0) | 0.3.0 |
-| D10 | **REST write-back**: "Save to Polarion" updates the description of the model item from the browser; hidden when the REST API is unreachable | Could | 3 (after spike S4) |
+| D10 | **REST write-back**: *Save to Polarion* in the editor's YAML text tab writes the text into the description of the model work item (PATCH, verified call of dmSpike S4); shown only when the session REST token exists and a GET of the model item answers 200; re-reads the item before saving (warning when it changed since the page was loaded), confirms, reads it back after saving; explains 401/403/404/409; a widget parameter switches it off; copy and paste always available. Only an existing model item (a new model is pasted into a new Text item first) | Could (done, 0.5.0) | 0.5.0 |
 | D11 | Show the revision of the model LiveDoc / item used; link to open the model item for editing | Should (done: item revision from `getLastRevision()`) | 1 |
 | D12 | Cross-project documents in bindings (`project/space/document`) | Should (done, 0.4.0: resolved and tested on mocks; check on 2512 pending) | 0.4.0 |
 | D15 | **`uses:` reference** (decision 5, ARCHITECTURE §3.4): roles and rules from a model item of another (or the same) project, bindings and pairs local; one level; shown in the header with the revision and a link; editor in a "local part" mode (roles and rules read only) | Should (done, 0.4.0) | 0.4.0 |
@@ -127,7 +127,8 @@ PO 2026-10-30: dmDefine is completed before dmCheck is started.
 2. **0.2.0** (done) pairs (D14).
 3. **0.3.0** (done; PO 2026-10-30: item 2 of the list first) in-widget editor with Copy (D9); spike S9 to run on 2512.
 4. **0.4.0** (done) `uses:` reference (D15, S8 verified) and documents of other projects (D12).
-5. Next increments: REST write-back (D10, checks of spike S4 listed in `tests/dmSpike-v0.1.x/spike-tests.md`); starter generator
+5. **0.5.0** (done) *Save to Polarion* through the REST API (D10); checks on 2512 in `docs/PO_CHECKS.md` 2.14–2.18.
+6. Next increment: starter generator
    (D8, spike S7).
 
 ## 9. Open checks on 2512
@@ -148,6 +149,8 @@ h. 0.3.0 (with spike S9, run 3): *Edit model* opens the forms prefilled from the
    roles, documents of the project) work; *Generate YAML*, *Copy*, *Download*; the copied YAML pasted into the model item
    (plain text) reads with no problem and gives the same graph; a model with errors opens in the text editor only; with no
    model item, the forms start empty.
+j. 0.5.0: *Save to Polarion* (PO_CHECKS 2.14–2.18): saved text read back, revision in the history, no edit rights,
+   parameter off, REST token disabled.
 i. 0.4.0: `uses:` (valid, wrong id, with a local model part), editor in the local-part mode, a binding to a document
    of another project (PO_CHECKS 1.2, 2.10–2.13).
 g. 0.2.0: use case 3 of `docs/MODELING_GUIDE.md` (names adapted) shows no problem, the pairs in the details, table and
