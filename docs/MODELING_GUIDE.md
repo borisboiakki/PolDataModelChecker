@@ -42,6 +42,7 @@ stores them: `from` is the item that holds the link (the source), `to` is the it
 | `from_min: n` | every source item (here: system requirement) with fewer than n such links |
 | `to_min: n` | every target item (here: customer requirement) with fewer than n such links |
 | both 0 (or omitted) | nothing missing; the rule only says that these links are **allowed** |
+| `from_severity` / `to_severity` | the severity of each side, when they differ (use case 8); default: `severity` |
 | `model.unexpected_links` (not `ignore`) | links of a link role used by the model, between declared documents, that match no rule (wrong direction, wrong role or type) |
 
 In the dmDefine graph the arrow follows the link (source → target) and the target role is on the left.
@@ -351,6 +352,51 @@ bindings:
   `uses:`. On an empty model, fill *Reuse the roles and rules of* to start this way.
 - The alternative without a reference: copy or branch the model document into the project (each copy then evolves on
   its own).
+
+## Use case 8 — a different severity on each side of a rule
+
+The customer specification must be fully covered: a customer requirement that no system requirement satisfies is an
+**error**. A system requirement without upstream link is not necessarily wrong: it can be an additional requirement
+(a technical constraint, not a customer need). It is still listed, as an **info** (or a warning) to review.
+
+```yaml
+version: 1
+name: Coverage of the customer specification
+
+model:
+  roles:
+    CustomerSpec:
+      title: Customer specification
+      items:
+        - { type: customerRequirement, min: 1 }
+        - { type: heading, ignored: true }
+    SystemSpec:
+      title: System specification
+      items:
+        - { type: systemRequirement, min: 1 }
+        - { type: heading, ignored: true }
+  links:
+    - id: L1
+      from: { role: SystemSpec, type: systemRequirement }
+      link_role: satisfies
+      to: { role: CustomerSpec, type: customerRequirement }
+      from_min: 1
+      to_min: 1
+      from_severity: info    # system requirement without upstream link: to review (maybe a technical constraint)
+      to_severity: error     # customer requirement not covered
+
+bindings:
+  CustomerSpec: ["Specs/Customer Specification"]
+  SystemSpec: ["Specs/System Specification"]
+```
+
+- `from_severity` applies to the source items with fewer than `from_min` links, `to_severity` to the target items
+  covered fewer than `to_min` times. A side without its own severity uses `severity` (default `error`). Cross-pair links
+  and unpaired documents (pairs) use `severity`.
+- To not check a side at all, set its minimum to 0 instead (the items are then not listed).
+- dmCheck colours the line with the worst severity found: here red as soon as a customer requirement is not covered,
+  blue when only system requirements without upstream link are listed.
+- Needs dmDefine 0.6.0 and dmCheck 0.3.0 (older versions report the two keys as unknown and ignore them).
 
 ## Choosing between pooled, paired and one role per document
 

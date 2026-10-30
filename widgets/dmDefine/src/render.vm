@@ -175,7 +175,7 @@
   #set($fromT = $ddEt)
   #ddEnd($u.get("to") $u.get("tt"))
   #ddPairs($u)
-<tr><td>$esc.html($u.get("id"))</td><td>$esc.html($fromT)</td><td>$esc.html($u.get("rname"))</td><td>$esc.html($ddEt)</td><td>$u.get("fmin")</td><td>$u.get("tmin")</td><td>$u.get("sev")</td><td>#if($u.get("paired"))paired: $esc.html($ddPt)#else pooled#end</td></tr>
+<tr><td>$esc.html($u.get("id"))</td><td>$esc.html($fromT)</td><td>$esc.html($u.get("rname"))</td><td>$esc.html($ddEt)</td><td>$u.get("fmin")</td><td>$u.get("tmin")</td><td>$u.get("sev")#if($u.get("fromsev") != $u.get("sev") || $u.get("tosev") != $u.get("sev")) (sources: $u.get("fromsev"), targets: $u.get("tosev"))#end</td><td>#if($u.get("paired"))paired: $esc.html($ddPt)#else pooled#end</td></tr>
 #end
 </table>
 <div class="bw-muted">Links that match no rule: $dmUnexpLinks.</div>
@@ -238,7 +238,7 @@
   #if($u.get("paired"))
     #set($pf = "1")
   #end
-<i class="dm-l" data-paired="$pf" data-pairs="$esc.html($ddPd)" data-id="$esc.html($u.get('id'))" data-from="$esc.html($u.get('from'))" data-ft="$esc.html($u.get('ft'))" data-role="$esc.html($u.get('role'))" data-rn="$esc.html($u.get('rname'))" data-to="$esc.html($u.get('to'))" data-tt="$esc.html($u.get('tt'))" data-fmin="$u.get('fmin')" data-tmin="$u.get('tmin')" data-sev="$u.get('sev')" data-line="$u.get('line')"></i>
+<i class="dm-l" data-paired="$pf" data-pairs="$esc.html($ddPd)" data-id="$esc.html($u.get('id'))" data-from="$esc.html($u.get('from'))" data-ft="$esc.html($u.get('ft'))" data-role="$esc.html($u.get('role'))" data-rn="$esc.html($u.get('rname'))" data-to="$esc.html($u.get('to'))" data-tt="$esc.html($u.get('tt'))" data-fmin="$u.get('fmin')" data-tmin="$u.get('tmin')" data-sev="$u.get('sev')" data-fsev="$u.get('fromsev')" data-tsev="$u.get('tosev')" data-line="$u.get('line')"></i>
 #end
 #foreach($p in $dmProbs)
 <i class="dm-p" data-sev="$p.get(0)" data-line="$p.get(1)" data-msg="$esc.html($p.get(2))"></i>

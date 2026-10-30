@@ -94,7 +94,7 @@
 <tr><th>Rule</th><th>From</th><th>Link role</th><th>To</th><th>Source items with enough links</th><th>Target items with enough links</th><th>Cross-pair links</th><th>Unpaired documents</th><th>Severity</th></tr>
 #foreach($u in $dmRules)
   #set($st = $dcStat.get($u.get("id")))
-<tr><td>$esc.html($u.get("id"))</td><td>$esc.html($u.get("from"))</td><td>$esc.html($u.get("rname"))</td><td>$esc.html($u.get("to"))</td><td>#if($u.get("fmin") > 0)$st.get("fo") / $st.get("fc")#else &mdash;#end</td><td>#if($u.get("tmin") > 0)$st.get("to") / $st.get("tc")#else &mdash;#end</td><td>$st.get("cross")</td><td>$st.get("unp")</td><td>$u.get("sev")</td></tr>
+<tr><td>$esc.html($u.get("id"))</td><td>$esc.html($u.get("from"))</td><td>$esc.html($u.get("rname"))</td><td>$esc.html($u.get("to"))</td><td>#if($u.get("fmin") > 0)$st.get("fo") / $st.get("fc")#else &mdash;#end</td><td>#if($u.get("tmin") > 0)$st.get("to") / $st.get("tc")#else &mdash;#end</td><td>$st.get("cross")</td><td>$st.get("unp")</td><td>$u.get("sev")#if($u.get("fromsev") != $u.get("sev") || $u.get("tosev") != $u.get("sev")) (sources: $u.get("fromsev"), targets: $u.get("tosev"))#end</td></tr>
 #end
 </table>
 <div class="dc-h">Documents</div>
@@ -154,7 +154,7 @@
   #if($u.get("paired"))
     #set($pf = "1")
   #end
-<i class="dm-l" data-id="$esc.html($u.get('id'))" data-from="$esc.html($u.get('from'))" data-ft="$esc.html($u.get('ft'))" data-role="$esc.html($u.get('role'))" data-rn="$esc.html($u.get('rname'))" data-to="$esc.html($u.get('to'))" data-tt="$esc.html($u.get('tt'))" data-fmin="$u.get('fmin')" data-tmin="$u.get('tmin')" data-sev="$u.get('sev')" data-paired="$pf"#if($st) data-fc="$st.get('fc')" data-fo="$st.get('fo')" data-tc="$st.get('tc')" data-to2="$st.get('to')" data-cross="$st.get('cross')" data-unp="$st.get('unp')"#end></i>
+<i class="dm-l" data-id="$esc.html($u.get('id'))" data-from="$esc.html($u.get('from'))" data-ft="$esc.html($u.get('ft'))" data-role="$esc.html($u.get('role'))" data-rn="$esc.html($u.get('rname'))" data-to="$esc.html($u.get('to'))" data-tt="$esc.html($u.get('tt'))" data-fmin="$u.get('fmin')" data-tmin="$u.get('tmin')" data-sev="$u.get('sev')" data-fsev="$u.get('fromsev')" data-tsev="$u.get('tosev')" data-paired="$pf"#if($st) data-fc="$st.get('fc')" data-fo="$st.get('fo')" data-tc="$st.get('tc')" data-to2="$st.get('to')" data-cross="$st.get('cross')" data-unp="$st.get('unp')"#end></i>
 #end
 #foreach($p in $dmProbs)
 <i class="dm-p" data-sev="$p.get(0)" data-line="$p.get(1)" data-msg="$esc.html($p.get(2))"></i>

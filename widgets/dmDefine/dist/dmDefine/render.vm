@@ -5,7 +5,7 @@
 ## Velocity 1.4 dialect (guide 3.1.9): no map literals, one statement per line, no backslashes in strings.
 ## Model pipeline (docs/ARCHITECTURE.md 3): dm-read.vm (model item -> text lines), dm-yaml.vm (YAML subset -> paths),
 ## dm-model.vm (roles, rules, bindings, validation). Graph edge "to>from": o = target role (left), c = source role.
-#set($bwVersion = "0.5.0")
+#set($bwVersion = "0.6.0")
 ## Shared snippet style.vm (shared/vm), inlined by tools/build-widget.py at "## BW_SHARED style.vm".
 ## CSS of the interactive view and the static (PDF/print) table. Root classes: bw-root, cw-root (sister repo), dd-root (dmDefine), dc-root (dmCheck).
 <style>
@@ -578,7 +578,8 @@
 ##             -1 = none), ignored (true/false), line), decl (declared documents, text), docs (list of maps: decl, key,
 ##             project, space, name, title, found), bound (true when the bindings name the role)
 ##   $dmRoleByKey  role key -> role map
-##   $dmRules  list of maps: id, from, ft, role, rname, to, tt, fmin, tmin (Integer), sev, line
+##   $dmRules  list of maps: id, from, ft, role, rname, to, tt, fmin, tmin (Integer), sev, fromsev, tosev (severity per
+##             side, default sev; dmDefine 0.6.0), line
 ##   $dmUnexpLinks  severity of links that match no rule (error|warning|info|ignore, default ignore)
 ##   $dmName, $dmVersion, $dmErrors, $dmWarnings (counts of $dmProbs)
 ##   $dmTypeNames / $dmRoleNames  id -> name from the project configuration (verified on 2512, dmSpike S6)
@@ -965,7 +966,7 @@
       #if($dmKo != "map")
         #set($void = $dmProbs.add(["error", $dmLl, "$dmLp must be a block (id, from, link_role, to, ...)."]))
       #else
-        #dmUnknownKeys($dmLp ["id", "from", "link_role", "to", "from_min", "to_min", "severity", "description"])
+        #dmUnknownKeys($dmLp ["id", "from", "link_role", "to", "from_min", "to_min", "severity", "from_severity", "to_severity", "description"])
         #set($dmRu = $objectFactory.newMap())
         #set($void = $dmRu.put("line", $dmLl))
         #set($dmPp = "${dmLp}.id")
@@ -1016,6 +1017,25 @@
           #set($dmGv = "error")
         #end
         #set($void = $dmRu.put("sev", $dmGv))
+        ## Severity per side (dmDefine 0.6.0, D17): default = the rule's severity.
+        #foreach($dmSide in ["from", "to"])
+          #set($dmPp = "${dmLp}.${dmSide}_severity")
+          #dmGet($dmPp)
+          #if($dmGv != "" && !$dmSevR.contains($dmGv))
+            #set($dmSl = $dmLl)
+            #set($dmSo = 0)
+            #set($dmSo = $dmLine.get($dmPp))
+            #if($dmSo > 0)
+              #set($dmSl = $dmSo)
+            #end
+            #set($void = $dmProbs.add(["error", $dmSl, "$dmPp must be error, warning or info (found: $dmGv)."]))
+            #set($dmGv = "")
+          #end
+          #if($dmGv == "")
+            #set($dmGv = $dmRu.get("sev"))
+          #end
+          #set($void = $dmRu.put("${dmSide}sev", $dmGv))
+        #end
         #set($void = $dmRules.add($dmRu))
       #end
     #end
@@ -1426,7 +1446,7 @@
   #set($fromT = $ddEt)
   #ddEnd($u.get("to") $u.get("tt"))
   #ddPairs($u)
-<tr><td>$esc.html($u.get("id"))</td><td>$esc.html($fromT)</td><td>$esc.html($u.get("rname"))</td><td>$esc.html($ddEt)</td><td>$u.get("fmin")</td><td>$u.get("tmin")</td><td>$u.get("sev")</td><td>#if($u.get("paired"))paired: $esc.html($ddPt)#else pooled#end</td></tr>
+<tr><td>$esc.html($u.get("id"))</td><td>$esc.html($fromT)</td><td>$esc.html($u.get("rname"))</td><td>$esc.html($ddEt)</td><td>$u.get("fmin")</td><td>$u.get("tmin")</td><td>$u.get("sev")#if($u.get("fromsev") != $u.get("sev") || $u.get("tosev") != $u.get("sev")) (sources: $u.get("fromsev"), targets: $u.get("tosev"))#end</td><td>#if($u.get("paired"))paired: $esc.html($ddPt)#else pooled#end</td></tr>
 #end
 </table>
 <div class="bw-muted">Links that match no rule: $dmUnexpLinks.</div>
@@ -1489,7 +1509,7 @@
   #if($u.get("paired"))
     #set($pf = "1")
   #end
-<i class="dm-l" data-paired="$pf" data-pairs="$esc.html($ddPd)" data-id="$esc.html($u.get('id'))" data-from="$esc.html($u.get('from'))" data-ft="$esc.html($u.get('ft'))" data-role="$esc.html($u.get('role'))" data-rn="$esc.html($u.get('rname'))" data-to="$esc.html($u.get('to'))" data-tt="$esc.html($u.get('tt'))" data-fmin="$u.get('fmin')" data-tmin="$u.get('tmin')" data-sev="$u.get('sev')" data-line="$u.get('line')"></i>
+<i class="dm-l" data-paired="$pf" data-pairs="$esc.html($ddPd)" data-id="$esc.html($u.get('id'))" data-from="$esc.html($u.get('from'))" data-ft="$esc.html($u.get('ft'))" data-role="$esc.html($u.get('role'))" data-rn="$esc.html($u.get('rname'))" data-to="$esc.html($u.get('to'))" data-tt="$esc.html($u.get('tt'))" data-fmin="$u.get('fmin')" data-tmin="$u.get('tmin')" data-sev="$u.get('sev')" data-fsev="$u.get('fromsev')" data-tsev="$u.get('tosev')" data-line="$u.get('line')"></i>
 #end
 #foreach($p in $dmProbs)
 <i class="dm-p" data-sev="$p.get(0)" data-line="$p.get(1)" data-msg="$esc.html($p.get(2))"></i>
@@ -2330,6 +2350,8 @@
 
   var ED_UNEXP_TYPES = ['error', 'warning', 'ignore'];
   var ED_RULE_SEV = ['error', 'warning', 'info'];
+  var ED_SAME = 'as the rule';
+  var ED_SIDE_SEV = [ED_SAME].concat(ED_RULE_SEV);
   var ED_UNEXP_LINKS = ['ignore', 'info', 'warning', 'error'];
   // Character checks instead of anchored regular expressions (the build forbids the dollar sign in inlined JS).
   var ED_KEY_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-';
@@ -2396,7 +2418,7 @@
       return {
         id: pv(lp + '.id'), fromRole: pv(lp + '.from.role'), fromType: pv(lp + '.from.type'), linkRole: pv(lp + '.link_role'),
         toRole: pv(lp + '.to.role'), toType: pv(lp + '.to.type'), fmin: pv(lp + '.from_min'), tmin: pv(lp + '.to_min'),
-        sev: pv(lp + '.severity'), description: pv(lp + '.description')
+        sev: pv(lp + '.severity'), fsev: pv(lp + '.from_severity'), tsev: pv(lp + '.to_severity'), description: pv(lp + '.description')
       };
     });
     pk('bindings').forEach(function (role) {
@@ -2502,6 +2524,8 @@
         kv('      ', 'from_min', k.fmin);
         kv('      ', 'to_min', k.tmin);
         kv('      ', 'severity', k.sev);
+        kv('      ', 'from_severity', k.fsev);
+        kv('      ', 'to_severity', k.tsev);
         kv('      ', 'description', k.description);
       });
     }
@@ -2900,12 +2924,18 @@
       self.seg(r3, ED_RULE_SEV, k.sev, 'error', function (v) { k.sev = v; changed(); });
       self.label(r3, 'Description');
       self.input(r3, k.description, 'optional', function (v) { k.description = v; changed(); }, 220);
+      // Severity per side (D17): empty = the rule's severity.
+      var r4 = el('div', { 'class': 'dd-row' }, card);
+      self.label(r4, 'Severity of source items without link');
+      self.seg(r4, ED_SIDE_SEV, k.fsev || ED_SAME, ED_SAME, function (v) { k.fsev = v === ED_SAME ? '' : v; changed(); });
+      self.label(r4, 'of target items not covered');
+      self.seg(r4, ED_SIDE_SEV, k.tsev || ED_SAME, ED_SAME, function (v) { k.tsev = v === ED_SAME ? '' : v; changed(); });
     });
     if (!M.uses) this.w.button(ls, '+ Rule', 'Add a link rule', function () {
       var n = M.links.length + 1;
       var used = M.links.map(function (k) { return k.id; });
       while (used.indexOf('L' + n) >= 0) { n++; }
-      M.links.push({ id: 'L' + n, fromRole: '', fromType: '', linkRole: '', toRole: '', toType: '', fmin: '', tmin: '', sev: '', description: '' });
+      M.links.push({ id: 'L' + n, fromRole: '', fromType: '', linkRole: '', toRole: '', toType: '', fmin: '', tmin: '', sev: '', fsev: '', tsev: '', description: '' });
       rerender();
     });
 
@@ -3217,6 +3247,7 @@
       rules.push({
         id: a.id, from: a.from, ft: a.ft || '', role: a.role, rname: a.rn || a.role, to: a.to, tt: a.tt || '',
         fmin: toInt(a.fmin), tmin: toInt(a.tmin), sev: a.sev || 'error', line: toInt(a.line),
+        fsev: a.fsev || a.sev || 'error', tsev: a.tsev || a.sev || 'error',
         paired: a.paired === '1',
         pairs: parts(a.pairs, ';').map(function (p) { var f = p.split('|'); return { s: f[0], t: f[1] || '' }; })
       });
@@ -3294,7 +3325,17 @@
     if (r.fmin > 0) { s += '; each source item ' + GE + r.fmin; }
     if (r.tmin > 0) { s += '; each target item ' + GE + r.tmin; }
     if (r.paired) { s += '; paired documents (' + r.pairs.length + ')'; }
-    return s + ' (' + r.sev + ')';
+    return s + ' (' + sevText(r) + ')';
+  }
+
+  // "error", or "sources: info, targets: error" when the sides differ (D17).
+  function sevText(r) {
+    if (r.fsev === r.sev && r.tsev === r.sev) { return r.sev; }
+    var p = [];
+    if (r.fmin > 0 || r.fsev !== r.sev) { p.push('sources: ' + r.fsev); }
+    if (r.tmin > 0 || r.tsev !== r.sev) { p.push('targets: ' + r.tsev); }
+    if (r.paired) { p.push('pairs: ' + r.sev); }
+    return p.join(', ');
   }
 
   // "pooled" or "paired: source -> target; ..." (documents of the current project as space/name).
@@ -3523,7 +3564,7 @@
     });
     rules.forEach(function (r) {
       var tr = el('tr', null, t);
-      [r.id, endText(r.from, r.ft), r.rname, endText(r.to, r.tt), r.fmin, r.tmin, r.sev, pairsText(r)].forEach(function (v) { el('td', null, tr, String(v)); });
+      [r.id, endText(r.from, r.ft), r.rname, endText(r.to, r.tt), r.fmin, r.tmin, sevText(r), pairsText(r)].forEach(function (v) { el('td', null, tr, String(v)); });
       var td = el('td', null, tr);
       var ln = el('span', { 'class': 'dd-line' }, td, String(r.line));
       ln.addEventListener('click', function () { self.showLine(r.line); });
@@ -3579,10 +3620,10 @@
         docs.push([n.key, d.decl, d.project, d.space, d.name, d.found ? 'yes' : 'no', d.title]);
       });
     });
-    var rules = [['Id', 'From role', 'From type', 'Link role', 'Link role name', 'To role', 'To type', 'Min per source item', 'Min per target item', 'Severity', 'Documents', 'Line']];
+    var rules = [['Id', 'From role', 'From type', 'Link role', 'Link role name', 'To role', 'To type', 'Min per source item', 'Min per target item', 'Severity', 'Severity of sources', 'Severity of targets', 'Documents', 'Line']];
     var pairs = [['Rule', 'Source document (from role)', 'Target document (to role)']];
     m.rules.forEach(function (r) {
-      rules.push([r.id, r.from, r.ft, r.role, r.rname, r.to, r.tt, r.fmin, r.tmin, r.sev, r.paired ? 'paired' : 'pooled', r.line]);
+      rules.push([r.id, r.from, r.ft, r.role, r.rname, r.to, r.tt, r.fmin, r.tmin, r.sev, r.fsev, r.tsev, r.paired ? 'paired' : 'pooled', r.line]);
       r.pairs.forEach(function (p) { pairs.push([r.id, p.s, p.t]); });
     });
     var probs = [['Severity', 'Line', 'Problem']];

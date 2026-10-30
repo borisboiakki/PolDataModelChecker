@@ -30,7 +30,8 @@ public class DefineHarness {
         "        - { type: systemRequirement, min: 1 }", "    SolutionSpec:", "      items:", "        - { type: subsystemRequirement, min: 1 }",
         "    SolutionSTD:", "      items:", "        - { type: testCase, min: 1 }", "  links:", "    - id: L1",
         "      from: { role: SolutionSpec, type: subsystemRequirement }", "      link_role: satisfies",
-        "      to: { role: CustomerSpec, type: systemRequirement }", "      from_min: 1", "      to_min: 1", "    - id: L2",
+        "      to: { role: CustomerSpec, type: systemRequirement }", "      from_min: 1", "      to_min: 1",
+        "      from_severity: info", "    - id: L2",
         "      from: { role: SolutionSTD, type: testCase }", "      link_role: verifies", "      to: { role: SolutionSpec, type: subsystemRequirement }",
         "      from_min: 1", "      to_min: 1", "bindings:", "  CustomerSpec: [\"Specs/System Specification\"]",
         "  SolutionSpec: [\"Specs/Solution Spec A\", \"Specs/Solution Spec B\"]", "  SolutionSTD: [\"Tests/STD A\", \"Tests/STD B\"]",
@@ -53,7 +54,7 @@ public class DefineHarness {
         "    SubsystemReq:", "      items:", "        - { type: subsystemRequirement, min: x }", "  links:", "    - id: L1",
         "      from: { role: SubsystemReq, type: subsystemRequirement }", "      link_role: unknown_role",
         "      to: { role: Nowhere }", "    - id: L1", "      from: { role: SubsystemReq }", "      link_role: satisfies",
-        "      to: { role: SystemSpec, type: testCase }", "      severity: fatal", "    - id: P1",
+        "      to: { role: SystemSpec, type: testCase }", "      severity: fatal", "      to_severity: never", "    - id: P1",
         "      from: { role: SystemSpec, type: systemRequirement }", "      link_role: parent",
         "      to: { role: SystemSpec, type: systemRequirement }", "bindings:", "  SystemSpec: [Specs/Missing Doc, Specs/System Specification]",
         "  Other: Specs/System Specification", "uses: \"X/Y-1\"" };
@@ -222,7 +223,7 @@ public class DefineHarness {
             "unexpected_types must be error, warning or ignore (found: sometimes)", "Unknown key model.roles.SystemSpec.colour",
             "must be a whole number (found: x)", "Link role unknown_role does not exist", "role Nowhere is not defined in model.roles",
             "Rule id L1 is used twice", "type testCase is not listed in the items of role SystemSpec",
-            "severity must be error, warning or info (found: fatal)", "Document DMTEST/Specs/Missing Doc not found",
+            "severity must be error, warning or info (found: fatal)", "model.links[1].to_severity must be error, warning or info (found: never)", "Document DMTEST/Specs/Missing Doc not found",
             "bindings: Other is not a role", "Role SubsystemReq has no document in bindings", "With uses:, the model comes from X/Y-1: remove the local model: part"
         };
         for (String e : expected) { DmMocks.check(h.contains(e), "errors: problem reported: " + e); }
@@ -245,8 +246,10 @@ public class DefineHarness {
         DmMocks.check(count(h, "<i class=\"dm-p\"") == 0, "paired: valid pairs, no problem");
         DmMocks.check(h.contains("data-paired=\"1\" data-pairs=\"Tests/STD A|Specs/Solution Spec A;Tests/STD B|Specs/Solution Spec B;\" data-id=\"L2\""), "paired: pairs of L2 in the page model");
         DmMocks.check(h.contains("data-paired=\"0\" data-pairs=\"\" data-id=\"L1\""), "paired: L1 stays pooled");
+        DmMocks.check(h.contains("data-sev=\"error\" data-fsev=\"info\" data-tsev=\"error\"") && h.contains("data-sev=\"error\" data-fsev=\"error\" data-tsev=\"error\""), "severity per side (D17): L1 sources info, L2 default");
         h = run(dir, out, "pdf-paired", params(pairedDoc, ""), true);
         DmMocks.check(h.contains("<td>paired: Tests/STD A -&gt; Specs/Solution Spec A; Tests/STD B -&gt; Specs/Solution Spec B</td>") && h.contains("<td> pooled</td>"), "PDF paired: documents column");
+        DmMocks.check(h.contains("<td>error (sources: info, targets: error)</td>"), "PDF: severity per side in the rules table");
 
         h = run(dir, out, "pair-errors", params(pairErrDoc, ""), false);
         String[] pairExpected = {

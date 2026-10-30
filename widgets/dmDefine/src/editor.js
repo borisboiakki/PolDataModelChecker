@@ -9,6 +9,8 @@
 
   var ED_UNEXP_TYPES = ['error', 'warning', 'ignore'];
   var ED_RULE_SEV = ['error', 'warning', 'info'];
+  var ED_SAME = 'as the rule';
+  var ED_SIDE_SEV = [ED_SAME].concat(ED_RULE_SEV);
   var ED_UNEXP_LINKS = ['ignore', 'info', 'warning', 'error'];
   // Character checks instead of anchored regular expressions (the build forbids the dollar sign in inlined JS).
   var ED_KEY_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-';
@@ -75,7 +77,7 @@
       return {
         id: pv(lp + '.id'), fromRole: pv(lp + '.from.role'), fromType: pv(lp + '.from.type'), linkRole: pv(lp + '.link_role'),
         toRole: pv(lp + '.to.role'), toType: pv(lp + '.to.type'), fmin: pv(lp + '.from_min'), tmin: pv(lp + '.to_min'),
-        sev: pv(lp + '.severity'), description: pv(lp + '.description')
+        sev: pv(lp + '.severity'), fsev: pv(lp + '.from_severity'), tsev: pv(lp + '.to_severity'), description: pv(lp + '.description')
       };
     });
     pk('bindings').forEach(function (role) {
@@ -181,6 +183,8 @@
         kv('      ', 'from_min', k.fmin);
         kv('      ', 'to_min', k.tmin);
         kv('      ', 'severity', k.sev);
+        kv('      ', 'from_severity', k.fsev);
+        kv('      ', 'to_severity', k.tsev);
         kv('      ', 'description', k.description);
       });
     }
@@ -579,12 +583,18 @@
       self.seg(r3, ED_RULE_SEV, k.sev, 'error', function (v) { k.sev = v; changed(); });
       self.label(r3, 'Description');
       self.input(r3, k.description, 'optional', function (v) { k.description = v; changed(); }, 220);
+      // Severity per side (D17): empty = the rule's severity.
+      var r4 = el('div', { 'class': 'dd-row' }, card);
+      self.label(r4, 'Severity of source items without link');
+      self.seg(r4, ED_SIDE_SEV, k.fsev || ED_SAME, ED_SAME, function (v) { k.fsev = v === ED_SAME ? '' : v; changed(); });
+      self.label(r4, 'of target items not covered');
+      self.seg(r4, ED_SIDE_SEV, k.tsev || ED_SAME, ED_SAME, function (v) { k.tsev = v === ED_SAME ? '' : v; changed(); });
     });
     if (!M.uses) this.w.button(ls, '+ Rule', 'Add a link rule', function () {
       var n = M.links.length + 1;
       var used = M.links.map(function (k) { return k.id; });
       while (used.indexOf('L' + n) >= 0) { n++; }
-      M.links.push({ id: 'L' + n, fromRole: '', fromType: '', linkRole: '', toRole: '', toType: '', fmin: '', tmin: '', sev: '', description: '' });
+      M.links.push({ id: 'L' + n, fromRole: '', fromType: '', linkRole: '', toRole: '', toType: '', fmin: '', tmin: '', sev: '', fsev: '', tsev: '', description: '' });
       rerender();
     });
 

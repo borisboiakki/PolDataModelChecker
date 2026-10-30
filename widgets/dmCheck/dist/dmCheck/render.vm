@@ -4,7 +4,7 @@
 ## Velocity 1.4 and writes widgets/dmCheck/dist/dmCheck.zip.
 ## Velocity 1.4 dialect (guide 3.1.9): no map literals, one statement per line, no backslashes in strings.
 ## Model pipeline as dmDefine (dm-read, dm-yaml, dm-model); checks in dm-check.vm (SPECIFICATION K3-K5, K15, K16).
-#set($bwVersion = "0.2.0")
+#set($bwVersion = "0.3.0")
 ## Shared snippet style.vm (shared/vm), inlined by tools/build-widget.py at "## BW_SHARED style.vm".
 ## CSS of the interactive view and the static (PDF/print) table. Root classes: bw-root, cw-root (sister repo), dd-root (dmDefine), dc-root (dmCheck).
 <style>
@@ -546,7 +546,8 @@
 ##             -1 = none), ignored (true/false), line), decl (declared documents, text), docs (list of maps: decl, key,
 ##             project, space, name, title, found), bound (true when the bindings name the role)
 ##   $dmRoleByKey  role key -> role map
-##   $dmRules  list of maps: id, from, ft, role, rname, to, tt, fmin, tmin (Integer), sev, line
+##   $dmRules  list of maps: id, from, ft, role, rname, to, tt, fmin, tmin (Integer), sev, fromsev, tosev (severity per
+##             side, default sev; dmDefine 0.6.0), line
 ##   $dmUnexpLinks  severity of links that match no rule (error|warning|info|ignore, default ignore)
 ##   $dmName, $dmVersion, $dmErrors, $dmWarnings (counts of $dmProbs)
 ##   $dmTypeNames / $dmRoleNames  id -> name from the project configuration (verified on 2512, dmSpike S6)
@@ -933,7 +934,7 @@
       #if($dmKo != "map")
         #set($void = $dmProbs.add(["error", $dmLl, "$dmLp must be a block (id, from, link_role, to, ...)."]))
       #else
-        #dmUnknownKeys($dmLp ["id", "from", "link_role", "to", "from_min", "to_min", "severity", "description"])
+        #dmUnknownKeys($dmLp ["id", "from", "link_role", "to", "from_min", "to_min", "severity", "from_severity", "to_severity", "description"])
         #set($dmRu = $objectFactory.newMap())
         #set($void = $dmRu.put("line", $dmLl))
         #set($dmPp = "${dmLp}.id")
@@ -984,6 +985,25 @@
           #set($dmGv = "error")
         #end
         #set($void = $dmRu.put("sev", $dmGv))
+        ## Severity per side (dmDefine 0.6.0, D17): default = the rule's severity.
+        #foreach($dmSide in ["from", "to"])
+          #set($dmPp = "${dmLp}.${dmSide}_severity")
+          #dmGet($dmPp)
+          #if($dmGv != "" && !$dmSevR.contains($dmGv))
+            #set($dmSl = $dmLl)
+            #set($dmSo = 0)
+            #set($dmSo = $dmLine.get($dmPp))
+            #if($dmSo > 0)
+              #set($dmSl = $dmSo)
+            #end
+            #set($void = $dmProbs.add(["error", $dmSl, "$dmPp must be error, warning or info (found: $dmGv)."]))
+            #set($dmGv = "")
+          #end
+          #if($dmGv == "")
+            #set($dmGv = $dmRu.get("sev"))
+          #end
+          #set($void = $dmRu.put("${dmSide}sev", $dmGv))
+        #end
         #set($void = $dmRules.add($dmRu))
       #end
     #end
@@ -1568,6 +1588,9 @@
   #foreach($dmU in $dmRules)
     #set($dcUid = $dmU.get("id"))
     #set($dcSev = $dmU.get("sev"))
+    ## Severity per side (K18): missing links of the from side, targets not covered; cross-pair and unpaired keep sev.
+    #set($dcFsev = $dmU.get("fromsev"))
+    #set($dcTsev = $dmU.get("tosev"))
     #set($dcSt = $objectFactory.newMap())
     #set($void = $dcSt.put("sev", $dcSev))
     #set($void = $dcStat.put($dcUid, $dcSt))
@@ -1622,7 +1645,7 @@
         #else
           #set($dcIt = $dcItems.get($dcIk))
           #set($dcIid = $dcIt.get(2))
-          #dcAdd($dcSev "from" $dcUid $dcIt.get(1) $dcIk "$dcIid: $dcN link(s) $dmU.get('rname') to role $dmU.get('to'), at least $dcFmin required (${dcUid}).")
+          #dcAdd($dcFsev "from" $dcUid $dcIt.get(1) $dcIk "$dcIid: $dcN link(s) $dmU.get('rname') to role $dmU.get('to'), at least $dcFmin required (${dcUid}).")
         #end
       #end
     #end
@@ -1639,7 +1662,7 @@
         #else
           #set($dcIt = $dcItems.get($dcIk))
           #set($dcIid = $dcIt.get(2))
-          #dcAdd($dcSev "to" $dcUid $dcIt.get(1) $dcIk "$dcIid: $dcN link(s) $dmU.get('rname') from role $dmU.get('from'), at least $dcTmin required (${dcUid}).")
+          #dcAdd($dcTsev "to" $dcUid $dcIt.get(1) $dcIk "$dcIid: $dcN link(s) $dmU.get('rname') from role $dmU.get('from'), at least $dcTmin required (${dcUid}).")
         #end
       #end
     #end
@@ -1857,7 +1880,7 @@
 <tr><th>Rule</th><th>From</th><th>Link role</th><th>To</th><th>Source items with enough links</th><th>Target items with enough links</th><th>Cross-pair links</th><th>Unpaired documents</th><th>Severity</th></tr>
 #foreach($u in $dmRules)
   #set($st = $dcStat.get($u.get("id")))
-<tr><td>$esc.html($u.get("id"))</td><td>$esc.html($u.get("from"))</td><td>$esc.html($u.get("rname"))</td><td>$esc.html($u.get("to"))</td><td>#if($u.get("fmin") > 0)$st.get("fo") / $st.get("fc")#else &mdash;#end</td><td>#if($u.get("tmin") > 0)$st.get("to") / $st.get("tc")#else &mdash;#end</td><td>$st.get("cross")</td><td>$st.get("unp")</td><td>$u.get("sev")</td></tr>
+<tr><td>$esc.html($u.get("id"))</td><td>$esc.html($u.get("from"))</td><td>$esc.html($u.get("rname"))</td><td>$esc.html($u.get("to"))</td><td>#if($u.get("fmin") > 0)$st.get("fo") / $st.get("fc")#else &mdash;#end</td><td>#if($u.get("tmin") > 0)$st.get("to") / $st.get("tc")#else &mdash;#end</td><td>$st.get("cross")</td><td>$st.get("unp")</td><td>$u.get("sev")#if($u.get("fromsev") != $u.get("sev") || $u.get("tosev") != $u.get("sev")) (sources: $u.get("fromsev"), targets: $u.get("tosev"))#end</td></tr>
 #end
 </table>
 <div class="dc-h">Documents</div>
@@ -1917,7 +1940,7 @@
   #if($u.get("paired"))
     #set($pf = "1")
   #end
-<i class="dm-l" data-id="$esc.html($u.get('id'))" data-from="$esc.html($u.get('from'))" data-ft="$esc.html($u.get('ft'))" data-role="$esc.html($u.get('role'))" data-rn="$esc.html($u.get('rname'))" data-to="$esc.html($u.get('to'))" data-tt="$esc.html($u.get('tt'))" data-fmin="$u.get('fmin')" data-tmin="$u.get('tmin')" data-sev="$u.get('sev')" data-paired="$pf"#if($st) data-fc="$st.get('fc')" data-fo="$st.get('fo')" data-tc="$st.get('tc')" data-to2="$st.get('to')" data-cross="$st.get('cross')" data-unp="$st.get('unp')"#end></i>
+<i class="dm-l" data-id="$esc.html($u.get('id'))" data-from="$esc.html($u.get('from'))" data-ft="$esc.html($u.get('ft'))" data-role="$esc.html($u.get('role'))" data-rn="$esc.html($u.get('rname'))" data-to="$esc.html($u.get('to'))" data-tt="$esc.html($u.get('tt'))" data-fmin="$u.get('fmin')" data-tmin="$u.get('tmin')" data-sev="$u.get('sev')" data-fsev="$u.get('fromsev')" data-tsev="$u.get('tosev')" data-paired="$pf"#if($st) data-fc="$st.get('fc')" data-fo="$st.get('fo')" data-tc="$st.get('tc')" data-to2="$st.get('to')" data-cross="$st.get('cross')" data-unp="$st.get('unp')"#end></i>
 #end
 #foreach($p in $dmProbs)
 <i class="dm-p" data-sev="$p.get(0)" data-line="$p.get(1)" data-msg="$esc.html($p.get(2))"></i>
@@ -2823,8 +2846,15 @@
       var r = {
         id: a.id, from: a.from, ft: a.ft || '', role: a.role, rname: a.rn || a.role, to: a.to, tt: a.tt || '',
         fmin: toInt(a.fmin), tmin: toInt(a.tmin), sev: a.sev || 'error', paired: a.paired === '1',
+        fsev: a.fsev || a.sev || 'error', tsev: a.tsev || a.sev || 'error',
         fc: toInt(a.fc), fo: toInt(a.fo), tc: toInt(a.tc), to2: toInt(a.to2), cross: toInt(a.cross), unp: toInt(a.unp)
       };
+      // Violations per severity (K18: from = fsev, to = tsev, cross-pair and unpaired = sev).
+      r.bySev = {};
+      [['from', r.fsev], ['to', r.tsev], ['cross-pair', r.sev], ['unpaired', r.sev]].forEach(function (x) {
+        var n = counts[r.id + '|' + x[0]] || 0;
+        if (n) { r.bySev[x[1]] = (r.bySev[x[1]] || 0) + n; }
+      });
       r.violations = ['from', 'to', 'cross-pair', 'unpaired'].reduce(function (s, k) { return s + (counts[r.id + '|' + k] || 0); }, 0);
       rules.push(r);
     });
@@ -2860,13 +2890,31 @@
     });
     edges.forEach(function (e) {
       STATES.forEach(function (s) { e.kinds[s.id] = 0; });
-      e.rules.forEach(function (r) { if (r.violations) { e.kinds[r.sev] += r.violations; } });
+      e.rules.forEach(function (r) { Object.keys(r.bySev).forEach(function (s) { e.kinds[s] += r.bySev[s]; }); });
       if (!e.kinds.error && !e.kinds.warning && !e.kinds.info) { e.meta.ok = true; }
     });
     return { nodes: nodes, byKey: byKey, rules: rules, viol: viol, docs: docs, probs: probs, edges: edges, counts: counts, queries: queries };
   }
 
-  function ruleState(r) { return r.violations ? r.sev : 'ok'; }
+  // Worst severity among the violations found (K18), 'ok' without violation.
+  function ruleState(r) {
+    var s = ['error', 'warning', 'info'].filter(function (x) { return r.bySev[x]; })[0];
+    return s || 'ok';
+  }
+
+  // "error", or "sources: info, targets: error" when the sides differ.
+  function sevText(r) {
+    if (r.fsev === r.sev && r.tsev === r.sev) { return r.sev; }
+    var p = [];
+    if (r.fmin > 0) { p.push('sources: ' + r.fsev); }
+    if (r.tmin > 0) { p.push('targets: ' + r.tsev); }
+    if (r.paired) { p.push('pairs: ' + r.sev); }
+    return p.join(', ') || r.sev;
+  }
+
+  function bySevText(r) {
+    return ['error', 'warning', 'info'].filter(function (x) { return r.bySev[x]; }).map(function (x) { return r.bySev[x] + ' ' + x; }).join(', ');
+  }
 
   function pct(ok, n) { return n > 0 ? Math.round(100 * ok / n) + '%' : DASH; }
 
@@ -2948,7 +2996,8 @@
       return n ? n.unexp : 'warning';
     }
     var r = this.model.rules.filter(function (x) { return x.id === rule; })[0];
-    return r ? r.sev : 'error';
+    if (!r) { return 'error'; }
+    return kind === 'from' ? r.fsev : (kind === 'to' ? r.tsev : r.sev);
   };
 
   Widget.prototype.legend = function (box) {
@@ -3015,7 +3064,7 @@
       { text: missingDocs ? tText + ' ' + DASH + ' ' + missingDocs + ' doc. not found' : tText, weight: 400, color: tv.missing || tv.unexpected || missingDocs ? red : (this.run ? green : grey) }
     ];
     if (this.state.baseLines > 4) {
-      lines.push({ text: n.selfRules.map(function (r) { return LOOP + ' ' + r.id + ': ' + (r.violations ? r.violations + ' ' + r.sev : 'compliant'); }).join(', '), weight: 400,
+      lines.push({ text: n.selfRules.map(function (r) { return LOOP + ' ' + r.id + ': ' + (r.violations ? bySevText(r) : 'compliant'); }).join(', '), weight: 400,
         color: n.selfRules.some(function (r) { return r.violations; }) ? red : green });
     }
     return lines;
@@ -3032,7 +3081,7 @@
     if (r.tmin > 0) { s += '; targets with ' + GE_TEXT + r.tmin + ': ' + r.to2 + '/' + r.tc; }
     if (r.cross) { s += '; cross-pair links: ' + r.cross; }
     if (r.unp) { s += '; unpaired documents: ' + r.unp; }
-    return s + (r.violations ? ' ' + DASH + ' ' + r.violations + ' ' + r.sev : ' ' + DASH + ' compliant');
+    return s + ' (' + sevText(r) + ')' + (r.violations ? ' ' + DASH + ' ' + bySevText(r) : ' ' + DASH + ' compliant');
   };
   var GE_TEXT = String.fromCharCode(8805);
 
@@ -3136,7 +3185,7 @@
     var rules = [['Rule', 'From', 'Link role', 'To', 'Documents', 'Sources checked', 'Sources compliant', 'Targets checked', 'Targets compliant', 'Cross-pair links', 'Unpaired documents', 'Violations', 'Severity', 'State']];
     m.rules.forEach(function (r) {
       rules.push([r.id, r.from + (r.ft ? ' / ' + r.ft : ''), r.rname, r.to + (r.tt ? ' / ' + r.tt : ''), r.paired ? 'paired' : 'pooled',
-        r.fmin > 0 ? r.fc : '', r.fmin > 0 ? r.fo : '', r.tmin > 0 ? r.tc : '', r.tmin > 0 ? r.to2 : '', r.cross, r.unp, r.violations, r.sev, ruleState(r)]);
+        r.fmin > 0 ? r.fc : '', r.fmin > 0 ? r.fo : '', r.tmin > 0 ? r.tc : '', r.tmin > 0 ? r.to2 : '', r.cross, r.unp, r.violations, sevText(r), ruleState(r)]);
     });
     var docs = [['Document', 'Roles', 'Counted items', 'Items with a violation', 'Without violation', 'Types (items)']];
     var dLinks = [];

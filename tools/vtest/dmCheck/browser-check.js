@@ -84,6 +84,20 @@ async function readBook(p, path) {
   expect(book[3].rows.length === 13 && book[3].rows.filter(r => String(r[4]).indexOf('SQL:(') > 0).length === 12, 'Excel: 12 drill-down queries');
   expect(book[1].rows.length === 12 && book[0].rows.length === 4 && book[2].rows.length === 6, 'Excel: 11 violations, 3 rules, 5 documents');
 
+  // Severity per side (K18): L1 sources info / targets error, L2 targets error / sources warning.
+  await p.goto('file://' + dir + '/sides.html');
+  await p.waitForTimeout(300);
+  const ssum = await p.$$eval('.dc-sum .dc-chip', cs => cs.map(c => c.textContent));
+  console.log('sides summary:', JSON.stringify(ssum));
+  expect(ssum[0] === '5 errors' && ssum[1] === '4 warnings' && ssum[2] === '2 info', 'severity per side: summary 5 errors, 4 warnings, 2 info');
+  const slabels = await p.$$eval('.bw-edge-label', ls => ls.map(l => l.textContent).sort());
+  console.log('sides labels:', JSON.stringify(slabels));
+  expect(JSON.stringify(slabels) === JSON.stringify(['errors 1 + info 2', 'errors 3 + warnings 3']), 'severity per side: line labels per severity (both lines red: worst severity found)');
+  await p.evaluate(() => Array.from(document.querySelectorAll('.bw-edge-label')).find(l => l.textContent.indexOf('info') >= 0).dispatchEvent(new MouseEvent('click', { bubbles: true })));
+  await p.waitForTimeout(100);
+  const sdet = await p.textContent('.bw-details');
+  expect(sdet.indexOf('(sources: info, targets: error)') > 0 && sdet.indexOf('1 error, 2 info') > 0, 'severity per side: L1 details (severities and violations per severity)');
+
   // Model with an error: nothing checked.
   await p.goto('file://' + dir + '/model-error.html');
   await p.waitForTimeout(300);

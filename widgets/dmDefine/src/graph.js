@@ -55,6 +55,7 @@
       rules.push({
         id: a.id, from: a.from, ft: a.ft || '', role: a.role, rname: a.rn || a.role, to: a.to, tt: a.tt || '',
         fmin: toInt(a.fmin), tmin: toInt(a.tmin), sev: a.sev || 'error', line: toInt(a.line),
+        fsev: a.fsev || a.sev || 'error', tsev: a.tsev || a.sev || 'error',
         paired: a.paired === '1',
         pairs: parts(a.pairs, ';').map(function (p) { var f = p.split('|'); return { s: f[0], t: f[1] || '' }; })
       });
@@ -132,7 +133,17 @@
     if (r.fmin > 0) { s += '; each source item ' + GE + r.fmin; }
     if (r.tmin > 0) { s += '; each target item ' + GE + r.tmin; }
     if (r.paired) { s += '; paired documents (' + r.pairs.length + ')'; }
-    return s + ' (' + r.sev + ')';
+    return s + ' (' + sevText(r) + ')';
+  }
+
+  // "error", or "sources: info, targets: error" when the sides differ (D17).
+  function sevText(r) {
+    if (r.fsev === r.sev && r.tsev === r.sev) { return r.sev; }
+    var p = [];
+    if (r.fmin > 0 || r.fsev !== r.sev) { p.push('sources: ' + r.fsev); }
+    if (r.tmin > 0 || r.tsev !== r.sev) { p.push('targets: ' + r.tsev); }
+    if (r.paired) { p.push('pairs: ' + r.sev); }
+    return p.join(', ');
   }
 
   // "pooled" or "paired: source -> target; ..." (documents of the current project as space/name).
@@ -361,7 +372,7 @@
     });
     rules.forEach(function (r) {
       var tr = el('tr', null, t);
-      [r.id, endText(r.from, r.ft), r.rname, endText(r.to, r.tt), r.fmin, r.tmin, r.sev, pairsText(r)].forEach(function (v) { el('td', null, tr, String(v)); });
+      [r.id, endText(r.from, r.ft), r.rname, endText(r.to, r.tt), r.fmin, r.tmin, sevText(r), pairsText(r)].forEach(function (v) { el('td', null, tr, String(v)); });
       var td = el('td', null, tr);
       var ln = el('span', { 'class': 'dd-line' }, td, String(r.line));
       ln.addEventListener('click', function () { self.showLine(r.line); });
@@ -417,10 +428,10 @@
         docs.push([n.key, d.decl, d.project, d.space, d.name, d.found ? 'yes' : 'no', d.title]);
       });
     });
-    var rules = [['Id', 'From role', 'From type', 'Link role', 'Link role name', 'To role', 'To type', 'Min per source item', 'Min per target item', 'Severity', 'Documents', 'Line']];
+    var rules = [['Id', 'From role', 'From type', 'Link role', 'Link role name', 'To role', 'To type', 'Min per source item', 'Min per target item', 'Severity', 'Severity of sources', 'Severity of targets', 'Documents', 'Line']];
     var pairs = [['Rule', 'Source document (from role)', 'Target document (to role)']];
     m.rules.forEach(function (r) {
-      rules.push([r.id, r.from, r.ft, r.role, r.rname, r.to, r.tt, r.fmin, r.tmin, r.sev, r.paired ? 'paired' : 'pooled', r.line]);
+      rules.push([r.id, r.from, r.ft, r.role, r.rname, r.to, r.tt, r.fmin, r.tmin, r.sev, r.fsev, r.tsev, r.paired ? 'paired' : 'pooled', r.line]);
       r.pairs.forEach(function (p) { pairs.push([r.id, p.s, p.t]); });
     });
     var probs = [['Severity', 'Line', 'Problem']];

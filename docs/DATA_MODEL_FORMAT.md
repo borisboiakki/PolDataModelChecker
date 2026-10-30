@@ -56,6 +56,9 @@ model:
       from_min: 1              # each from item has >= 1 such link (downstream traceability)
       to_min: 1                # each to item is targeted by >= 1 such link (upstream coverage)
       severity: error          # error | warning | info
+      from_severity: info      # optional: severity of the from side only (here: a subsystem requirement without
+                               # upstream link may be a technical constraint); default = severity
+      to_severity: error       # optional: severity of the to side only (system requirement not covered)
   unexpected_links: warning    # links of a role used above, between declared documents, matching no rule
 
 bindings:                      # local: the documents of this project (or project/space/name)
@@ -113,11 +116,12 @@ unpaired). dmCheck will evaluate it (planned, 0.1.0). dmDefine 0.1.0 ignored `pa
 | `…title` | text | the role key | — |
 | `…items[]` | `type` (required), `min`, `max` (whole numbers), `ignored` (`true`/`false`), `description` | min/max: none | type exists in the project; min ≤ max; type listed once |
 | `…unexpected_types` | `error`, `warning`, `ignore` | `warning` | value |
-| `model.links[]` | `id`, `from`, `link_role`, `to`, `from_min`, `to_min`, `severity`, `description` | id: `L<n>` (warning) | id unique |
+| `model.links[]` | `id`, `from`, `link_role`, `to`, `from_min`, `to_min`, `severity`, `from_severity`, `to_severity`, `description` | id: `L<n>` (warning) | id unique |
 | `…from`, `…to` | `{ role: R, type: T }` (type optional = any type of the role) | — | role defined; type listed in the role (warning) and in the project |
 | `…link_role` | link role id | — | exists in the project; the graph shows its name |
 | `…from_min`, `…to_min` | whole numbers | 0 | value |
 | `…severity` | `error`, `warning`, `info` | `error` | value |
+| `…from_severity`, `…to_severity` | `error`, `warning`, `info`: severity of the missing links of the `from` side (items with fewer than `from_min` links) and of the `to` side (items not covered); dmDefine 0.6.0 / dmCheck 0.3.0 | the rule's `severity` | value |
 | `model.unexpected_links` | `error`, `warning`, `info`, `ignore` | `ignore` | value |
 | `bindings.<Role>` | document or list of documents: `name` (default space), `space/name`, `project/space/name` | — | role defined; document exists; declared once; a role without document: warning |
 | `uses` | `"PROJECT/ID"` or `"ID"`: work item holding the `model` part | none: the model is local | item found; no local `model:` part; the referenced model has a `model:` part and no `uses:` itself (one level); no revision pinning (`@`) yet. The referenced model is validated against the current project's configuration; its problems are reported as "Referenced model P/ID line N: …"; its own bindings and pairs are ignored |
@@ -131,8 +135,8 @@ Unknown keys are warnings (ignored). Problems carry the line of the model text.
 |---|---|
 | Required item types | Every type with `min` has at least `min` items in each bound document. |
 | Unexpected item types | An item whose type is not listed in its document role is reported with `unexpected_types`. |
-| Required links | `from_min`/`to_min` as above, counted only for links of `link_role` between the bound documents: any document of the other role (pooled) or the paired documents only (paired, §2.1). |
-| Pairs (paired rules) | Cross-pair links and unpaired documents, with the rule's severity (§2.1). |
+| Required links | `from_min`/`to_min` as above, counted only for links of `link_role` between the bound documents: any document of the other role (pooled) or the paired documents only (paired, §2.1). Reported with `from_severity` / `to_severity` (default: the rule's `severity`). |
+| Pairs (paired rules) | Cross-pair links and unpaired documents, with the rule's `severity` (§2.1). |
 | Forbidden/unexpected links | A link of a role used by the model that goes between modelled documents but matches no rule (wrong direction, wrong target document or type) is reported. A role the model never mentions is ignored. |
 | Later | Orphan items (no link at all), items in the wrong document, mandatory field values, statuses, max cardinalities. |
 

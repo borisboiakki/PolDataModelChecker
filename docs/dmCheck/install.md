@@ -32,8 +32,8 @@ Only the documents declared in the model (`bindings`) are read.
 |---|---|
 | Missing type / too many items | a document has fewer than `min` (or more than `max`) items of a type of its role (error) |
 | Unexpected type | an item's type is not listed in its document's role (severity `unexpected_types`; `ignore` = not reported). Types with `ignored: true` (e.g. headings) are allowed and not counted |
-| Missing link (source) | a source item of a rule has fewer than `from_min` links of the rule's link role to the target role (rule severity) |
-| Not covered (target) | a target item has fewer than `to_min` such links |
+| Missing link (source) | a source item of a rule has fewer than `from_min` links of the rule's link role to the target role (severity `from_severity`, default the rule's `severity`) |
+| Not covered (target) | a target item has fewer than `to_min` such links (severity `to_severity`, default the rule's `severity`) |
 | Cross-pair link | for a paired rule, a link between documents of the two roles that are not paired (it does not count) |
 | Unpaired document | for a paired rule, a declared document of one of its roles in no pair |
 | Unexpected link | a link of a link role used by the model, between declared documents, that matches no rule (severity `unexpected_links`; default `ignore`) |

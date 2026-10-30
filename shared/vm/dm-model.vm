@@ -6,7 +6,8 @@
 ##             -1 = none), ignored (true/false), line), decl (declared documents, text), docs (list of maps: decl, key,
 ##             project, space, name, title, found), bound (true when the bindings name the role)
 ##   $dmRoleByKey  role key -> role map
-##   $dmRules  list of maps: id, from, ft, role, rname, to, tt, fmin, tmin (Integer), sev, line
+##   $dmRules  list of maps: id, from, ft, role, rname, to, tt, fmin, tmin (Integer), sev, fromsev, tosev (severity per
+##             side, default sev; dmDefine 0.6.0), line
 ##   $dmUnexpLinks  severity of links that match no rule (error|warning|info|ignore, default ignore)
 ##   $dmName, $dmVersion, $dmErrors, $dmWarnings (counts of $dmProbs)
 ##   $dmTypeNames / $dmRoleNames  id -> name from the project configuration (verified on 2512, dmSpike S6)
@@ -393,7 +394,7 @@
       #if($dmKo != "map")
         #set($void = $dmProbs.add(["error", $dmLl, "$dmLp must be a block (id, from, link_role, to, ...)."]))
       #else
-        #dmUnknownKeys($dmLp ["id", "from", "link_role", "to", "from_min", "to_min", "severity", "description"])
+        #dmUnknownKeys($dmLp ["id", "from", "link_role", "to", "from_min", "to_min", "severity", "from_severity", "to_severity", "description"])
         #set($dmRu = $objectFactory.newMap())
         #set($void = $dmRu.put("line", $dmLl))
         #set($dmPp = "${dmLp}.id")
@@ -444,6 +445,25 @@
           #set($dmGv = "error")
         #end
         #set($void = $dmRu.put("sev", $dmGv))
+        ## Severity per side (dmDefine 0.6.0, D17): default = the rule's severity.
+        #foreach($dmSide in ["from", "to"])
+          #set($dmPp = "${dmLp}.${dmSide}_severity")
+          #dmGet($dmPp)
+          #if($dmGv != "" && !$dmSevR.contains($dmGv))
+            #set($dmSl = $dmLl)
+            #set($dmSo = 0)
+            #set($dmSo = $dmLine.get($dmPp))
+            #if($dmSo > 0)
+              #set($dmSl = $dmSo)
+            #end
+            #set($void = $dmProbs.add(["error", $dmSl, "$dmPp must be error, warning or info (found: $dmGv)."]))
+            #set($dmGv = "")
+          #end
+          #if($dmGv == "")
+            #set($dmGv = $dmRu.get("sev"))
+          #end
+          #set($void = $dmRu.put("${dmSide}sev", $dmGv))
+        #end
         #set($void = $dmRules.add($dmRu))
       #end
     #end

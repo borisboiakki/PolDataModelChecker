@@ -282,6 +282,9 @@
   #foreach($dmU in $dmRules)
     #set($dcUid = $dmU.get("id"))
     #set($dcSev = $dmU.get("sev"))
+    ## Severity per side (K18): missing links of the from side, targets not covered; cross-pair and unpaired keep sev.
+    #set($dcFsev = $dmU.get("fromsev"))
+    #set($dcTsev = $dmU.get("tosev"))
     #set($dcSt = $objectFactory.newMap())
     #set($void = $dcSt.put("sev", $dcSev))
     #set($void = $dcStat.put($dcUid, $dcSt))
@@ -336,7 +339,7 @@
         #else
           #set($dcIt = $dcItems.get($dcIk))
           #set($dcIid = $dcIt.get(2))
-          #dcAdd($dcSev "from" $dcUid $dcIt.get(1) $dcIk "$dcIid: $dcN link(s) $dmU.get('rname') to role $dmU.get('to'), at least $dcFmin required (${dcUid}).")
+          #dcAdd($dcFsev "from" $dcUid $dcIt.get(1) $dcIk "$dcIid: $dcN link(s) $dmU.get('rname') to role $dmU.get('to'), at least $dcFmin required (${dcUid}).")
         #end
       #end
     #end
@@ -353,7 +356,7 @@
         #else
           #set($dcIt = $dcItems.get($dcIk))
           #set($dcIid = $dcIt.get(2))
-          #dcAdd($dcSev "to" $dcUid $dcIt.get(1) $dcIk "$dcIid: $dcN link(s) $dmU.get('rname') from role $dmU.get('from'), at least $dcTmin required (${dcUid}).")
+          #dcAdd($dcTsev "to" $dcUid $dcIt.get(1) $dcIk "$dcIid: $dcN link(s) $dmU.get('rname') from role $dmU.get('from'), at least $dcTmin required (${dcUid}).")
         #end
       #end
     #end

@@ -157,6 +157,28 @@ public class CheckHarness {
         h = run(dir, out, "unpaired", params(modelDoc("One Pair", onePair)), false);
         DmMocks.check(count(h, "data-kind=\"unpaired\"") == 2 && h.contains("Document DMTEST/Specs/Solution Spec B (role SolutionSpec) is in no pair of L2.") && h.contains("Document DMTEST/Tests/STD B (role SolutionSTD) is in no pair of L2."), "unpaired documents reported");
 
+        // Severity per side (K18): L1 from_severity info (a solution requirement without upstream link is only an info),
+        // to stays error; L2 to_severity error (a solution requirement not verified becomes an error), from stays warning.
+        List<String> sides = new ArrayList<String>();
+        int ruleNo = 0;
+        for (String l : modelLines) {
+            sides.add(l);
+            if (l.startsWith("    - id: ")) { ruleNo++; }
+            if (l.equals("      severity: error") && ruleNo == 1) { sides.add("      from_severity: info"); }
+            if (l.equals("      severity: warning") && ruleNo == 2) { sides.add("      to_severity: error"); }
+        }
+        h = run(dir, out, "sides", params(modelDoc("Sides Model", sides)), false);
+        DmMocks.check(count(h, "<i class=\"dm-p\"") == 0, "severity per side: model without problem");
+        DmMocks.check(hasViolation(h, "info", "from", "L1", "DMTEST/SPA-4") && hasViolation(h, "info", "from", "L1", "DMTEST/SPB-3") && hasViolation(h, "error", "to", "L1", "DMTEST/CUS-5"), "severity per side: L1 sources info, targets error");
+        DmMocks.check(hasViolation(h, "error", "to", "L2", "DMTEST/SPA-4") && hasViolation(h, "warning", "from", "L2", "DMTEST/STA-4") && hasViolation(h, "warning", "cross-pair", "L2", "DMTEST/STA-3"), "severity per side: L2 targets error, sources and cross-pair warning");
+        DmMocks.check(h.contains("data-sev=\"error\" data-fsev=\"info\" data-tsev=\"error\"") && h.contains("data-sev=\"warning\" data-fsev=\"warning\" data-tsev=\"error\""), "severity per side: page model");
+        String hp = run(dir, out, "sides-pdf", params(modelDoc("Sides Model PDF", sides)), true);
+        DmMocks.check(hp.contains("error (sources: info, targets: error)") && hp.contains("warning (sources: warning, targets: error)"), "severity per side: static rules table (PDF)");
+        List<String> badSide = new ArrayList<String>();
+        for (String l : sides) { badSide.add(l.equals("      from_severity: info") ? "      from_severity: fatal" : l); }
+        h = run(dir, out, "badside", params(modelDoc("Bad Side", badSide)), false);
+        DmMocks.check(h.contains("model.links[0].from_severity must be error, warning or info (found: fatal).") && h.contains("data-run=\"0\""), "severity per side: wrong value is a model error");
+
         // unexpected_links: ignore -> no unexpected link.
         List<String> ign = new ArrayList<String>();
         for (String l : modelLines) { ign.add(l.equals("  unexpected_links: warning") ? "  unexpected_links: ignore" : l); }

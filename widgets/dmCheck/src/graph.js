@@ -95,8 +95,15 @@
       var r = {
         id: a.id, from: a.from, ft: a.ft || '', role: a.role, rname: a.rn || a.role, to: a.to, tt: a.tt || '',
         fmin: toInt(a.fmin), tmin: toInt(a.tmin), sev: a.sev || 'error', paired: a.paired === '1',
+        fsev: a.fsev || a.sev || 'error', tsev: a.tsev || a.sev || 'error',
         fc: toInt(a.fc), fo: toInt(a.fo), tc: toInt(a.tc), to2: toInt(a.to2), cross: toInt(a.cross), unp: toInt(a.unp)
       };
+      // Violations per severity (K18: from = fsev, to = tsev, cross-pair and unpaired = sev).
+      r.bySev = {};
+      [['from', r.fsev], ['to', r.tsev], ['cross-pair', r.sev], ['unpaired', r.sev]].forEach(function (x) {
+        var n = counts[r.id + '|' + x[0]] || 0;
+        if (n) { r.bySev[x[1]] = (r.bySev[x[1]] || 0) + n; }
+      });
       r.violations = ['from', 'to', 'cross-pair', 'unpaired'].reduce(function (s, k) { return s + (counts[r.id + '|' + k] || 0); }, 0);
       rules.push(r);
     });
@@ -132,13 +139,31 @@
     });
     edges.forEach(function (e) {
       STATES.forEach(function (s) { e.kinds[s.id] = 0; });
-      e.rules.forEach(function (r) { if (r.violations) { e.kinds[r.sev] += r.violations; } });
+      e.rules.forEach(function (r) { Object.keys(r.bySev).forEach(function (s) { e.kinds[s] += r.bySev[s]; }); });
       if (!e.kinds.error && !e.kinds.warning && !e.kinds.info) { e.meta.ok = true; }
     });
     return { nodes: nodes, byKey: byKey, rules: rules, viol: viol, docs: docs, probs: probs, edges: edges, counts: counts, queries: queries };
   }
 
-  function ruleState(r) { return r.violations ? r.sev : 'ok'; }
+  // Worst severity among the violations found (K18), 'ok' without violation.
+  function ruleState(r) {
+    var s = ['error', 'warning', 'info'].filter(function (x) { return r.bySev[x]; })[0];
+    return s || 'ok';
+  }
+
+  // "error", or "sources: info, targets: error" when the sides differ.
+  function sevText(r) {
+    if (r.fsev === r.sev && r.tsev === r.sev) { return r.sev; }
+    var p = [];
+    if (r.fmin > 0) { p.push('sources: ' + r.fsev); }
+    if (r.tmin > 0) { p.push('targets: ' + r.tsev); }
+    if (r.paired) { p.push('pairs: ' + r.sev); }
+    return p.join(', ') || r.sev;
+  }
+
+  function bySevText(r) {
+    return ['error', 'warning', 'info'].filter(function (x) { return r.bySev[x]; }).map(function (x) { return r.bySev[x] + ' ' + x; }).join(', ');
+  }
 
   function pct(ok, n) { return n > 0 ? Math.round(100 * ok / n) + '%' : DASH; }
 
@@ -220,7 +245,8 @@
       return n ? n.unexp : 'warning';
     }
     var r = this.model.rules.filter(function (x) { return x.id === rule; })[0];
-    return r ? r.sev : 'error';
+    if (!r) { return 'error'; }
+    return kind === 'from' ? r.fsev : (kind === 'to' ? r.tsev : r.sev);
   };
 
   Widget.prototype.legend = function (box) {
@@ -287,7 +313,7 @@
       { text: missingDocs ? tText + ' ' + DASH + ' ' + missingDocs + ' doc. not found' : tText, weight: 400, color: tv.missing || tv.unexpected || missingDocs ? red : (this.run ? green : grey) }
     ];
     if (this.state.baseLines > 4) {
-      lines.push({ text: n.selfRules.map(function (r) { return LOOP + ' ' + r.id + ': ' + (r.violations ? r.violations + ' ' + r.sev : 'compliant'); }).join(', '), weight: 400,
+      lines.push({ text: n.selfRules.map(function (r) { return LOOP + ' ' + r.id + ': ' + (r.violations ? bySevText(r) : 'compliant'); }).join(', '), weight: 400,
         color: n.selfRules.some(function (r) { return r.violations; }) ? red : green });
     }
     return lines;
@@ -304,7 +330,7 @@
     if (r.tmin > 0) { s += '; targets with ' + GE_TEXT + r.tmin + ': ' + r.to2 + '/' + r.tc; }
     if (r.cross) { s += '; cross-pair links: ' + r.cross; }
     if (r.unp) { s += '; unpaired documents: ' + r.unp; }
-    return s + (r.violations ? ' ' + DASH + ' ' + r.violations + ' ' + r.sev : ' ' + DASH + ' compliant');
+    return s + ' (' + sevText(r) + ')' + (r.violations ? ' ' + DASH + ' ' + bySevText(r) : ' ' + DASH + ' compliant');
   };
   var GE_TEXT = String.fromCharCode(8805);
 
@@ -408,7 +434,7 @@
     var rules = [['Rule', 'From', 'Link role', 'To', 'Documents', 'Sources checked', 'Sources compliant', 'Targets checked', 'Targets compliant', 'Cross-pair links', 'Unpaired documents', 'Violations', 'Severity', 'State']];
     m.rules.forEach(function (r) {
       rules.push([r.id, r.from + (r.ft ? ' / ' + r.ft : ''), r.rname, r.to + (r.tt ? ' / ' + r.tt : ''), r.paired ? 'paired' : 'pooled',
-        r.fmin > 0 ? r.fc : '', r.fmin > 0 ? r.fo : '', r.tmin > 0 ? r.tc : '', r.tmin > 0 ? r.to2 : '', r.cross, r.unp, r.violations, r.sev, ruleState(r)]);
+        r.fmin > 0 ? r.fc : '', r.fmin > 0 ? r.fo : '', r.tmin > 0 ? r.tc : '', r.tmin > 0 ? r.to2 : '', r.cross, r.unp, r.violations, sevText(r), ruleState(r)]);
     });
     var docs = [['Document', 'Roles', 'Counted items', 'Items with a violation', 'Without violation', 'Types (items)']];
     var dLinks = [];

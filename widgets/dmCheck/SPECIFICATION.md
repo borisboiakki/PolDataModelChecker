@@ -40,6 +40,7 @@ Same as dmDefine (C1–C8), plus:
 | K15 | **Several documents per role, pooled or paired** (PO 2026-10-30, Q2). **Pooled** (default, no `pairs:` entry for the rule): the documents of a role form one set; a link to any document of the target role counts; violations are listed per document. **Paired** (the rule has an entry in `pairs:`): only links between the documents of a declared pair count for `from_min` / `to_min`; a link between documents of the two roles that are not paired is reported as a **cross-pair link**; a document of the rule's roles without a pair is reported as **unpaired**; both with the rule's severity. A document may appear in several pairs (e.g. one test specification for two specifications). Format: `docs/DATA_MODEL_FORMAT.md` §2.1; examples: `docs/MODELING_GUIDE.md` | Must (done, 0.1.0) | 1 |
 | K16 | **Model problems first**: when the model has errors (dmDefine validation, same pipeline), dmCheck lists them and checks nothing; warnings are shown and the checks run | Must (done, 0.1.0) | 1 |
 | K14 | Item cap per violation list (e.g. 500 per rule in the page model, full count always shown), as docCoverage | Must (done, 0.1.0) | 1 |
+| K18 | **Severity per side** (PO 2026-10-30, dmDefine D17): `from` violations (missing links) take `from_severity`, `to` violations (not covered) `to_severity`, default the rule's `severity`; cross-pair and unpaired keep `severity`; summary counts, graph line colour (worst severity found), details, table and Excel follow; the rules table shows both severities | Must (done, 0.3.0) | 3 |
 | K17 | **Exploded view** (PO 2026-10-30, as dmDefine D16): switch *Collapsed / Exploded*; in the exploded view one box per declared document inside its role frame, coloured by the document's compliance; paired rules drawn per pair and coloured by that pair's compliance (counts per pair), pooled rules from each document to the target role's frame; cross-pair links and unpaired documents highlighted. Same *Initial view* parameter (collapsed by default, used by the PDF) | Should | after dmDefine D16 |
 
 ## 4. Non-functional requirements
@@ -98,5 +99,6 @@ PO 2026-10-30: dmCheck is started after dmDefine is completed.
    the evaluation of 0.1.0 is kept (verified on 2512, its timing on the largest project was fine, and it handles pairs,
    cross-pair and unexpected links in one pass); the S10 set queries are used for the drill-down only, and are not run
    by the widget. A faster evaluation through set queries stays possible if a larger project needs it.
-3. **0.3.0** Collection context; later: orphans, wrong document, field rules.
-4. Later: exploded view (K17), after dmDefine D16.
+3. Later: collection context (K11); orphans, wrong document, field rules.
+4. **0.3.0** (done) severity per side (K18). The collection context moves to a later increment.
+5. Later: exploded view (K17), after dmDefine D16.

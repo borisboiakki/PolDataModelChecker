@@ -43,6 +43,7 @@ The model is stored in Polarion (SPEC §6) and read by **dmCheck** (`widgets/dmC
 | D15 | **`uses:` reference** (decision 5, ARCHITECTURE §3.4): roles and rules from a model item of another (or the same) project, bindings and pairs local; one level; shown in the header with the revision and a link; editor in a "local part" mode (roles and rules read only) | Should (done, 0.4.0) | 0.4.0 |
 | D14 | **Pairs** (`pairs:` section, dmCheck K15): validate it (the rule id exists; each pair is `[source document, target document]`; the source document is declared for the rule's `from` role and the target for its `to` role) and show it (rule details, table, Excel). Documents of the two roles in no pair: warning | Should (done, 0.2.0) | 2 |
 | D13 | **Model text** view with line numbers (problem lines marked, a click on a problem shows its line) and **Copy YAML** (copies the text, e.g. to reuse the model in another project) | Should (done) | 1 |
+| D17 | **Severity per side** of a link rule (PO 2026-10-30, decision 10): optional `from_severity` / `to_severity` (error, warning, info; default = the rule's `severity`) validated, shown in the rule details, tooltip, table and Excel, edited in the forms (two pickers per rule, empty = rule severity), written by the YAML writer and kept by the round trip | Should (done, 0.6.0) | 0.6.0 |
 | D16 | **Exploded view** of the graph (PO 2026-10-30, decision 9): a switch *Collapsed / Exploded*. Collapsed = today's graph (one box per role, one arrow per rule). Exploded = one box per declared document inside a frame per role; **paired** rules drawn document to document (one arrow per pair); **pooled** rules drawn from each document of the `from` role to the **frame** of the `to` role ("any document of this role"), not one arrow per document combination; pair problems (documents of the rule's roles in no pair, pairs naming undeclared documents) outlined in orange. Shown when a role has more than one document. Parameter *Initial view* (collapsed by default) also chooses the static PDF graph. Table and Excel unchanged (the *Document pairs* sheet already lists the pairs) | Should | later (after the starter generator) |
 
 ## 4. Non-functional requirements
@@ -125,6 +126,12 @@ Decided by the PO (2026-10-30):
    also used by the PDF; table/Excel unchanged. dmCheck gets the same switch later (dmCheck K17: pair arrows coloured
    by compliance). Not implemented yet.
 
+10. **Severity per side (D17, dmCheck K18)**, PO 2026-10-30: example: a customer requirement not covered is an error,
+   a system requirement without upstream link only an info (it can be a technical constraint). Keys `from_severity` /
+   `to_severity` next to `from_min` / `to_min` (flat, PO), default = `severity`; cross-pair links and unpaired documents
+   keep `severity`; dmCheck colours a line with the worst severity found; dmDefine shows both severities in the tooltip
+   and the details. Done before the starter generator. Format stays version 1 (optional keys).
+
 ## 8. Increments
 
 PO 2026-10-30: dmDefine is completed before dmCheck is started.
@@ -137,7 +144,8 @@ PO 2026-10-30: dmDefine is completed before dmCheck is started.
 5. **0.5.0** (done) *Save to Polarion* through the REST API (D10); checks on 2512 in `docs/PO_CHECKS.md` 2.14–2.18.
 6. Next increment: starter generator (spike S7 prepared: `tests/dmSpike-v0.1.x/spike-tests.md` run 4, PO_CHECKS 1.3)
    (D8, spike S7).
-7. Later: exploded view of the graph (D16).
+7. **0.6.0** (done) severity per side (D17).
+8. Next: starter generator (D8). Later: exploded view of the graph (D16).
 
 ## 9. Open checks on 2512
 
