@@ -5,7 +5,7 @@ Polarion instance**. Run the checks in this order when you have time; for each o
 screenshots or PDF exports: the repository is public). Findings are then recorded in the specification and in
 `tests/dmSpike-v0.1.x/spike-tests.md`.
 
-Last update: 2026-10-30, dmDefine 0.5.0.
+Last update: 2026-10-30, dmDefine 0.5.0, dmSpike S7.
 
 ## 1. Spike widget dmSpike (upload `tests/dmSpike-v0.1.x/spike-widget/dmSpike.zip`)
 
@@ -13,6 +13,7 @@ Last update: 2026-10-30, dmDefine 0.5.0.
 |---|---|---|---|
 | 1.1 | **S9 editor controls**, browser view, section S9: type several lines with leading spaces in the text area, press Tab, Enter, Backspace, Ctrl+Z; type in the input; choose "two" in the drop-down; click both Copy buttons (paste somewhere each time), *Download a .yaml file*, *Show the values* | The text of the grey S9 box | dmDefine 0.3.0 editor |
 | 1.2 | **S5 other forms** (test *S5*): in *Documents to resolve*, a document of a named space (`Space/Name`), a document of **another project** (`PROJECT/Space/Name`) and a document that does not exist | Found yes/no per document | bindings to documents of other projects (0.4.0) |
+| 1.3 | **S7 starter generator data** (test *S7*, three runs: variant C, then A, then B; see run 4 of `tests/dmSpike-v0.1.x/spike-tests.md`) on your largest project | Page renders or SQL error; summary line; time stamps; same types and link combinations for A/B as for C; the proposed starter model opened in dmDefine (problems, usefulness) | dmDefine starter generator |
 
 ## 2. dmDefine (upload `widgets/dmDefine/dist/dmDefine.zip`)
 

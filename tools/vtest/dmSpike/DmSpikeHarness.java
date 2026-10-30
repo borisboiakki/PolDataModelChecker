@@ -65,6 +65,18 @@ public class DmSpikeHarness {
         public Text getDescription() { return desc; }
         public String getRevision() { return null; }        // empty on 2512 (run 1) for a HEAD work item
         public String getLastRevision() { return "4712"; }
+        public Module getModule() { return module; }
+        final List<Link> links = new ArrayList<Link>();
+        public List<Link> getLinkedWorkItemsStructsDirect() { return links; }
+        WorkItem link(String role, WorkItem target) { links.add(new Link(role, target)); return this; }
+    }
+
+    public static class Link {
+        final Opt role;
+        final WorkItem target;
+        Link(String role, WorkItem target) { this.role = new Opt(role, role); this.target = target; }
+        public Opt getLinkRole() { return role; }
+        public WorkItem getLinkedItem() { return target; }
     }
 
     /** Rendering API objects: item with fields().description(), document with items().contained(). */
@@ -116,11 +128,43 @@ public class DmSpikeHarness {
     }
 
     static final List<Module> MODULES = new ArrayList<Module>();
+    static final List<String> S7_SQL = new ArrayList<String>();
     static final List<WorkItem> ITEMS = new ArrayList<WorkItem>();
 
     public static class DataService {
         public List<Object> sqlSearch(String sql) {
             List<Object> out = new ArrayList<Object>();
+            S7_SQL.add(sql);
+            String proj = "DMTEST";
+            // S7 forms (types per document, link sources): GROUP BY representatives (variants A, B) or everything (C).
+            boolean typesRep = sql.startsWith("SELECT MIN(w.c_uri) FROM workitem w") || sql.startsWith("SELECT w.c_uri FROM workitem w WHERE w.c_uri IN (SELECT MIN(w.c_uri)");
+            boolean typesAll = sql.startsWith("SELECT w.c_uri FROM workitem w INNER JOIN module m") && !sql.contains("m.c_modulefolder");
+            if (typesRep || typesAll) {
+                Set<String> seen = new HashSet<String>();
+                for (WorkItem w : ITEMS) {
+                    if (w.module == null || !w.module.project.equals(proj)) { continue; }
+                    if (typesAll || seen.add(w.module.folder + "/" + w.module.name + "|" + w.type)) { out.add(w); }
+                }
+                return out;
+            }
+            boolean linkRep = sql.startsWith("SELECT MIN(ws.c_uri) FROM struct_workitem_linkedworkitems") || sql.startsWith("SELECT ws.c_uri FROM workitem ws WHERE ws.c_uri IN (SELECT MIN(ws.c_uri)");
+            boolean linkAll = sql.startsWith("SELECT DISTINCT ws.c_uri FROM struct_workitem_linkedworkitems");
+            if (linkRep || linkAll) {
+                Set<String> seen = new HashSet<String>();
+                for (WorkItem w : ITEMS) {
+                    if (w.module == null || !w.module.project.equals(proj)) { continue; }
+                    for (Link l : w.links) {
+                        if (l.target.module == null) { continue; }
+                        String g = w.module.name + "|" + l.target.module.project + "/" + l.target.module.name + "|" + l.role.id + "|" + w.type + "|" + l.target.type;
+                        if (linkAll ? !out.contains(w) : seen.add(g)) { if (!out.contains(w)) { out.add(w); } }
+                    }
+                }
+                return out;
+            }
+            if (sql.startsWith("SELECT m.c_uri FROM module m INNER JOIN project p ON p.c_uri = m.fk_uri_project WHERE p.c_id = '") && !sql.contains("(p.c_id")) {
+                for (Module m : MODULES) { if (m.project.equals(proj)) { out.add(m); } }
+                return out;
+            }
             if (sql.startsWith("SELECT m.c_uri FROM module m")) {
                 for (Module m : MODULES) {
                     if (sql.contains("(p.c_id = '" + m.project + "' AND m.c_modulefolder = '" + m.folder + "' AND m.c_id = '" + m.name + "')")) { out.add(m); }
@@ -253,6 +297,25 @@ public class DmSpikeHarness {
         MODULES.add(new Module("DMTEST", "_default", "Test Spec"));
         MODULES.add(new Module("SYSENG", "Specs", "Sub Spec"));
         ITEMS.add(new WorkItem(null, "SYSENG", "SE-12", "text", "Shared model", "<p>version: 1</p>"));
+        // S7: a small V-cycle (customer spec <- system spec <- tests), a hierarchy, a link to another project.
+        Module cus = new Module("DMTEST", "Specs", "Customer Spec");
+        Module sys = new Module("DMTEST", "Specs", "System Spec");
+        Module tst = new Module("DMTEST", "Tests", "System Tests");
+        Module ext = new Module("SYSENG", "Specs", "External");
+        MODULES.addAll(Arrays.asList(cus, sys, tst, ext));
+        WorkItem c1 = add(cus, "C-1", "heading"), c2 = add(cus, "C-2", "customerRequirement"), c3 = add(cus, "C-3", "customerRequirement");
+        WorkItem s1 = add(sys, "S-1", "systemRequirement"), s2 = add(sys, "S-2", "systemRequirement"), s3 = add(sys, "S-3", "systemRequirement");
+        WorkItem t1 = add(tst, "T-1", "testCase"), t2 = add(tst, "T-2", "testCase");
+        WorkItem e1 = new WorkItem(ext, "SYSENG", "E-1", "systemRequirement", "External", "");
+        ITEMS.add(e1);
+        s1.link("satisfies", c2); s2.link("satisfies", c2).link("satisfies", c3); s3.link("parent", s1).link("satisfies", e1);
+        t1.link("verifies", s1); t2.link("verifies", s2).link("verifies", s3);
+    }
+
+    static WorkItem add(Module m, String id, String type) {
+        WorkItem w = new WorkItem(m, m.project, id, type, "Title " + id, "");
+        ITEMS.add(w);
+        return w;
     }
 
     // ------------------------------------------------------------------ run
@@ -292,6 +355,9 @@ public class DmSpikeHarness {
         p.put("docs", new Param(docs, null));
         p.put("remote", new Param(remote, null));
         p.put("maxChars", new Param(Integer.valueOf(6000), null));
+        p.put("s7Variant", new Param("min", null));
+        p.put("s7Spaces", new Param("Specs, Tests", null));
+        p.put("s7Max", new Param(Integer.valueOf(300), null));
         return p;
     }
 
@@ -358,6 +424,37 @@ public class DmSpikeHarness {
         check(h.contains("empty list item"), "S3 bad: empty dash");
         check(h.contains("not in the YAML subset (anchor"), "S3 bad: anchor rejected");
         check(h.contains("nested flow collection"), "S3 bad: nested flow rejected");
+
+        // S7: the three variants give the same types and link combinations; the starter YAML.
+        String[] expectedCombos = {
+            "<td>Specs/System Spec</td><td>systemRequirement</td><td>satisfies</td><td>Specs/Customer Spec</td><td>customerRequirement</td><td>3</td>",
+            "<td>Specs/System Spec</td><td>systemRequirement</td><td>parent</td><td>Specs/System Spec</td><td>systemRequirement</td>",
+            "<td>Tests/System Tests</td><td>testCase</td><td>verifies</td><td>Specs/System Spec</td><td>systemRequirement</td><td>3</td>" };
+        for (String v : new String[] { "full", "min", "nested" }) {
+            Map<String, Param> p7 = params("starter", null, "item", "", "");
+            p7.put("s7Variant", new Param(v, null));
+            S7_SQL.clear();
+            h = render(dir, out, "s7-" + v, p7, false, new Esc());
+            check(h.contains("Documents: 4 (max 300) &middot; with items: 3"), "S7 " + v + ": 4 documents of the spaces Specs and Tests, 3 with items");
+            check(h.contains("<td>Specs/Customer Spec</td><td>heading (1) customerRequirement (" + (v.equals("full") ? "2" : "1") + ") </td>"), "S7 " + v + ": types of a document");
+            check(h.contains(expectedCombos[1]), "S7 " + v + ": link inside a document (hierarchy)");
+            if (v.equals("full")) {
+                for (String c : expectedCombos) { check(h.contains(c), "S7 full: combination " + c.replaceAll("<[^>]*>", " ").trim()); }
+                check(h.contains("links to documents out of scope: 1"), "S7 full: link to another project counted as out of scope");
+            } else {
+                check(h.contains(expectedCombos[0].substring(0, expectedCombos[0].lastIndexOf("<td>"))) && h.contains(expectedCombos[2].substring(0, expectedCombos[2].lastIndexOf("<td>"))), "S7 " + v + ": same combinations as the full scan");
+            }
+            check(S7_SQL.stream().anyMatch(q -> v.equals("min") ? q.startsWith("SELECT MIN(w.c_uri)") : v.equals("nested") ? q.contains("IN (SELECT MIN(w.c_uri)") : q.startsWith("SELECT w.c_uri FROM workitem w INNER JOIN")), "S7 " + v + ": query form");
+            check(h.contains("count method: method not available"), "S7 " + v + ": count method reported");
+            check(h.contains("    Customer_Spec:") && h.contains("        - { type: customerRequirement }") && h.contains("      from: { role: System_Spec, type: systemRequirement }")
+                && h.contains("  System_Tests: [&quot;Tests/System Tests&quot;]"), "S7 " + v + ": starter YAML");
+            if (v.equals("min")) {
+                java.util.regex.Matcher ym = Pattern.compile("<pre class=\"s7-yaml\">(.*?)</pre>", Pattern.DOTALL).matcher(h);
+                if (ym.find()) { Writer yw = new OutputStreamWriter(new FileOutputStream(out + "/s7-starter.yaml"), "UTF-8"); yw.write(ym.group(1).replace("&quot;", "\"").replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")); yw.close(); }
+            }
+        }
+        h = render(dir, out, "all-no-s7", params("all", modelDoc, "item", "", ""), false, new Esc());
+        check(!h.contains("S7 Starter generator data"), "S7 not run by the test All");
 
         h = render(dir, out, "pdf", params("all", modelDoc, "item", "", ""), true, new Esc());
         check(!h.contains("<script"), "PDF: no script");

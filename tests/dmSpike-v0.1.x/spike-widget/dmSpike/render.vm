@@ -86,8 +86,8 @@
 #set($isPdf = false)
 #set($isPdf = $widgetContext.target().isPdf())
 #set($run = $objectFactory.newMap())
-#foreach($t in ["locate", "desc", "yaml", "bind", "config", "remote"])
-  #if($test == "all" || $test == $t)
+#foreach($t in ["locate", "desc", "yaml", "bind", "config", "remote", "starter"])
+  #if(($test == "all" && $t != "starter") || $test == $t)
     #set($void = $run.put($t, "1"))
   #end
 #end
@@ -746,6 +746,234 @@
     #set($void = $sum.add(["S8", "Work item of another project", "$rState", "ko"]))
   #end
 #end
+## ---------------------------------------------------------------- S7 starter generator data
+## Types per document and link roles between documents of the project, without looping over all items in Velocity
+## (variants A, B: one representative item per group, whose links are then scanned); variant C scans everything and is
+## the reference to compare with (spike only). A failing SQL stops the page: the error text is the finding.
+#set($s7Docs = [])
+#set($s7DocByUri = $objectFactory.newMap())
+#set($s7Types = $objectFactory.newMap())
+#set($s7TypeCount = $objectFactory.newMap())
+#set($s7Combos = [])
+#set($s7ComboKeys = [])
+#set($s7Outside = 0)
+#set($s7Reps = 0)
+#set($s7RepLinks = 0)
+#set($s7Sql1 = "")
+#set($s7Sql2 = "")
+#set($s7Ts = [])
+#set($s7Variant = "min")
+#set($s7Spaces = [])
+#set($s7Max = 300)
+#set($s7Count = "not tried")
+#set($s7Q = '"')
+#if($run.containsKey("starter"))
+  #set($tmp = "")
+  #set($tmp = $parameters.s7Variant.singleValue())
+  #if("$tmp" != "")
+    #set($s7Variant = "$tmp")
+  #end
+  #set($tmp = "")
+  #set($tmp = $parameters.s7Spaces.value())
+  #set($tmpS = "$tmp")
+  #foreach($sp in $tmpS.split(","))
+    #if($sp.trim() != "")
+      #set($void = $s7Spaces.add($sp.trim()))
+    #end
+  #end
+  #set($tmp = "")
+  #set($tmp = $parameters.s7Max.value())
+  #set($tmpS = "$tmp")
+  #if($tmpS.matches("[0-9]{1,5}"))
+    #set($s7Max = $dmInt.parseInt($tmpS))
+  #end
+  ## Documents of the project (key space/name), filtered by space, capped.
+  #set($void = $s7Ts.add(["start", $date.systemTime]))
+  #set($s7Mods = $ds.sqlSearch("SELECT m.c_uri FROM module m INNER JOIN project p ON p.c_uri = m.fk_uri_project WHERE p.c_id = '${projectQ}'"))
+  #foreach($m in $s7Mods)
+    #if(!$m.isUnresolvable() && $s7Docs.size() < $s7Max)
+      #set($mf = "$m.getModuleFolder()")
+      #if($s7Spaces.size() == 0 || $s7Spaces.contains($mf))
+        #set($mk = "${mf}/$m.getId()")
+        #set($void = $s7Docs.add([$mk, $m, "$m.getTitle()"]))
+        #set($void = $s7DocByUri.put($mk, $m))
+      #end
+    #end
+  #end
+  #set($void = $s7Ts.add(["documents", $date.systemTime]))
+  ## Document key of a work item ("" when outside the documents in scope, project/space/name for another project).
+  #macro(s7DocOf $s7W)
+    #set($s7Dk = "")
+    #set($s7M = false)
+    #set($s7M = $s7W.getModule())
+    #if($s7M && !$s7M.isUnresolvable())
+      #set($s7Dk = "$s7M.getModuleFolder()/$s7M.getId()")
+      #set($s7Mp = "$s7M.getProjectId()")
+      #if($s7Mp != $projectS)
+        #set($s7Dk = "${s7Mp}/${s7Dk}")
+      #end
+    #end
+  #end
+  #set($s7Base = "FROM workitem w INNER JOIN module m ON m.c_uri = w.fk_uri_module INNER JOIN project p ON p.c_uri = m.fk_uri_project WHERE p.c_id = '${projectQ}'")
+  #if($s7Variant == "full")
+    #set($s7Sql1 = "SELECT w.c_uri ${s7Base}")
+  #elseif($s7Variant == "nested")
+    #set($s7Sql1 = "SELECT w.c_uri FROM workitem w WHERE w.c_uri IN (SELECT MIN(w.c_uri) ${s7Base} GROUP BY w.fk_uri_module, w.c_type)")
+  #else
+    #set($s7Sql1 = "SELECT MIN(w.c_uri) ${s7Base} GROUP BY w.fk_uri_module, w.c_type")
+  #end
+  #set($s7Items = $ds.sqlSearch($s7Sql1))
+  #set($void = $s7Ts.add(["types query ($s7Items.size() items)", $date.systemTime]))
+  #foreach($w in $s7Items)
+    #if(!$w.isUnresolvable())
+      #s7DocOf($w)
+      #if($s7DocByUri.containsKey($s7Dk))
+        #set($ty = "$w.getType().getId()")
+        #set($tl = false)
+        #set($tl = $s7Types.get($s7Dk))
+        #if(!$tl)
+          #set($tl = [])
+          #set($void = $s7Types.put($s7Dk, $tl))
+        #end
+        #if(!$tl.contains($ty))
+          #set($void = $tl.add($ty))
+        #end
+        #set($ck = "${s7Dk}|${ty}")
+        #set($cn = 0)
+        #set($cn = $s7TypeCount.get($ck))
+        #set($cn = $cn + 1)
+        #set($void = $s7TypeCount.put($ck, $cn))
+      #end
+    #end
+  #end
+  #set($void = $s7Ts.add(["types scanned", $date.systemTime]))
+  ## Link sources: one representative per (source document, target document, role, source type, target type).
+  #set($s7LBase = "FROM struct_workitem_linkedworkitems l INNER JOIN workitem ws ON ws.c_uri = l.fk_uri_p_workitem INNER JOIN workitem wt ON wt.c_uri = l.fk_uri_workitem INNER JOIN module ms ON ms.c_uri = ws.fk_uri_module INNER JOIN project p ON p.c_uri = ms.fk_uri_project WHERE p.c_id = '${projectQ}' AND wt.fk_uri_module IS NOT NULL")
+  #set($s7LGroup = "GROUP BY ws.fk_uri_module, wt.fk_uri_module, l.c_role, ws.c_type, wt.c_type")
+  #if($s7Variant == "full")
+    #set($s7Sql2 = "SELECT DISTINCT ws.c_uri ${s7LBase}")
+  #elseif($s7Variant == "nested")
+    #set($s7Sql2 = "SELECT ws.c_uri FROM workitem ws WHERE ws.c_uri IN (SELECT MIN(ws.c_uri) ${s7LBase} ${s7LGroup})")
+  #else
+    #set($s7Sql2 = "SELECT MIN(ws.c_uri) ${s7LBase} ${s7LGroup}")
+  #end
+  #set($s7Src = $ds.sqlSearch($s7Sql2))
+  #set($s7Reps = $s7Src.size())
+  #set($void = $s7Ts.add(["links query ($s7Reps link sources)", $date.systemTime]))
+  #set($s7ComboN = $objectFactory.newMap())
+  #foreach($w in $s7Src)
+    #if(!$w.isUnresolvable())
+      #s7DocOf($w)
+      #set($sd = $s7Dk)
+      #set($st = "$w.getType().getId()")
+      #foreach($lk in $w.getLinkedWorkItemsStructsDirect())
+        #set($s7RepLinks = $s7RepLinks + 1)
+        #set($tw = false)
+        #set($tw = $lk.getLinkedItem())
+        #if($tw && !$tw.isUnresolvable())
+          #s7DocOf($tw)
+          #set($rl = "$lk.getLinkRole().getId()")
+          #set($tt = "$tw.getType().getId()")
+          #if($s7DocByUri.containsKey($sd) && $s7DocByUri.containsKey($s7Dk))
+            #set($ck = "${sd}|${st}|${rl}|${s7Dk}|${tt}")
+            #if(!$s7ComboKeys.contains($ck))
+              #set($void = $s7ComboKeys.add($ck))
+              #set($void = $s7Combos.add([$sd, $st, $rl, $s7Dk, $tt]))
+            #end
+            #set($cn = 0)
+            #set($cn = $s7ComboN.get($ck))
+            #set($cn = $cn + 1)
+            #set($void = $s7ComboN.put($ck, $cn))
+          #else
+            #set($s7Outside = $s7Outside + 1)
+          #end
+        #end
+      #end
+    #end
+  #end
+  #set($void = $s7Ts.add(["links scanned", $date.systemTime]))
+  ## Lucene count of the first type of the first document (counts are optional for a starter model).
+  #set($fd = false)
+  #foreach($d in $s7Docs)
+    #if(!$fd && $s7Types.containsKey($d.get(0)))
+      #set($fd = $d)
+    #end
+  #end
+  #if($fd)
+    #set($fl = $s7Types.get($fd.get(0)))
+    #if($fl.size() > 0)
+      #set($fdn = "$fd.get(1).getId()")
+      #set($fq = "project.id:${projectS} AND document.id:${s7Q}${fdn}${s7Q} AND type:$fl.get(0)")
+      #set($s7Count = "method not available")
+      #set($tmp = "")
+      #set($tmp = $ds.searchInstancesCount("WorkItem", $fq))
+      #if("$tmp" != "")
+        #set($s7Count = "searchInstancesCount = $tmp for $fq")
+      #end
+      #set($void = $s7Ts.add(["count", $date.systemTime]))
+    #end
+  #end
+  ## Starter model: one role per document (key from the name), its types, one rule per observed combination.
+  #set($s7RoleOf = $objectFactory.newMap())
+  #set($s7Used = [])
+  #foreach($d in $s7Docs)
+    #set($rk = $d.get(1).getId())
+    #set($rk = "$rk")
+    #set($rk = $rk.replaceAll("[^A-Za-z0-9_-]", "_"))
+    #if($rk == "")
+      #set($rk = "Doc")
+    #end
+    #set($rb = $rk)
+    #set($ri = 1)
+    #foreach($g in [1..50])
+      #if($s7Used.contains($rk))
+        #set($ri = $ri + 1)
+        #set($rk = "${rb}_${ri}")
+      #end
+    #end
+    #set($void = $s7Used.add($rk))
+    #set($void = $s7RoleOf.put($d.get(0), $rk))
+  #end
+  #set($s7Yaml = [])
+  #set($void = $s7Yaml.add("${esc.h} Starter model generated from project ${projectS} (dmSpike S7, variant ${s7Variant}): review it"))
+  #set($void = $s7Yaml.add("version: 1"))
+  #set($void = $s7Yaml.add("name: Starter model of ${projectS}"))
+  #set($void = $s7Yaml.add("model:"))
+  #set($void = $s7Yaml.add("  roles:"))
+  #foreach($d in $s7Docs)
+    #set($tl = false)
+    #set($tl = $s7Types.get($d.get(0)))
+    #if($tl)
+      #set($ti = $d.get(2).replace('"', "'"))
+      #set($void = $s7Yaml.add("    $s7RoleOf.get($d.get(0)):"))
+      #set($void = $s7Yaml.add("      title: ${s7Q}${ti}${s7Q}"))
+      #set($void = $s7Yaml.add("      items:"))
+      #foreach($ty in $tl)
+        #set($void = $s7Yaml.add("        - { type: $ty }"))
+      #end
+    #end
+  #end
+  #if($s7Combos.size() > 0)
+    #set($void = $s7Yaml.add("  links:"))
+    #set($ln = 0)
+    #foreach($c in $s7Combos)
+      #set($ln = $ln + 1)
+      #set($void = $s7Yaml.add("    - id: L${ln}"))
+      #set($void = $s7Yaml.add("      from: { role: $s7RoleOf.get($c.get(0)), type: $c.get(1) }"))
+      #set($void = $s7Yaml.add("      link_role: $c.get(2)"))
+      #set($void = $s7Yaml.add("      to: { role: $s7RoleOf.get($c.get(3)), type: $c.get(4) }"))
+    #end
+  #end
+  #set($void = $s7Yaml.add("bindings:"))
+  #foreach($d in $s7Docs)
+    #if($s7Types.containsKey($d.get(0)))
+      #set($dk0 = $d.get(0))
+      #set($void = $s7Yaml.add("  $s7RoleOf.get($dk0): [${s7Q}${dk0}${s7Q}]"))
+    #end
+  #end
+  #set($void = $s7Ts.add(["starter YAML", $date.systemTime]))
+  #set($void = $sum.add(["S7", "Starter generator data (variant $s7Variant)", "$s7Docs.size() documents, $s7Types.size() with items, $s7Combos.size() link combinations from $s7Reps link sources", "info"]))
+#end
 #set($t1 = $date.systemTime)
 
 ## ================================================================ output
@@ -896,6 +1124,35 @@
 <tr><th>Description</th><td>$rDesc.length() characters<pre>$esc.html($rDescShown)</pre></td></tr>
 #end
 </table>
+#end
+
+#if($run.containsKey("starter"))
+<h4>S7 Starter generator data &middot; variant $s7Variant</h4>
+<p>Documents: $s7Docs.size() (max $s7Max) &middot; with items: $s7Types.size() &middot; link sources read: $s7Reps, their links scanned: $s7RepLinks &middot; links to documents out of scope: $s7Outside &middot; count method: $esc.html($s7Count)</p>
+<table>
+<tr><th>Step</th><th>Time stamp (ms)</th></tr>
+#foreach($t in $s7Ts)
+<tr><td>$esc.html($t.get(0))</td><td>$t.get(1)</td></tr>
+#end
+</table>
+<p>Queries:<br><code>$esc.html($s7Sql1)</code><br><code>$esc.html($s7Sql2)</code></p>
+<table>
+<tr><th>Document</th><th>Work item types (items counted in this variant)</th></tr>
+#foreach($d in $s7Docs)
+  #set($tl = false)
+  #set($tl = $s7Types.get($d.get(0)))
+<tr><td>$esc.html($d.get(0))</td><td>#if($tl)#foreach($ty in $tl)$esc.html($ty) ($s7TypeCount.get("$d.get(0)|$ty")) #end#end</td></tr>
+#end
+</table>
+<table>
+<tr><th>Source document</th><th>Source type</th><th>Link role</th><th>Target document</th><th>Target type</th><th>Links seen</th></tr>
+#foreach($c in $s7Combos)
+<tr><td>$esc.html($c.get(0))</td><td>$esc.html($c.get(1))</td><td>$esc.html($c.get(2))</td><td>$esc.html($c.get(3))</td><td>$esc.html($c.get(4))</td><td>$s7ComboN.get("$c.get(0)|$c.get(1)|$c.get(2)|$c.get(3)|$c.get(4)")</td></tr>
+#end
+</table>
+<p>Proposed starter model ($s7Yaml.size() lines; it can be pasted into a model item and opened with dmDefine):</p>
+<pre class="s7-yaml">#foreach($l in $s7Yaml)$esc.html($l)
+#end</pre>
 #end
 
 #if(!$isPdf)

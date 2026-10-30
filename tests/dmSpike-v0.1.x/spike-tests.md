@@ -19,7 +19,7 @@ of the instance): keep only the findings.
 | S6 | Are the project's work item types readable (`getTrackerProject(p).getWorkItemTypeEnum().getAllOptions()`, id and name), next to the link roles (verified)? | Configuration validation (§3.5) |
 | S8 | Can a work item of another project be read (`$trackerService.getWorkItem(project, id)`) with its description? Types of that project? | `uses:` reference (§3.4) |
 
-S7 (starter generator data) is left for dmDefine 0.2.
+S7 (starter generator data): run 4 below (test S7 of the spike widget, three query variants).
 
 ## 2. Setup on the sandbox project (2512)
 
@@ -117,6 +117,27 @@ the text area, press Tab, Enter, Backspace and Ctrl+Z; type in the input; choose
 *Copy (navigator.clipboard)* and paste somewhere; click *Copy (execCommand)* and paste; click *Download a .yaml file*;
 click *Show the values*. Report the text of the grey box (it lists the key events received, whether the page blocked
 any, where Tab moves the focus, whether the drop-down change arrived, the copy and download results).
+
+### Run 4: S7 starter generator data (for the dmDefine starter generator)
+
+Test **S7** (not part of *All*), parameters *S7 spaces* (e.g. the spaces of your main documents, or empty = all) and
+*S7 max documents*. Run it three times, once per *S7 query variant*, on the project with the most documents:
+
+1. **C (full scan)** first, as the reference (it reads every item and every link source: it can be slow on a large
+   project; if the page fails with a timeout, report it and limit the spaces).
+2. **A (representatives)**: `SELECT MIN(w.c_uri) … GROUP BY` (one item per document and type, one link source per
+   source document, target document, role and types).
+3. **B (nested)**: the same through `IN (SELECT MIN(…) … GROUP BY …)`, in case A is refused.
+
+Report for each: whether the page renders (or the SQL error text), the summary line (documents, with items, link
+sources read, links scanned, links out of scope, count method), the time stamps (start → starter YAML), and whether
+the tables of types and link combinations of A / B are the **same** as those of C (the counts differ: A and B count
+representatives). Then copy the proposed starter model into a model item (or the editor's text tab) and open it with
+dmDefine: report the problems listed, and whether the model is a useful starting point (roles, types, rules).
+
+Questions answered by the run: does `sqlSearch` accept `MIN(c_uri)` with `GROUP BY` (form A) or only the nested form
+(B)? Is the representative scan fast and complete on a large project? Is a Lucene count method available
+(`searchInstancesCount`)? Is one role per document, one rule per observed combination, a good starter?
 
 ### Run 3 (optional, S5)
 

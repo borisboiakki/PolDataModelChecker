@@ -76,7 +76,7 @@ referenced object, Velocity 1.4-safe templates, PDF/print without JS, no custome
 | S4 | **REST write-back**: can the widget (browser, user session) call the Polarion REST API (`/polarion/rest/v1/...`) to PATCH the description? Auth/CSRF, CORS, permission handling, rich text format of the PATCH, behaviour under 2512 and 2612, and detection when REST is disabled |
 | S5 | Document binding: by `space/name`, document type, name pattern, custom document field; what is available in SQL (`MODULE` columns) |
 | S6 | Validation sources: reading the project's work item types, link roles (name, opposite name), custom document types from the project configuration |
-| S7 | Starter generator data: item types per document, observed link roles between documents (reuse docCoverage queries), timing on a large project |
+| S7 | **Starter generator data** (test S7 of dmSpike, run 4): types per document and link combinations (source document and type, role, target document and type) without looping over all items: variant A `SELECT MIN(c_uri) … GROUP BY` (representatives whose links are scanned), B the nested form, C full scan as reference; Lucene count method (`searchInstancesCount`); timing on the largest project; proposed starter model (one role per document, one rule per combination, read by dmDefine with no problem on mocks) |
 | S9 | **Editor controls in a Polarion page** (browser only): typing in a `textarea` and an `input` (spaces, Tab, Enter, Backspace, Ctrl+Z not taken by Polarion), a `<select>` not wrapped in a `<label>` (guide §11.7: one wrapped in a label did not react on 2512), `navigator.clipboard.writeText` and the `execCommand('copy')` fallback, download of a generated file. The editor does not depend on the `<select>` result (it uses button pickers, verified pattern) |
 | S8 | Read a work item of another project (`$trackerService.getWorkItem`), optionally at a revision (`uses:` reference) |
 
@@ -128,7 +128,7 @@ PO 2026-10-30: dmDefine is completed before dmCheck is started.
 3. **0.3.0** (done; PO 2026-10-30: item 2 of the list first) in-widget editor with Copy (D9); spike S9 to run on 2512.
 4. **0.4.0** (done) `uses:` reference (D15, S8 verified) and documents of other projects (D12).
 5. **0.5.0** (done) *Save to Polarion* through the REST API (D10); checks on 2512 in `docs/PO_CHECKS.md` 2.14–2.18.
-6. Next increment: starter generator
+6. Next increment: starter generator (spike S7 prepared: `tests/dmSpike-v0.1.x/spike-tests.md` run 4, PO_CHECKS 1.3)
    (D8, spike S7).
 
 ## 9. Open checks on 2512
