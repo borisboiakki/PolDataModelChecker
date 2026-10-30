@@ -5,7 +5,7 @@ Polarion instance**. Run the checks in this order when you have time; for each o
 screenshots or PDF exports: the repository is public). Findings are then recorded in the specification and in
 `tests/dmSpike-v0.1.x/spike-tests.md`.
 
-Last update: 2026-10-30, dmDefine 0.5.0, dmCheck 0.1.0, dmSpike S7 and S10; 1.1, 1.2 done.
+Last update: 2026-10-30, dmDefine 0.5.0, dmCheck 0.1.0, dmSpike S7 and S10; 1.1–1.3 done.
 
 ## 1. Spike widget dmSpike (upload `tests/dmSpike-v0.1.x/spike-widget/dmSpike.zip`)
 
@@ -13,7 +13,7 @@ Last update: 2026-10-30, dmDefine 0.5.0, dmCheck 0.1.0, dmSpike S7 and S10; 1.1,
 |---|---|---|---|
 | 1.1 | ✅ **Done 2026-10-30** (run 3: everything works; Tab moves the focus to the next control). **S9 editor controls**, browser view, section S9: type several lines with leading spaces in the text area, press Tab, Enter, Backspace, Ctrl+Z; type in the input; choose "two" in the drop-down; click both Copy buttons (paste somewhere each time), *Download a .yaml file*, *Show the values* | The text of the grey S9 box | dmDefine 0.3.0 editor |
 | 1.2 | ✅ **Done 2026-10-30** (named space and other project found, missing document "no"). **S5 other forms** (test *S5*): in *Documents to resolve*, a document of a named space (`Space/Name`), a document of **another project** (`PROJECT/Space/Name`) and a document that does not exist | Found yes/no per document | bindings to documents of other projects (0.4.0) |
-| 1.3 | ✅ **Run 2026-10-30** (all three variants render, same counts, B 80 ms / C 650 ms; **still to report**: are the type and link tables of A/B identical to C, and the starter YAML opened in dmDefine). **S7 starter generator data** (test *S7*, three runs: variant C, then A, then B; see run 4 of `tests/dmSpike-v0.1.x/spike-tests.md`) on your largest project | Page renders or SQL error; summary line; time stamps; same types and link combinations for A/B as for C; the proposed starter model opened in dmDefine (problems, usefulness) | dmDefine starter generator |
+| 1.3 | ✅ **Done 2026-10-30** (all three variants render, tables identical, B 80 ms / C 650 ms; the starter YAML is shown by dmDefine). **S7 starter generator data** (test *S7*, three runs: variant C, then A, then B; see run 4 of `tests/dmSpike-v0.1.x/spike-tests.md`) on your largest project | Page renders or SQL error; summary line; time stamps; same types and link combinations for A/B as for C; the proposed starter model opened in dmDefine (problems, usefulness) | dmDefine starter generator |
 | 1.4 | **S10 dmCheck queries** (test *S10*; run 5 of `tests/dmSpike-v0.1.x/spike-tests.md`): source document, target document, link role; variants NOT IN, NOT EXISTS, Lucene | Page renders or error text; "same as the reference: yes/no"; counts; time stamps | dmCheck (faster checks 0.2, drill-down K9) |
 
 ## 2. dmDefine (upload `widgets/dmDefine/dist/dmDefine.zip`)

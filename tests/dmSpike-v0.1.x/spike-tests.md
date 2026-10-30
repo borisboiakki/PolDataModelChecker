@@ -139,7 +139,7 @@ Findings:
 - `sqlSearch` **accepts `SELECT MIN(c_uri) … GROUP BY …`** (A) and returns the work item objects, one per group (781 rows
   for 781 groups, the same item possibly several times); the nested form (B) returns each item once (375 distinct link
   sources). Both give the **same number of document/type pairs (281) and link combinations (781) as the full scan**.
-  Whether the tables are identical row by row: to confirm by the PO (counts equal in the three summaries).
+  **The type and link tables of A and B are identical to those of C** (PO).
 - Even the full scan stays well within the 10 s budget on this project (≈ 0.65 s for 8k items), but scales with the
   items; B is ≈ 8× faster and reads ≈ 20× fewer links.
 - Count method: **`searchInstancesCount` not available** ("method not available"): A and B give representatives, not
@@ -147,7 +147,7 @@ Findings:
   would need `GROUP BY … HAVING` style queries (verified form) or the full scan.
 - The page export of the full output is large (≈ 200 pages for 151 documents): the starter generator must show a
   compact proposal (YAML + summary), not every combination table.
-- Pending (PO): the generated starter YAML opened in dmDefine (problems, usefulness).
+- The generated starter YAML (all three variants) **opens in dmDefine and shows the starter model** (PO: "everything seems good").
 
 Decision proposed for the starter generator (D8): **variant B** (nested; A also works as a fallback);
 full scan not used.
