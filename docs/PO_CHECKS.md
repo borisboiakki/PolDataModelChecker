@@ -5,7 +5,7 @@ Polarion instance**. Run the checks in this order when you have time; for each o
 screenshots or PDF exports: the repository is public). Findings are then recorded in the specification and in
 `tests/dmSpike-v0.1.x/spike-tests.md`.
 
-Last update: 2026-10-30, dmDefine 0.5.0, dmCheck 0.1.0, dmSpike S7 and S10; §1 done; §1–§3 done (dmDefine 0.5.0 and dmCheck 0.1.0 verified); §4 decisions open.
+Last update: 2026-10-30, dmDefine 0.5.0, dmCheck 0.1.0, dmSpike S7 and S10; §1 done; §1–§4 done (dmDefine 0.5.0 and dmCheck 0.1.0 verified, decisions agreed); §5 later.
 
 ## 1. Spike widget dmSpike (upload `tests/dmSpike-v0.1.x/spike-widget/dmSpike.zip`)
 
@@ -58,9 +58,9 @@ Use a model with the names of your project (start from `test-data/vcycle-model.y
 
 | # | Question | Proposal |
 |---|---|---|
-| 4.1 | Items not counted (headings…) | no extra parameter: types with `ignored: true` in the model are not counted; types not listed are "unexpected types"; a rule end without type counts the listed, not ignored types |
-| 4.2 | Severity and score | the model's severities; compliance % per rule (per side) and per document; graph red / orange / green |
-| 4.3 | Storable report | live report + Excel + PDF export of the page; no snapshot work item in v1 |
+| 4.1 | ✅ **Agreed by the PO 2026-10-30**. Items not counted (headings…) | no extra parameter: types with `ignored: true` in the model are not counted; types not listed are "unexpected types"; a rule end without type counts the listed, not ignored types |
+| 4.2 | ✅ **Agreed by the PO 2026-10-30**. Severity and score | the model's severities; compliance % per rule (per side) and per document; graph red / orange / green |
+| 4.3 | ✅ **Agreed by the PO 2026-10-30**. Storable report | live report + Excel + PDF export of the page; no snapshot work item in v1 |
 
 ## 5. Later (not needed now)
 

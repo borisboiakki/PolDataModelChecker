@@ -171,8 +171,8 @@ root classes `dd-root`/`dc-root`; `core.js` optional widget fields `isolatedText
 
 ## Where the work stands (read first in a new session)
 
-- Pending checks of the PO on 2512, in order: `docs/PO_CHECKS.md` (dmSpike all done, dmDefine §2 and dmCheck §3 all done;
-  open: decisions to confirm §4). Record each result in the spec / `tests/dmSpike-v0.1.x/spike-tests.md`, then tick it there.
+- Pending checks of the PO on 2512, in order: `docs/PO_CHECKS.md` (dmSpike all done, all done (§1–§4, 2026-10-30); §5 later: REST token
+  disabled, 2612). Record each result in the spec / `tests/dmSpike-v0.1.x/spike-tests.md`, then tick it there.
 - Next increments: dmDefine starter generator (S7 done: nested `IN (SELECT MIN(c_uri) … GROUP BY …)` form, run 4), dmCheck 0.2 (faster set queries, drill-down: S10 run 5
   and 5b: NOT IN, also inside Lucene SQL:(…), gives the reference's non-empty lists). Later: exploded view of the graph (dmDefine D16, then dmCheck K17; PO-agreed design in the specs).
   Specs §8 of each widget list them.

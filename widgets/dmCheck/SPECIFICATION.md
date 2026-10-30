@@ -3,8 +3,7 @@
 **Status:** v0.3, 2026-10-30. **dmCheck 0.1.0 implemented** (`widgets/dmCheck/src`, shared `dm-check.vm`: K1, K3–K8,
 K10, K12, K14–K16), tested with Velocity 1.4 on mocks built from `test-data/vcycle-check/` and in Chromium; **verified by the PO
 on 2512 (2026-10-30, `docs/PO_CHECKS.md` 3.1–3.6: test structure with the expected violations, details, table, Excel,
-PDF, a real model of the largest project, a model with an error)**. Spike S10 (T1, T3) prepared. Proposed answers to the open questions are marked *proposed* (§7,
-to confirm by the PO: `docs/PO_CHECKS.md` §4). Items marked `[?]` are open or need verification on a Polarion instance.
+PDF, a real model of the largest project, a model with an error)**. Spike S10 (T1, T3) prepared. Open questions of §7 all decided by the PO (2026-10-30). Items marked `[?]` are open or need verification on a Polarion instance.
 
 ## 1. Goal
 
@@ -73,7 +72,7 @@ every referenced object. Velocity 1.4-safe. No customer data in the repository.
 
 ## 7. Open questions (to ask the PO)
 
-1. Counting of items: *proposed*: no separate "excluded types" parameter; the model says it: a type with `ignored: true`
+1. Counting of items: **Decided (PO, 2026-10-30, as proposed)**: no separate "excluded types" parameter; the model says it: a type with `ignored: true`
    in a role (e.g. heading) is allowed and not counted by the rules; a type not listed in the role is an unexpected
    type (severity `unexpected_types`). A rule end without `type` counts every listed, not ignored type of the role.
 2. ~~Several documents in one role~~ **Decided (PO, 2026-10-30)**: both, chosen per rule. By default the documents of a
@@ -81,10 +80,10 @@ every referenced object. Velocity 1.4-safe. No customer data in the repository.
    is **paired**: only links between the declared document pairs count, cross-pair links and unpaired documents are
    reported (K15). Use case that raised it: two solution specifications satisfying one customer specification, each
    verified by its own test specification (STD). The workaround without pairs (one role per document) stays valid.
-3. Severity and score: *proposed*: the severities of the model (error, warning, info); a compliance percentage per rule
+3. Severity and score: **Decided (PO, 2026-10-30, as proposed)**: the severities of the model (error, warning, info); a compliance percentage per rule
    (compliant items / checked items, per side) and per document (items without violation / counted items); the
    graph is red when a rule has errors, orange for warnings only, green when compliant.
-4. Storable report: *proposed*: a live report plus the Excel export (and PDF export of the page); no snapshot work item
+4. Storable report: **Decided (PO, 2026-10-30, as proposed)**: a live report plus the Excel export (and PDF export of the page); no snapshot work item
    in v1.
 5. ~~Copies and branches~~ **Decided (PO, 2026-10-30)**: only the documents the user declares in the model are checked. A branch or copy is part of the model only if listed. Links from undeclared documents are ignored.
 
