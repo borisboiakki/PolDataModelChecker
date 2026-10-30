@@ -65,6 +65,24 @@ public class DmMocks {
         public Text getDescription() { return new Text(html); }
         public String getRevision() { return null; }
         public String getLastRevision() { return "4712"; }
+        public Module getModule() { return module; }
+        public final List<Link> links = new ArrayList<Link>();
+        public List<Link> getLinkedWorkItemsStructsDirect() { return links; }
+        public WorkItem link(String role, WorkItem target) { links.add(new Link(role, target)); return this; }
+    }
+
+    public static class Link {
+        final Opt role;
+        final WorkItem target;
+        public Link(String role, WorkItem target) { this.role = new Opt(role, role); this.target = target; }
+        public Opt getLinkRole() { return role; }
+        public WorkItem getLinkedItem() { return target; }
+    }
+
+    /** "(p.c_id = 'P' AND m.c_modulefolder = 'S' AND m.c_id = 'N')" with the aliases of a query. */
+    static String cond(Module m, String p, String mm) {
+        return "(" + p + ".c_id = '" + m.project.replace("'", "''") + "' AND " + mm + ".c_modulefolder = '" + m.folder.replace("'", "''")
+            + "' AND " + mm + ".c_id = '" + m.name.replace("'", "''") + "')";
     }
 
     public static class RItem {
@@ -111,6 +129,22 @@ public class DmMocks {
         public List<Object> sqlSearch(String sql) {
             SQL_LOG.add(sql);
             List<Object> out = new ArrayList<Object>();
+            // dmCheck: items of the declared documents.
+            if (sql.startsWith("SELECT w.c_uri FROM workitem w INNER JOIN module m ON m.c_uri = w.fk_uri_module INNER JOIN project p ON p.c_uri = m.fk_uri_project WHERE (")) {
+                for (WorkItem w : ITEMS) { if (w.module != null && sql.contains(cond(w.module, "p", "m"))) { out.add(w); } }
+                return out;
+            }
+            // dmCheck: link sources between declared documents with the rule roles.
+            if (sql.startsWith("SELECT DISTINCT ws.c_uri FROM struct_workitem_linkedworkitems l")) {
+                String roles = sql.substring(sql.indexOf("l.c_role IN (") + 13, sql.indexOf(")", sql.indexOf("l.c_role IN (")));
+                for (WorkItem w : ITEMS) {
+                    if (w.module == null || !sql.contains(cond(w.module, "ps", "ms"))) { continue; }
+                    for (Link l : w.links) {
+                        if (l.target.module != null && roles.contains("'" + l.role.id + "'") && sql.contains(cond(l.target.module, "pt", "mt")) && !out.contains(w)) { out.add(w); }
+                    }
+                }
+                return out;
+            }
             if (sql.startsWith("SELECT m.c_uri FROM module m INNER JOIN project p ON p.c_uri = m.fk_uri_project WHERE ")) {
                 for (Module m : MODULES) {
                     String cond = "(p.c_id = '" + m.project.replace("'", "''") + "' AND m.c_modulefolder = '" + m.folder.replace("'", "''")

@@ -1,0 +1,86 @@
+// Chromium check of the dmCheck browser view rendered by CheckHarness (test structure of test-data/vcycle-check).
+// Usage: node browser-check.js <outDir>   (needs browser.html, model-error.html, pdf.html written by tools/test-widget.sh)
+const { chromium } = require('playwright');
+const fs = require('fs');
+
+function expect(ok, what) {
+  if (!ok) { throw new Error('CHECK FAILED: ' + what); }
+  console.log('check ok: ' + what);
+}
+
+async function readBook(p, path) {
+  const b64 = fs.readFileSync(path).toString('base64');
+  return p.evaluate(data => {
+    const wb = window.XLSX.read(data, { type: 'base64' });
+    return wb.SheetNames.map(n => ({ name: n, rows: window.XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, defval: '' }) }));
+  }, b64);
+}
+
+(async () => {
+  const b = await chromium.launch();
+  const p = await b.newPage({ viewport: { width: 1220, height: 900 }, acceptDownloads: true });
+  const errors = [];
+  p.on('pageerror', e => errors.push(String(e)));
+  p.on('console', m => { if (m.type() === 'error') { errors.push(m.text()); } });
+  const dir = process.argv[2];
+
+  await p.goto('file://' + dir + '/browser.html');
+  await p.waitForTimeout(300);
+  await p.screenshot({ path: dir + '/shot-graph.png', fullPage: true });
+  const chips = await p.$$eval('.dc-chip', cs => cs.map(c => c.textContent));
+  console.log('summary:', JSON.stringify(chips));
+  expect(chips[0] === '4 errors' && chips[1] === '7 warnings' && chips[2] === '0 info' && chips[3] === '20 work items, 12 links checked', 'summary: 4 errors, 7 warnings (structure.md), items and links');
+  expect((await p.$$('.bw-node')).length === 3, 'graph: 3 roles');
+  const edges = await p.$$eval('.bw-edge path:first-child', ps => ps.map(x => x.getAttribute('stroke')));
+  expect(edges.length === 2 && edges.indexOf('rgb(198,40,40)') >= 0 && edges.indexOf('rgb(211,120,0)') >= 0, 'graph: L1 red (errors), L2 orange (warnings)');
+  const labels = await p.$$eval('.bw-edge-label', ls => ls.map(l => l.textContent).sort());
+  console.log('labels:', JSON.stringify(labels));
+  expect(JSON.stringify(labels) === JSON.stringify(['errors 3', 'warnings 6']), 'graph: violations per severity on the lines');
+  const boxes = await p.$$eval('.bw-node', ns => ns.map(n => n.textContent).join(' | '));
+  expect(boxes.indexOf('Items: 5, without violation: 60%') >= 0 && boxes.indexOf('Types: 1 unexpected') >= 0, 'role box: customer specification (5 counted items, 2 with a violation; 1 unexpected type)');
+  expect(boxes.indexOf(String.fromCharCode(8635) + ' P1: compliant') >= 0, 'role box: rule inside the role (P1 compliant)');
+
+  // Details of a line and of a role.
+  await p.evaluate(() => Array.from(document.querySelectorAll('.bw-edge-label')).find(l => l.textContent === 'warnings 6').dispatchEvent(new MouseEvent('click', { bubbles: true })));
+  await p.waitForTimeout(100);
+  const det = await p.textContent('.bw-details');
+  expect(det.indexOf('L2:') >= 0 && det.indexOf('(paired)') > 0 && det.indexOf('cross-pair links: 1') > 0 && det.indexOf('Violations of L2 (6)') > 0, 'line details: L2 counters and its 6 violations');
+  expect(await p.$$eval('.bw-details a', as => as.some(a => a.getAttribute('href').indexOf('workitem?id=STA-3') > 0)), 'line details: work item links');
+  await p.evaluate(() => Array.from(document.querySelectorAll('.bw-node')).find(n => n.querySelector('title').textContent.indexOf('CustomerSpec') === 0).dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })));
+  await p.waitForTimeout(100);
+  const rdet = await p.textContent('.bw-details');
+  expect(rdet.indexOf('Role CustomerSpec') === 0 && rdet.indexOf('CUS-6: type information is not listed in role CustomerSpec.') > 0, 'role details: documents and the unexpected type');
+
+  // Table view, filters.
+  await p.click('button:has-text("Table")');
+  const vrows = async () => p.$$eval('.bw-table-wrap table', ts => ts[0].querySelectorAll('tbody tr').length);
+  expect(await vrows() === 11, 'table: 11 violations');
+  await p.fill('.dc-filter', 'STA-3');
+  await p.waitForTimeout(100);
+  expect(await vrows() === 2, 'table: text filter (STA-3: missing link and cross-pair link)');
+  await p.fill('.dc-filter', '');
+  await p.click('label.bw-check:has-text("Warnings") input');
+  await p.waitForTimeout(100);
+  expect(await vrows() === 4, 'table: warnings hidden, 4 errors left');
+  await p.click('label.bw-check:has-text("Warnings") input');
+  await p.screenshot({ path: dir + '/shot-table.png', fullPage: true });
+
+  const [dl] = await Promise.all([p.waitForEvent('download'), p.click('button:has-text("Excel")')]);
+  await dl.saveAs(dir + '/check.xlsx');
+  const book = await readBook(p, dir + '/check.xlsx');
+  expect(JSON.stringify(book.map(s => s.name)) === JSON.stringify(['Rules', 'Violations', 'Documents', 'Model problems']), 'Excel: 4 sheets');
+  expect(book[1].rows.length === 12 && book[0].rows.length === 4 && book[2].rows.length === 6, 'Excel: 11 violations, 3 rules, 5 documents');
+
+  // Model with an error: nothing checked.
+  await p.goto('file://' + dir + '/model-error.html');
+  await p.waitForTimeout(300);
+  expect((await p.textContent('.dc-sum')).indexOf('The model has errors') === 0 && (await p.textContent('.dc-probs')).indexOf('nosuchrole') > 0, 'model with an error: problems shown, nothing checked');
+  await p.screenshot({ path: dir + '/shot-error.png', fullPage: true });
+
+  await p.goto('file://' + dir + '/pdf.html');
+  expect((await p.$$('script')).length === 0 && (await p.$$('.dc-static table')).length === 3, 'PDF view: static tables, no script');
+  await p.screenshot({ path: dir + '/shot-pdf.png', fullPage: true });
+
+  expect(errors.length === 0, 'no JavaScript error (' + errors.join('; ') + ')');
+  await b.close();
+})().catch(e => { console.error(e.message || e); process.exit(1); });

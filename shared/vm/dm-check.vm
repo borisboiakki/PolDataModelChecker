@@ -1,0 +1,392 @@
+## Shared snippet dm-check.vm (shared/vm), inlined by tools/build-widget.py at "## BW_SHARED dm-check.vm" (dmCheck).
+## Checks the declared documents against the model (widgets/dmCheck/SPECIFICATION.md K3-K5, K15; docs/ARCHITECTURE.md 4).
+## Needs dm-read.vm, dm-yaml.vm and dm-model.vm ($dmRoles, $dmRules, $dmUnexpLinks, $dmErrors, $dmDeclSql).
+## Data, SQL forms verified on 2512 (sister repo, docCoverage): (1) the items of the declared documents, one query;
+## (2) the link sources between declared documents with a link role used by the rules (DISTINCT, joins on module and
+## project); their links are read with getLinkedWorkItemsStructsDirect(). Only the declared documents are read.
+## Input: $dcItemCap, $dcLinkCap, $dcListCap.
+## Output:
+##   $dcRun (true when the checks ran), $dcNote (why not), $dcItemN, $dcLinkN, $dcUnres (unresolvable link targets),
+##   $dcCapped (item or link cap reached)
+##   $dcViol   list of [severity, kind, rule id, document key, item key, message]; kinds: missing-type, too-many,
+##             unexpected-type, from, to, cross-pair, unpaired, unexpected-link (at most $dcListCap per rule and kind)
+##   $dcViolN  map "rule|kind" -> full count;  $dcSevN map severity -> full count
+##   $dcStat   map rule id -> map fc, fo (from side: checked, compliant), tc, to (to side), cross, unp, sev
+##   $dcDocs   list of maps key, roles (list), items (counted), bad (items with a violation), types ("type|n;" text)
+#set($dcRun = false)
+#set($dcNote = "")
+#set($dcItemN = 0)
+#set($dcLinkN = 0)
+#set($dcUnres = 0)
+#set($dcCapped = false)
+#set($dcViol = [])
+#set($dcViolN = $objectFactory.newMap())
+#set($dcSevN = $objectFactory.newMap())
+#set($dcStat = $objectFactory.newMap())
+#set($dcDocs = [])
+
+## Violation [sev, kind, rule, doc, item, msg]: counted always, stored up to $dcListCap per rule and kind.
+## Arguments are passed by name (Velocity 1.4): the macro uses its own variable names (dca*) so that an argument such
+## as "$dcN link(s)" is not changed by the macro before it is read.
+#macro(dcAdd $dcaS $dcaK $dcaR $dcaD $dcaI $dcaM)
+  #set($dcaMsg = "$dcaM")
+  #set($dcaSev = "$dcaS")
+  #set($dcaItem = "$dcaI")
+  #set($dcaKey = "${dcaR}|${dcaK}")
+  #set($dcaN = 0)
+  #set($dcaN = $dcViolN.get($dcaKey))
+  #set($dcaN = $dcaN + 1)
+  #set($void = $dcViolN.put($dcaKey, $dcaN))
+  #set($dcaSn = 0)
+  #set($dcaSn = $dcSevN.get($dcaSev))
+  #set($dcaSn = $dcaSn + 1)
+  #set($void = $dcSevN.put($dcaSev, $dcaSn))
+  #if($dcaN <= $dcListCap)
+    #set($void = $dcViol.add([$dcaSev, "$dcaK", "$dcaR", "$dcaD", $dcaItem, $dcaMsg]))
+  #end
+  #if($dcaItem != "")
+    #set($void = $dcBadItems.put($dcaItem, true))
+  #end
+#end
+
+#set($dcBadItems = $objectFactory.newMap())
+#set($dcFound = [])
+#set($dcDocRoles = $objectFactory.newMap())
+#foreach($dmR in $dmRoles)
+  #foreach($dmD in $dmR.get("docs"))
+    #if($dmD.get("found"))
+      #set($dcDk = $dmD.get("key"))
+      #if(!$dcFound.contains($dcDk))
+        #set($void = $dcFound.add($dcDk))
+        #set($void = $dcDocRoles.put($dcDk, []))
+      #end
+      #set($dcRl = $dcDocRoles.get($dcDk))
+      #if(!$dcRl.contains($dmR.get("key")))
+        #set($void = $dcRl.add($dmR.get("key")))
+      #end
+    #end
+  #end
+#end
+#if($dmErrors > 0)
+  #set($dcNote = "The model has errors: correct them (see the problems; dmDefine shows the model with its lines), then the data is checked.")
+#elseif($dcFound.size() == 0)
+  #set($dcNote = "No declared document was found: nothing to check.")
+#else
+  #set($dcRun = true)
+#end
+
+#if($dcRun)
+  ## ------------------------------------------------------------- items of the declared documents
+  #set($dcItems = $objectFactory.newMap())
+  #set($dcByDoc = $objectFactory.newMap())
+  #set($dcTypeN = $objectFactory.newMap())
+  #foreach($dcDk in $dcFound)
+    #set($void = $dcByDoc.put($dcDk, []))
+  #end
+  #set($dcRows = $trackerService.getDataService().sqlSearch("SELECT w.c_uri FROM workitem w INNER JOIN module m ON m.c_uri = w.fk_uri_module INNER JOIN project p ON p.c_uri = m.fk_uri_project WHERE (${dmDeclSql})"))
+  #foreach($dcW in $dcRows)
+    #if($dcItemN < $dcItemCap && !$dcW.isUnresolvable())
+      #set($dcM = false)
+      #set($dcM = $dcW.getModule())
+      #if($dcM && !$dcM.isUnresolvable())
+        #set($dcDk = "$dcM.getProjectId()/$dcM.getModuleFolder()/$dcM.getId()")
+        #if($dcByDoc.containsKey($dcDk))
+          #set($dcIk = "$dcW.getProjectId()/$dcW.getId()")
+          #set($dcTy = "$dcW.getType().getId()")
+          #set($void = $dcItems.put($dcIk, [$dcTy, $dcDk, "$dcW.getId()"]))
+          #set($void = $dcByDoc.get($dcDk).add($dcIk))
+          #set($dcTk = "${dcDk}|${dcTy}")
+          #set($dcN = 0)
+          #set($dcN = $dcTypeN.get($dcTk))
+          #set($dcN = $dcN + 1)
+          #set($void = $dcTypeN.put($dcTk, $dcN))
+          #set($dcItemN = $dcItemN + 1)
+        #end
+      #end
+    #elseif($dcItemN >= $dcItemCap)
+      #set($dcCapped = true)
+    #end
+  #end
+
+  ## ------------------------------------------------------------- links between declared documents (rule roles)
+  #set($dcRoleIds = [])
+  #foreach($dmU in $dmRules)
+    #if(!$dcRoleIds.contains($dmU.get("role")))
+      #set($void = $dcRoleIds.add($dmU.get("role")))
+    #end
+  #end
+  #set($dcLinks = [])
+  #if($dcRoleIds.size() > 0)
+    #set($dcRoleSql = "")
+    #foreach($dcR in $dcRoleIds)
+      #if($dcRoleSql != "")
+        #set($dcRoleSql = "${dcRoleSql},")
+      #end
+      #set($dcRq = $dcR.replace("'", "''"))
+      #set($dcRoleSql = "${dcRoleSql}'${dcRq}'")
+    #end
+    #set($dcSrcSql = $dmDeclSql.replace("p.c_id", "ps.c_id").replace("m.c_", "ms.c_"))
+    #set($dcTgtSql = $dmDeclSql.replace("p.c_id", "pt.c_id").replace("m.c_", "mt.c_"))
+    #set($dcSrc = $trackerService.getDataService().sqlSearch("SELECT DISTINCT ws.c_uri FROM struct_workitem_linkedworkitems l INNER JOIN workitem ws ON ws.c_uri = l.fk_uri_p_workitem INNER JOIN workitem wt ON wt.c_uri = l.fk_uri_workitem INNER JOIN module ms ON ms.c_uri = ws.fk_uri_module INNER JOIN project ps ON ps.c_uri = ms.fk_uri_project INNER JOIN module mt ON mt.c_uri = wt.fk_uri_module INNER JOIN project pt ON pt.c_uri = mt.fk_uri_project WHERE l.c_role IN (${dcRoleSql}) AND (${dcSrcSql}) AND (${dcTgtSql})"))
+    #foreach($dcW in $dcSrc)
+      #if(!$dcW.isUnresolvable())
+        #set($dcSk = "$dcW.getProjectId()/$dcW.getId()")
+        #if($dcItems.containsKey($dcSk))
+          #foreach($dcL in $dcW.getLinkedWorkItemsStructsDirect())
+            #set($dcT = false)
+            #set($dcT = $dcL.getLinkedItem())
+            #if(!$dcT || $dcT.isUnresolvable())
+              #set($dcUnres = $dcUnres + 1)
+            #else
+              #set($dcLr = "$dcL.getLinkRole().getId()")
+              #set($dcTk = "$dcT.getProjectId()/$dcT.getId()")
+              #if($dcRoleIds.contains($dcLr) && $dcItems.containsKey($dcTk))
+                #if($dcLinkN < $dcLinkCap)
+                  #set($void = $dcLinks.add([$dcSk, $dcLr, $dcTk, false]))
+                  #set($dcLinkN = $dcLinkN + 1)
+                #else
+                  #set($dcCapped = true)
+                #end
+              #end
+            #end
+          #end
+        #end
+      #end
+    #end
+  #end
+
+  ## ------------------------------------------------------------- item types per role and document (K3)
+  #foreach($dmR in $dmRoles)
+    #set($dcRk = $dmR.get("key"))
+    #foreach($dmD in $dmR.get("docs"))
+      #if($dmD.get("found"))
+        #set($dcDk = $dmD.get("key"))
+        #foreach($dcT in $dmR.get("types"))
+          #set($dcTy = $dcT.get("type"))
+          #set($dcN = 0)
+          #set($dcN = $dcTypeN.get("${dcDk}|${dcTy}"))
+          #set($dcMin = $dcT.get("min"))
+          #set($dcMax = $dcT.get("max"))
+          #if($dcMin >= 0 && $dcN < $dcMin)
+            #dcAdd("error" "missing-type" "types:$dcRk" $dcDk "" "Role $dcRk: $dcN item(s) of type $dcTy, at least $dcMin required.")
+          #end
+          #if($dcMax >= 0 && $dcN > $dcMax)
+            #dcAdd("error" "too-many" "types:$dcRk" $dcDk "" "Role $dcRk: $dcN item(s) of type $dcTy, at most $dcMax allowed.")
+          #end
+        #end
+      #end
+    #end
+  #end
+  ## Unexpected types: not listed in any role of the document (severity of the first role; ignore = not reported).
+  #foreach($dcDk in $dcFound)
+    #set($dcListed = [])
+    #set($dcSev = "")
+    #set($dcFirstRole = "")
+    #foreach($dcRk in $dcDocRoles.get($dcDk))
+      #set($dmR = $dmRoleByKey.get($dcRk))
+      #if($dcSev == "")
+        #set($dcSev = $dmR.get("unexp"))
+        #set($dcFirstRole = $dcRk)
+      #end
+      #foreach($dcT in $dmR.get("types"))
+        #set($void = $dcListed.add($dcT.get("type")))
+      #end
+    #end
+    #if($dcSev != "ignore")
+      #foreach($dcIk in $dcByDoc.get($dcDk))
+        #set($dcTy = $dcItems.get($dcIk).get(0))
+        #if(!$dcListed.contains($dcTy))
+          #set($dcIid = $dcItems.get($dcIk).get(2))
+          #dcAdd($dcSev "unexpected-type" "types:$dcFirstRole" $dcDk $dcIk "$dcIid: type $dcTy is not listed in role $dcFirstRole.")
+        #end
+      #end
+    #end
+  #end
+
+  ## ------------------------------------------------------------- link rules (K4, K15)
+  ## Counted items of a role end: items of the role's found documents, of the end type, or of a listed, not ignored
+  ## type when the end has none. Into $dcCand (list of item keys) and $dcCandSet (map).
+  #macro(dcEnd $dcEr $dcEt)
+    #set($dcCand = [])
+    #set($dcCandSet = $objectFactory.newMap())
+    #set($dcRr = $dmRoleByKey.get($dcEr))
+    #set($dcOkTypes = [])
+    #if("$dcEt" != "")
+      #set($void = $dcOkTypes.add("$dcEt"))
+    #else
+      #foreach($dcT in $dcRr.get("types"))
+        #if(!$dcT.get("ignored"))
+          #set($void = $dcOkTypes.add($dcT.get("type")))
+        #end
+      #end
+    #end
+    #foreach($dmD in $dcRr.get("docs"))
+      #if($dmD.get("found"))
+        #foreach($dcIk in $dcByDoc.get($dmD.get("key")))
+          #if($dcOkTypes.contains($dcItems.get($dcIk).get(0)) && !$dcCandSet.containsKey($dcIk))
+            #set($void = $dcCand.add($dcIk))
+            #set($void = $dcCandSet.put($dcIk, true))
+          #end
+        #end
+      #end
+    #end
+  #end
+  #foreach($dmU in $dmRules)
+    #set($dcUid = $dmU.get("id"))
+    #set($dcSev = $dmU.get("sev"))
+    #set($dcSt = $objectFactory.newMap())
+    #set($void = $dcSt.put("sev", $dcSev))
+    #set($void = $dcStat.put($dcUid, $dcSt))
+    #dcEnd($dmU.get("from") $dmU.get("ft"))
+    #set($dcFrom = $dcCand)
+    #set($dcFromSet = $dcCandSet)
+    #dcEnd($dmU.get("to") $dmU.get("tt"))
+    #set($dcTo = $dcCand)
+    #set($dcToSet = $dcCandSet)
+    #set($dcPairs = [])
+    #foreach($dcP in $dmU.get("pairs"))
+      #set($void = $dcPairs.add("$dcP.get(0)>$dcP.get(1)"))
+    #end
+    #set($dcPaired = $dmU.get("paired"))
+    #set($dcFn = $objectFactory.newMap())
+    #set($dcTn = $objectFactory.newMap())
+    #set($dcCross = 0)
+    #foreach($dcL in $dcLinks)
+      #if($dcL.get(1) == $dmU.get("role") && $dcFromSet.containsKey($dcL.get(0)) && $dcToSet.containsKey($dcL.get(2)))
+        #set($dcSd = $dcItems.get($dcL.get(0)).get(1))
+        #set($dcTd = $dcItems.get($dcL.get(2)).get(1))
+        #set($void = $dcL.set(3, true))
+        #if($dcPaired && !$dcPairs.contains("${dcSd}>${dcTd}"))
+          #set($dcCross = $dcCross + 1)
+          #set($dcSid = $dcItems.get($dcL.get(0)).get(2))
+          #set($dcTid = $dcItems.get($dcL.get(2)).get(2))
+          #dcAdd($dcSev "cross-pair" $dcUid $dcSd $dcL.get(0) "$dcSid $dmU.get('rname') $dcTid: documents not paired for ${dcUid} ($dcSd, $dcTd).")
+        #else
+          #set($dcN = 0)
+          #set($dcN = $dcFn.get($dcL.get(0)))
+          #set($dcN = $dcN + 1)
+          #set($void = $dcFn.put($dcL.get(0), $dcN))
+          #set($dcN = 0)
+          #set($dcN = $dcTn.get($dcL.get(2)))
+          #set($dcN = $dcN + 1)
+          #set($void = $dcTn.put($dcL.get(2), $dcN))
+        #end
+      #end
+    #end
+    #set($dcFc = 0)
+    #set($dcFo = 0)
+    #set($dcFmin = $dmU.get("fmin"))
+    #if($dcFmin > 0)
+      #foreach($dcIk in $dcFrom)
+        #set($dcFc = $dcFc + 1)
+        #set($dcN = 0)
+        #set($dcN = $dcFn.get($dcIk))
+        #if($dcN >= $dcFmin)
+          #set($dcFo = $dcFo + 1)
+        #else
+          #set($dcIt = $dcItems.get($dcIk))
+          #set($dcIid = $dcIt.get(2))
+          #dcAdd($dcSev "from" $dcUid $dcIt.get(1) $dcIk "$dcIid: $dcN link(s) $dmU.get('rname') to role $dmU.get('to'), at least $dcFmin required (${dcUid}).")
+        #end
+      #end
+    #end
+    #set($dcTc = 0)
+    #set($dcTo2 = 0)
+    #set($dcTmin = $dmU.get("tmin"))
+    #if($dcTmin > 0)
+      #foreach($dcIk in $dcTo)
+        #set($dcTc = $dcTc + 1)
+        #set($dcN = 0)
+        #set($dcN = $dcTn.get($dcIk))
+        #if($dcN >= $dcTmin)
+          #set($dcTo2 = $dcTo2 + 1)
+        #else
+          #set($dcIt = $dcItems.get($dcIk))
+          #set($dcIid = $dcIt.get(2))
+          #dcAdd($dcSev "to" $dcUid $dcIt.get(1) $dcIk "$dcIid: $dcN link(s) $dmU.get('rname') from role $dmU.get('from'), at least $dcTmin required (${dcUid}).")
+        #end
+      #end
+    #end
+    ## Unpaired documents of a paired rule.
+    #set($dcUnp = 0)
+    #if($dcPaired)
+      #foreach($dcSide in ["from", "to"])
+        #set($dcRr = $dmRoleByKey.get($dmU.get($dcSide)))
+        #foreach($dmD in $dcRr.get("docs"))
+          #if($dmD.get("found"))
+            #set($dcIn = false)
+            #foreach($dcP in $dmU.get("pairs"))
+              #if(($dcSide == "from" && $dcP.get(0) == $dmD.get("key")) || ($dcSide == "to" && $dcP.get(1) == $dmD.get("key")))
+                #set($dcIn = true)
+              #end
+            #end
+            #if(!$dcIn)
+              #set($dcUnp = $dcUnp + 1)
+              #dcAdd($dcSev "unpaired" $dcUid $dmD.get("key") "" "Document $dmD.get('key') (role $dcRr.get('key')) is in no pair of ${dcUid}.")
+            #end
+          #end
+        #end
+      #end
+    #end
+    #set($void = $dcSt.put("fc", $dcFc))
+    #set($void = $dcSt.put("fo", $dcFo))
+    #set($void = $dcSt.put("tc", $dcTc))
+    #set($void = $dcSt.put("to", $dcTo2))
+    #set($void = $dcSt.put("cross", $dcCross))
+    #set($void = $dcSt.put("unp", $dcUnp))
+  #end
+
+  ## ------------------------------------------------------------- unexpected links (K5)
+  #if($dmUnexpLinks != "ignore")
+    #foreach($dcL in $dcLinks)
+      #if(!$dcL.get(3))
+        #set($dcUs = $dcItems.get($dcL.get(0)))
+        #set($dcUt = $dcItems.get($dcL.get(2)))
+        #set($dcSid = $dcUs.get(2))
+        #set($dcTid = $dcUt.get(2))
+        #set($dcUsd = $dcUs.get(1))
+        #set($dcUsk = $dcL.get(0))
+        #set($dcUmsg = "$dcSid ($dcUs.get(0)) $dcL.get(1) $dcTid ($dcUt.get(0), $dcUt.get(1)): no rule allows this link.")
+        #dcAdd($dmUnexpLinks "unexpected-link" "" $dcUsd $dcUsk $dcUmsg)
+      #end
+    #end
+  #end
+
+  ## ------------------------------------------------------------- documents: counted items, items with a violation
+  #foreach($dcDk in $dcFound)
+    #set($dcIgn = [])
+    #foreach($dcRk in $dcDocRoles.get($dcDk))
+      #foreach($dcT in $dmRoleByKey.get($dcRk).get("types"))
+        #if($dcT.get("ignored"))
+          #set($void = $dcIgn.add($dcT.get("type")))
+        #end
+      #end
+    #end
+    #set($dcCnt = 0)
+    #set($dcBad = 0)
+    #set($dcTyText = "")
+    #set($dcTyDone = [])
+    #foreach($dcIk in $dcByDoc.get($dcDk))
+      #set($dcTy = $dcItems.get($dcIk).get(0))
+      #if(!$dcIgn.contains($dcTy))
+        #set($dcCnt = $dcCnt + 1)
+        #if($dcBadItems.containsKey($dcIk))
+          #set($dcBad = $dcBad + 1)
+        #end
+      #end
+      #if(!$dcTyDone.contains($dcTy))
+        #set($void = $dcTyDone.add($dcTy))
+        #set($dcTk = "${dcDk}|${dcTy}")
+        #set($dcTyN = $dcTypeN.get($dcTk))
+        #set($dcTyText = "${dcTyText}${dcTy}|${dcTyN};")
+      #end
+    #end
+    #set($dcDm = $objectFactory.newMap())
+    #set($void = $dcDm.put("key", $dcDk))
+    #set($void = $dcDm.put("roles", $dcDocRoles.get($dcDk)))
+    #set($void = $dcDm.put("items", $dcCnt))
+    #set($void = $dcDm.put("bad", $dcBad))
+    #set($void = $dcDm.put("types", $dcTyText))
+    #set($void = $dcDocs.add($dcDm))
+  #end
+#end

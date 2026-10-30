@@ -1,0 +1,1 @@
+Checks the documents, work items and links of the project against the data model (YAML in a work item, as shown by Data Model Definition): required item types, required links per item, paired documents, unexpected types and links. Report table, Excel, graph coloured by compliance.

@@ -1,0 +1,7 @@
+<p><b>Data Model Check</b> reads the same data model as <b>Data Model Definition</b> (a YAML text in a work item of a LiveDoc, chosen in the parameters) and checks the documents declared in it:</p>
+<ul>
+  <li><b>Item types</b>: each document has its required types (min / max); items of a type not listed for the document's role are reported.</li>
+  <li><b>Links</b>: for each rule, the source items with fewer links than <code>from_min</code> and the target items with fewer than <code>to_min</code>; with <code>pairs</code>, only the links between paired documents count, links between documents that are not paired and documents without a pair are reported.</li>
+  <li><b>Unexpected links</b>: links of a link role used by the model, between declared documents, that match no rule (when <code>unexpected_links</code> is not <code>ignore</code>).</li>
+</ul>
+<p>The graph shows the model coloured by compliance (red: errors, orange: warnings, green: compliant); a click on a role or a line lists its results. Table view of the violations, the rules and the documents; Excel export. When the model has errors, the widget lists them and checks nothing. In PDF export the widget renders the summary and violation tables.</p>

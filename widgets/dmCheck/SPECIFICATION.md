@@ -1,7 +1,8 @@
 # Specification — Data model check widget (dmCheck)
 
-**Status:** v0.2, 2026-10-30. dmDefine 0.5.0 done (model format, pipeline, pairs, `uses:`); dmCheck started (PO:
-"start working on dmCheck while I run the checks"). Proposed answers to the open questions are marked *proposed* (§7,
+**Status:** v0.3, 2026-10-30. **dmCheck 0.1.0 implemented** (`widgets/dmCheck/src`, shared `dm-check.vm`: K1, K3–K8,
+K10, K12, K14–K16), tested with Velocity 1.4 on mocks built from `test-data/vcycle-check/` and in Chromium; not run on
+2512 yet (`docs/PO_CHECKS.md` §3). Spike S10 (T1, T3) prepared. Proposed answers to the open questions are marked *proposed* (§7,
 to confirm by the PO: `docs/PO_CHECKS.md` §4). Items marked `[?]` are open or need verification on a Polarion instance.
 
 ## 1. Goal
@@ -23,22 +24,22 @@ Same as dmDefine (C1–C8), plus:
 
 | ID | Requirement | Priority | Increment |
 |---|---|---|---|
-| K1 | Parameters: same model location as dmDefine (model document, model item type, model item id); severities shown by default; list cap; graph height. Projects come from the model (documents of other projects as `project/space/name`, `uses:`); collection scope later (K11) | Must | 1 |
+| K1 | (done, 0.1.0) Parameters: same model location as dmDefine (model document, model item type, model item id); severity filters in the toolbar; list cap; graph height. Projects come from the model (documents of other projects as `project/space/name`, `uses:`); collection scope later (K11) | Must | 1 |
 | K2 | **Resolve the bindings**: roles → real documents; report unbound roles and documents bound to no role (information) | Must | 1 |
-| K3 | **Required item types**: for each role, required types present (min/max); unexpected types reported with the severity of the model | Must | 1 |
-| K4 | **Required links**: for each link rule, `from` items without the required link (`from_min`) and `to` items not targeted (`to_min`), counting only links of the role between the bound documents | Must | 1 |
-| K5 | **Forbidden/unexpected links**: links of a role used by the model between modelled documents that match no rule (wrong target document/type, wrong direction) | Must | 1 |
-| K6 | **Report table**: one row per violation with rule id, severity, check kind, document, work item (clickable link), message; filter by severity/rule/document | Must | 1 |
-| K7 | **Excel export**: Summary sheet (counts per rule, % compliant), one sheet per check kind, model used (revision) | Must | 1 |
-| K8 | **Graph**: model documents as nodes, link rules as edges, coloured green/orange/red with counts (compliant items / total); click an edge or node to list its violations | Must | 1 |
+| K3 | **Required item types**: for each role, required types present (min/max); unexpected types reported with the severity of the model | Must (done, 0.1.0) | 1 |
+| K4 | **Required links**: for each link rule, `from` items without the required link (`from_min`) and `to` items not targeted (`to_min`), counting only links of the role between the bound documents | Must (done, 0.1.0) | 1 |
+| K5 | **Forbidden/unexpected links**: links of a role used by the model between modelled documents that match no rule (wrong target document/type, wrong direction) | Must (done, 0.1.0) | 1 |
+| K6 | **Report table**: one row per violation with rule id, severity, check kind, document, work item (clickable link), message; filter by severity/rule/document | Must (done, 0.1.0) | 1 |
+| K7 | **Excel export**: Summary sheet (counts per rule, % compliant), one sheet per check kind, model used (revision) | Must (done, 0.1.0) | 1 |
+| K8 | **Graph**: model documents as nodes, link rules as edges, coloured green/orange/red with counts (compliant items / total); click an edge or node to list its violations | Must (done, 0.1.0) | 1 |
 | K9 | **Drill-down**: each rule offers a Lucene query (and link) listing the violating items in Polarion's table view for bulk correction `[?]` how to express "items without a link of role R to document D" in Lucene on 2512 and 2612 (`linkedWorkItemsOf` follows incoming links only; SQL: `SQL:(…)` restriction) | Should | 1 or 2 |
-| K10 | PDF/print static view: summary + violation table + static graph, no JS | Must | 1 |
+| K10 | PDF/print static view: summary + violation table + static graph, no JS | Must (done, 0.1.0) | 1 |
 | K11 | Collection context (check the model on the documents of a collection at the pinned revisions), as docCoverage F17 | Could | 3 |
-| K12 | Cross-project documents in bindings (as dmDefine 0.4.0: links between declared documents of different projects count) | Should | 1 |
+| K12 | Cross-project documents in bindings (as dmDefine 0.4.0: links between declared documents of different projects count) | Should (done, 0.1.0; on mocks) | 1 |
 | K13 | Later checks: orphan items (no link at all), items in the wrong document, mandatory fields / statuses, max cardinality | Could | later |
-| K15 | **Several documents per role, pooled or paired** (PO 2026-10-30, Q2). **Pooled** (default, no `pairs:` entry for the rule): the documents of a role form one set; a link to any document of the target role counts; violations are listed per document. **Paired** (the rule has an entry in `pairs:`): only links between the documents of a declared pair count for `from_min` / `to_min`; a link between documents of the two roles that are not paired is reported as a **cross-pair link**; a document of the rule's roles without a pair is reported as **unpaired**; both with the rule's severity. A document may appear in several pairs (e.g. one test specification for two specifications). Format: `docs/DATA_MODEL_FORMAT.md` §2.1; examples: `docs/MODELING_GUIDE.md` | Must | 1 |
-| K16 | **Model problems first**: when the model has errors (dmDefine validation, same pipeline), dmCheck lists them and checks nothing; warnings are shown and the checks run | Must | 1 |
-| K14 | Item cap per violation list (e.g. 500 per rule in the page model, full count always shown), as docCoverage | Must | 1 |
+| K15 | **Several documents per role, pooled or paired** (PO 2026-10-30, Q2). **Pooled** (default, no `pairs:` entry for the rule): the documents of a role form one set; a link to any document of the target role counts; violations are listed per document. **Paired** (the rule has an entry in `pairs:`): only links between the documents of a declared pair count for `from_min` / `to_min`; a link between documents of the two roles that are not paired is reported as a **cross-pair link**; a document of the rule's roles without a pair is reported as **unpaired**; both with the rule's severity. A document may appear in several pairs (e.g. one test specification for two specifications). Format: `docs/DATA_MODEL_FORMAT.md` §2.1; examples: `docs/MODELING_GUIDE.md` | Must (done, 0.1.0) | 1 |
+| K16 | **Model problems first**: when the model has errors (dmDefine validation, same pipeline), dmCheck lists them and checks nothing; warnings are shown and the checks run | Must (done, 0.1.0) | 1 |
+| K14 | Item cap per violation list (e.g. 500 per rule in the page model, full count always shown), as docCoverage | Must (done, 0.1.0) | 1 |
 
 ## 4. Non-functional requirements
 
@@ -90,7 +91,7 @@ every referenced object. Velocity 1.4-safe. No customer data in the repository.
 PO 2026-10-30: dmCheck is started after dmDefine is completed.
 
 
-1. **0.1.0** the v1 checks (K3–K5, K15) on verified SQL forms, bindings, report table, Excel, coloured graph, static PDF
+1. **0.1.0** (done) the v1 checks (K3–K5, K15) on verified SQL forms, bindings, report table, Excel, coloured graph, static PDF
    view; dummy model and test structure (T4: `test-data/vcycle-check/`). Spike S10 (T1, T3) run in parallel.
 2. **0.2.0** Drill-down queries (K9, after T3), faster set queries if T1 confirms them.
 3. **0.3.0** Collection context; later: orphans, wrong document, field rules.

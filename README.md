@@ -5,7 +5,7 @@ Siemens Polarion **LiveReport widgets** to formalize the **data model** of a pro
 | Widget | Purpose | Status | Docs |
 |---|---|---|---|
 | <img src="docs/dmDefine/icon.svg" width="32" alt=""> **dmDefine** — Data Model Definition | A key user / project admin formalizes the main documents (roles), the work item types each must contain and the links between them (e.g. V-cycle: `satisfies`). Shows the model as a graph and tables, validates it against the project configuration, lists the problems with their line | **0.5.0** (built and tested on mocks; 0.2.0 = document pairs, 0.3.0 = form editor, 0.4.0 = `uses:` and documents of other projects, 0.5.0 = Save to Polarion (REST); to validate on 2512: [checks](docs/PO_CHECKS.md)) | [install](docs/dmDefine/install.md) · [specification](widgets/dmDefine/SPECIFICATION.md) |
-| **dmCheck** — Data Model Check | Checks the real documents, items and links against the model: required links, unexpected links, required item types. Report as table and Excel, graph coloured by compliance, drill-down queries | Specification draft | [specification](widgets/dmCheck/SPECIFICATION.md) |
+| <img src="docs/dmCheck/icon.svg" width="32" alt=""> **dmCheck** — Data Model Check | Checks the declared documents, items and links against the model: required item types, required links per item (pooled or paired documents), unexpected types and links. Graph coloured by compliance, report table, Excel, PDF | **0.1.0** (built and tested on mocks; to validate on 2512: [checks](docs/PO_CHECKS.md)) | [install](docs/dmCheck/install.md) · [specification](widgets/dmCheck/SPECIFICATION.md) |
 
 ![dmDefine preview rendered from the sample model (mock data)](docs/dmDefine/preview-graph.png)
 
@@ -34,7 +34,8 @@ This repository was started from [polarion_branches_copies_widget](https://githu
    model item, the YAML parser in Velocity, bindings, configuration and REST (**done on 2512: model reading, parser, configuration and REST GET/PATCH confirmed**); SQL of the checks later.
 4. **dmDefine**: 0.1.0 (read, validate, show), 0.2.0 (document pairs), 0.3.0 (form editor) and 0.4.0 (`uses:`,
    documents of other projects), 0.5.0 (Save to Polarion through REST) built; checks to run on 2512: [docs/PO_CHECKS.md](docs/PO_CHECKS.md); the next dmDefine increments are listed
-   in its specification (§8). dmCheck (spike on the SQL of the checks, then 0.1.0) starts after dmDefine is completed.
+   in its specification (§8). **dmCheck 0.1.0** built (v1 checks on SQL forms verified on 2512; faster set queries and
+   drill-down measured by dmSpike S10).
 
 ## Repository contents
 
@@ -53,7 +54,7 @@ This repository was started from [polarion_branches_copies_widget](https://githu
 | `docs/<widget>/` | Install guide, previews, icon source |
 | `tools/` | `build-widget.py`, `test-widget.sh`, `test-spikes.sh`, `vcheck.sh`; harnesses and mocks in `tools/vtest/` (`dmmocks/` for this repo, `mocks/` copied from the sister repo) |
 | `tests/dmSpike-v0.1.x/` | Spike widget and run sheet for dmDefine 0.1.x |
-| `test-data/` | Invented sample model (`vcycle-model.yaml`) |
+| `test-data/` | Invented sample model (`vcycle-model.yaml`); dmCheck test structure with expected violations (`vcycle-check/`) |
 
 ## Build and test
 

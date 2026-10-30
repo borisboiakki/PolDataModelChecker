@@ -1,0 +1,3013 @@
+## Data Model Check - render.vm
+## Source: widgets/dmCheck/src/render.vm. tools/build-widget.py inlines the shared snippets (shared/vm) at the
+## BW_SHARED markers and shared/js/core.js + graph.js at the BW_INLINE_JS marker, checks the result with
+## Velocity 1.4 and writes widgets/dmCheck/dist/dmCheck.zip.
+## Velocity 1.4 dialect (guide 3.1.9): no map literals, one statement per line, no backslashes in strings.
+## Model pipeline as dmDefine (dm-read, dm-yaml, dm-model); checks in dm-check.vm (SPECIFICATION K3-K5, K15, K16).
+#set($bwVersion = "0.1.0")
+## Shared snippet style.vm (shared/vm), inlined by tools/build-widget.py at "## BW_SHARED style.vm".
+## CSS of the interactive view and the static (PDF/print) table. Root classes: bw-root, cw-root (sister repo), dd-root (dmDefine), dc-root (dmCheck).
+<style>
+  .bw-root, .cw-root, .dd-root, .dc-root { position: relative; font-family: Segoe UI, Arial, sans-serif; font-size: 12px; color: rgb(30,35,45); }
+  .bw-toolbar { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin-bottom: 6px; }
+  .bw-ctl { font-size: 12px; padding: 2px 4px; }
+  .bw-search { width: 170px; }
+  .bw-check { display: inline-flex; align-items: center; gap: 3px; cursor: pointer; white-space: nowrap; }
+  .bw-fields { display: inline-flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
+  .bw-btns { display: inline-flex; gap: 4px; }
+  .bw-btn { font-size: 12px; padding: 2px 8px; cursor: pointer; border: 1px solid rgb(170,178,195); background: rgb(248,249,252); border-radius: 3px; }
+  .bw-btn:hover { background: rgb(232,237,247); }
+  .bw-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: center; margin: 2px 0 4px 0; }
+  .bw-leg { display: inline-flex; align-items: center; gap: 4px; }
+  .bw-muted { color: rgb(110,118,135); }
+  .bw-status { color: rgb(110,118,135); margin-bottom: 4px; }
+  .bw-view { overflow: auto; border: 1px solid rgb(215,220,230); background: rgb(255,255,255); }
+  .bw-svg { display: block; }
+  .bw-node, .bw-edge, .bw-edge-label { cursor: pointer; }
+  .bw-tip { position: absolute; z-index: 20; background: rgb(255,255,250); border: 1px solid rgb(170,170,170); padding: 4px 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.2); pointer-events: none; max-width: 420px; }
+  .bw-tip-head { font-weight: 600; }
+  .bw-details { border: 1px solid rgb(215,220,230); background: rgb(250,251,253); padding: 6px 8px; margin-bottom: 6px; }
+  .bw-details-head { font-weight: 600; margin-bottom: 4px; }
+  .bw-items { margin: 4px 0 0 18px; padding: 0; max-height: 180px; overflow: auto; }
+  .bw-table { border-collapse: collapse; margin: 4px 0; }
+  .bw-table td, .bw-table th { border: 1px solid rgb(200,205,215); padding: 3px 6px; text-align: left; vertical-align: top; }
+  .bw-table th { background: rgb(238,241,246); }
+  .bw-error, .bw-warn { color: rgb(198,40,40); }
+</style>
+<style>
+  .dc-head { margin-bottom: 4px; }
+  .dc-sum { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 4px 0 6px 0; }
+  .dc-chip { border: 1px solid rgb(215,220,230); border-radius: 10px; padding: 1px 10px; background: rgb(250,251,253); }
+  .dc-error { color: rgb(198,40,40); font-weight: 600; }
+  .dc-warning { color: rgb(170,105,0); font-weight: 600; }
+  .dc-info { color: rgb(51,103,214); font-weight: 600; }
+  .dc-ok { color: rgb(26,127,55); font-weight: 600; }
+  .dc-probs { border: 1px solid rgb(230,200,200); background: rgb(253,247,247); padding: 4px 8px; margin-bottom: 6px; max-height: 160px; overflow: auto; }
+  .dc-h { font-weight: 600; margin: 10px 0 2px 0; }
+  .dc-static td, .dc-static th { font-size: 11px; }
+  .dc-filter { width: 220px; }
+</style>
+
+## ======================================================================= model and checks
+## Shared snippet dm-read.vm (shared/vm), inlined by tools/build-widget.py at "## BW_SHARED dm-read.vm".
+## Locates the model work item and reads its description as text lines (docs/ARCHITECTURE.md 3.2, 3.3).
+## Needs the parameters doc (@document, single), itemTypes (workitem-type, multi) and itemId (string).
+## Verified on 2512 (dmSpike run 1): items().contained() of the @document option in document order, Open API item with
+## getOldApi(), description HTML with getDescription().getContent() (one span per line, br separators, indentation as
+## spaces and U+00A0), getLastRevision() (getRevision() is empty on HEAD), backslash from the EscapeTool.
+## Output: $dmProjectId, $dmItem (Open API work item or false), $dmItemId, $dmItemProject, $dmItemTitle, $dmItemRev,
+## $dmDocKey, $dmDocSpace, $dmDocName, $dmLines (text lines of the description), $dmProbs (list of [severity, line, message],
+## line 0 = not tied to a line), $bs (backslash or empty).
+#set($dmInt = 0)
+#set($dmProbs = [])
+#set($dmProjectId = "")
+#set($dmProjectId = $page.getReference().projectId())
+#set($dmProjectId = "$dmProjectId")
+
+## Backslash from the EscapeTool: regexes that need one are built at run time (no backslash in Velocity 1.4 literals).
+#set($bs = "")
+#set($dmTmp = "")
+#set($dmTmp = $esc.b)
+#set($dmTmpS = "$dmTmp")
+#if($dmTmpS.length() == 1)
+  #set($bs = $dmTmpS)
+#else
+  #set($dmTmp = "")
+  #set($dmTmp = $esc.backslash)
+  #set($dmTmpS = "$dmTmp")
+  #if($dmTmpS.length() == 1)
+    #set($bs = $dmTmpS)
+  #end
+#end
+
+## Model item types (multi-select read like bwOptionIds; default text).
+#set($dmTypes = [])
+#set($dmTv = false)
+#set($dmTv = $parameters.itemTypes.values())
+#if($dmTv)
+  #foreach($dmV in $dmTv)
+    #set($dmId = "")
+    #set($dmId = $dmV.id())
+    #set($dmIdS = "$dmId")
+    #if($dmIdS.matches("[A-Za-z0-9_.-]+") && !$dmTypes.contains($dmIdS))
+      #set($void = $dmTypes.add($dmIdS))
+    #end
+  #end
+#end
+#if($dmTypes.size() == 0)
+  #set($void = $dmTypes.add("text"))
+#end
+#set($dmItemIdP = "")
+#set($dmTmp = "")
+#set($dmTmp = $parameters.itemId.value())
+#set($dmTmpS = "$dmTmp")
+#set($dmItemIdP = $dmTmpS.trim())
+
+## Model document (single select, current project).
+#set($dmDoc = false)
+#set($dmDocKey = "")
+#set($dmDocSpace = "")
+#set($dmDocName = "")
+#set($dmOpt = false)
+#set($dmOpt = $parameters.doc.singleValue())
+#if($dmOpt)
+  #set($dmMo = false)
+  #set($dmMo = $dmOpt.getModelObject())
+  #set($dmUr = "unknown")
+  #if($dmMo)
+    #set($dmUr = $dmMo.isUnresolvable())
+  #end
+  #if("$dmUr" == "false")
+    #set($dmDoc = $dmMo)
+    #set($dmMod = $dmMo.getOldApi())
+    #set($dmDocSpace = "$dmMod.getModuleFolder()")
+    #set($dmDocName = "$dmMod.getId()")
+    #set($dmDocKey = "${dmProjectId}/${dmDocSpace}/${dmDocName}")
+  #else
+    #set($void = $dmProbs.add(["error", 0, "The model document cannot be read (deleted or no permission)."]))
+  #end
+#end
+
+## Model item: the id parameter, or the first item of the types in the document with a line starting with a model key.
+#set($dmItem = false)
+#if($dmItemIdP != "")
+  #if($dmItemIdP.matches("[A-Za-z0-9_.-]+"))
+    #set($dmGw = false)
+    #set($dmGw = $trackerService.getWorkItem($dmProjectId, $dmItemIdP))
+    #if($dmGw && !$dmGw.isUnresolvable())
+      #set($dmItem = $dmGw)
+    #else
+      #set($void = $dmProbs.add(["error", 0, "Model item $dmItemIdP not found in project $dmProjectId."]))
+    #end
+  #else
+    #set($void = $dmProbs.add(["error", 0, "Model item id $dmItemIdP is not a work item id."]))
+  #end
+#elseif($dmDoc)
+  #set($dmCt = false)
+  #set($dmCt = $dmDoc.items().contained())
+  #set($dmFirst = false)
+  #if($dmCt)
+    #foreach($dmRi in $dmCt)
+      #if(!$dmItem)
+        #set($dmOi = false)
+        #set($dmOi = $dmRi.getOldApi())
+        #set($dmTy = "")
+        #if($dmOi && !$dmOi.isUnresolvable())
+          #set($dmTmp = "")
+          #set($dmTmp = $dmOi.getType().getId())
+          #set($dmTy = "$dmTmp")
+        #end
+        #if($dmTypes.contains($dmTy))
+          #if(!$dmFirst)
+            #set($dmFirst = $dmOi)
+          #end
+          #set($dmH = "")
+          #set($dmDo = false)
+          #set($dmDo = $dmOi.getDescription())
+          #if($dmDo)
+            #set($dmTmp = "")
+            #set($dmTmp = $dmDo.getContent())
+            #set($dmH = "$dmTmp")
+          #end
+          #set($dmPl = $dmH.replaceAll("(?i)<br[^>]*>", "@NL@").replaceAll("(?i)</(p|div|li|pre)>", "@NL@").replaceAll("<[^>]*>", ""))
+          #set($dmPl = "@NL@${dmPl}")
+          #if($dmPl.contains("@NL@version:") || $dmPl.contains("@NL@model:") || $dmPl.contains("@NL@uses:"))
+            #set($dmItem = $dmOi)
+          #end
+        #end
+      #end
+    #end
+  #end
+  #if(!$dmItem && $dmFirst)
+    #set($dmItem = $dmFirst)
+    #set($void = $dmProbs.add(["warning", 0, "No item of the model type has a line starting with version:, model: or uses:. The first one is read."]))
+  #end
+  #if(!$dmItem)
+    #set($void = $dmProbs.add(["error", 0, "The model document has no work item of type $dmTypes."]))
+  #end
+#elseif(!$dmOpt)
+  #set($void = $dmProbs.add(["info", 0, "No model document is selected in the widget parameters. Select it to show the model, or use Edit model to write a new one."]))
+#end
+
+#set($dmItemId = "")
+#set($dmItemProject = "")
+#set($dmItemTitle = "")
+#set($dmItemRev = "")
+#set($dmHtml = "")
+#if($dmItem)
+  #set($dmItemId = "$dmItem.getId()")
+  #set($dmTmp = "")
+  #set($dmTmp = $dmItem.getProjectId())
+  #set($dmItemProject = "$dmTmp")
+  #set($dmTmp = "")
+  #set($dmTmp = $dmItem.getTitle())
+  #set($dmItemTitle = "$dmTmp")
+  #set($dmTmp = "")
+  #set($dmTmp = $dmItem.getLastRevision())
+  #set($dmItemRev = "$dmTmp")
+  #set($dmDo = false)
+  #set($dmDo = $dmItem.getDescription())
+  #if($dmDo)
+    #set($dmTmp = "")
+    #set($dmTmp = $dmDo.getContent())
+    #set($dmHtml = "$dmTmp")
+  #end
+#end
+
+## Description HTML -> text lines: br and block ends are line breaks, other tags removed, U+00A0 -> space, entities decoded.
+## Source newlines (pre blocks) are line breaks when the backslash is available. Macro: also used for the model of a
+## uses: reference (dm-model.vm). Input $dmHtmlIn, output $dmLines.
+#macro(dmHtmlLines)
+#set($dmLines = [])
+#if($dmHtmlIn != "")
+  #set($dmT = $dmHtmlIn)
+  #if($bs != "")
+    #set($dmRe = "${bs}r?${bs}n")
+    #set($dmT = $dmT.replaceAll($dmRe, "@NL@"))
+    #set($dmRe = "${bs}u00A0")
+    #set($dmT = $dmT.replaceAll($dmRe, " "))
+  #end
+  ## An empty line is stored as a span holding only a br, followed by the br that ends the line (2512, dmSpike run 1:
+  ## 48 lines read for a 45-line model): drop the inner br so that line numbers match the editor.
+  #set($dmT = $dmT.replaceAll("(?i)<span[^>]*>[ ]*<br[^>]*>[ ]*</span>", ""))
+  #set($dmT = $dmT.replaceAll("(?i)<br[^>]*>", "@NL@"))
+  #set($dmT = $dmT.replaceAll("(?i)</(p|div|li|pre|h[1-6]|tr)>", "@NL@"))
+  #set($dmT = $dmT.replaceAll("<[^>]*>", ""))
+  #set($dmT = $dmT.replace("&nbsp;", " ").replace("&#160;", " ").replace("&lt;", "<").replace("&gt;", ">"))
+  #set($dmT = $dmT.replace("&quot;", '"').replace("&#34;", '"').replace("&#39;", "'").replace("&apos;", "'"))
+  #set($dmT = $dmT.replace("&amp;", "&"))
+  #foreach($dmL in $dmT.split("@NL@"))
+    #set($void = $dmLines.add($dmL))
+  #end
+  ## The last br of the description ends the last line: drop the empty tail.
+  #set($dmLast = $dmLines.size() - 1)
+  #if($dmLast >= 0)
+    #set($dmLt = $dmLines.get($dmLast))
+    #if($dmLt.trim() == "")
+      #set($void = $dmLines.remove($dmLast))
+    #end
+  #end
+#end
+#end
+#set($dmHtmlIn = $dmHtml)
+#dmHtmlLines()
+## Shared snippet dm-yaml.vm (shared/vm), inlined by tools/build-widget.py at "## BW_SHARED dm-yaml.vm".
+## YAML subset parser in Velocity 1.4 (docs/DATA_MODEL_FORMAT.md 2, docs/ARCHITECTURE.md 3.3). Prototype verified on 2512
+## (dmSpike run 1: the stored model parsed with 0 problems in about 4 ms).
+## Input: $dmLines (text lines), $dmProbs. Lines before the first top-level key (version, name, model, uses, bindings,
+## description) are skipped. Keys: letters, digits, _ and - only.
+## Output, by path ("model.roles.SystemSpec.items[0].type"; root = ""):
+##   $dmKind  path -> "map" | "list" | "scalar" | "null" (key without value)
+##   $dmVal   path -> scalar text (unquoted)
+##   $dmKeys  path of a map -> keys in source order
+##   $dmCnt   path of a list -> number of entries
+##   $dmLine  path -> line number (1-based, in $dmLines)
+## Problems are added to $dmProbs as [severity, line, message]; the parser never stops the page.
+## The parser is the macro dmParse (called at the end of this snippet for the model item, and by dm-model.vm for the model
+## of a uses: reference); each call starts new maps.
+#set($dmKeyRe = "[A-Za-z0-9_-]+:( .*)?")
+
+## Unquote a scalar: 'x' or "x" -> x (no escape sequences in the subset).
+#macro(dmUnq $dmU)
+  #set($dmUq = "$dmU")
+  #set($dmUq = $dmUq.trim())
+  #set($dmUl = $dmUq.length())
+  #if($dmUl >= 2)
+    #set($dmUe = $dmUl - 1)
+    #if(($dmUq.startsWith('"') && $dmUq.endsWith('"')) || ($dmUq.startsWith("'") && $dmUq.endsWith("'")))
+      #set($dmUq = $dmUq.substring(1, $dmUe))
+    #end
+  #end
+#end
+
+## Value $dmSv at path $dmSp: scalar, or one-level flow list [a, b] / flow map {k: v}.
+#macro(dmScalar)
+  #set($dmSv = $dmSv.trim())
+  #set($dmSl = $dmSv.length())
+  #set($dmSe = $dmSl - 1)
+  #if($dmSv.startsWith("&") || $dmSv.startsWith("*") || $dmSv.startsWith("|") || $dmSv.startsWith(">") || $dmSv.startsWith("!"))
+    #set($void = $dmProbs.add(["error", $dmLn, "Not in the YAML subset (anchor, alias, tag or multi-line text): $dmSv"]))
+    #set($void = $dmKind.put($dmSp, "scalar"))
+    #set($void = $dmVal.put($dmSp, $dmSv))
+  #elseif($dmSv.startsWith("[") && $dmSv.endsWith("]"))
+    #set($void = $dmKind.put($dmSp, "list"))
+    #set($dmIn = $dmSv.substring(1, $dmSe))
+    #set($dmIn = $dmIn.trim())
+    #set($dmN = 0)
+    #if($dmIn.indexOf("[") >= 0 || $dmIn.indexOf("{") >= 0)
+      #set($void = $dmProbs.add(["error", $dmLn, "Nested [ ] or { } are not in the YAML subset."]))
+    #elseif($dmIn != "")
+      #foreach($dmP in $dmIn.split(","))
+        #set($dmEp = "${dmSp}[${dmN}]")
+        #dmUnq($dmP)
+        #set($void = $dmKind.put($dmEp, "scalar"))
+        #set($void = $dmVal.put($dmEp, $dmUq))
+        #set($void = $dmLine.put($dmEp, $dmLn))
+        #set($dmN = $dmN + 1)
+      #end
+    #end
+    #set($void = $dmCnt.put($dmSp, $dmN))
+  #elseif($dmSv.startsWith("{") && $dmSv.endsWith("}"))
+    #set($void = $dmKind.put($dmSp, "map"))
+    #set($dmFk = [])
+    #set($void = $dmKeys.put($dmSp, $dmFk))
+    #set($dmIn = $dmSv.substring(1, $dmSe))
+    #set($dmIn = $dmIn.trim())
+    #if($dmIn.indexOf("[") >= 0 || $dmIn.indexOf("{") >= 0)
+      #set($void = $dmProbs.add(["error", $dmLn, "Nested [ ] or { } are not in the YAML subset."]))
+    #elseif($dmIn != "")
+      #foreach($dmP in $dmIn.split(","))
+        #set($dmCi = $dmP.indexOf(":"))
+        #if($dmCi < 1)
+          #set($dmPt = $dmP.trim())
+          #set($void = $dmProbs.add(["error", $dmLn, "Entry without key in { }: $dmPt"]))
+        #else
+          #set($dmK = $dmP.substring(0, $dmCi))
+          #set($dmK = $dmK.trim())
+          #set($dmC1 = $dmCi + 1)
+          #set($dmVv = $dmP.substring($dmC1))
+          #dmUnq($dmVv)
+          #if($dmFk.contains($dmK))
+            #set($void = $dmProbs.add(["error", $dmLn, "Duplicate key ${dmSp}.${dmK}"]))
+          #else
+            #set($void = $dmFk.add($dmK))
+          #end
+          #set($dmEp = "${dmSp}.${dmK}")
+          #set($void = $dmKind.put($dmEp, "scalar"))
+          #set($void = $dmVal.put($dmEp, $dmUq))
+          #set($void = $dmLine.put($dmEp, $dmLn))
+        #end
+      #end
+    #end
+  #else
+    #dmUnq($dmSv)
+    #set($void = $dmKind.put($dmSp, "scalar"))
+    #set($void = $dmVal.put($dmSp, $dmUq))
+  #end
+#end
+
+## "key: value" (line content $dmC) into the map at path $dmKvPath whose keys start at column $dmKvInd.
+#macro(dmKv)
+  #set($dmKci = $dmC.indexOf(":"))
+  #set($dmK = $dmC.substring(0, $dmKci))
+  #set($dmKv1 = $dmKci + 1)
+  #set($dmV = $dmC.substring($dmKv1))
+  #set($dmV = $dmV.trim())
+  #set($dmKp = $dmK)
+  #if($dmKvPath != "")
+    #set($dmKp = "${dmKvPath}.${dmK}")
+  #end
+  #set($dmKl = $dmKeys.get($dmKvPath))
+  #if($dmKl.contains($dmK))
+    #set($void = $dmProbs.add(["error", $dmLn, "Duplicate key $dmKp"]))
+  #else
+    #set($void = $dmKl.add($dmK))
+  #end
+  #set($void = $dmLine.put($dmKp, $dmLn))
+  #if($dmV == "")
+    #set($void = $dmKind.put($dmKp, "null"))
+    #set($dmPf = $objectFactory.newMap())
+    #set($void = $dmPf.put("p", "1"))
+    #set($void = $dmPf.put("kI", $dmKvInd))
+    #set($void = $dmPf.put("path", $dmKp))
+    #set($void = $dmStack.add($dmPf))
+  #else
+    #set($dmSv = $dmV)
+    #set($dmSp = $dmKp)
+    #dmScalar()
+  #end
+#end
+
+#macro(dmParse)
+#set($dmKind = $objectFactory.newMap())
+#set($dmVal = $objectFactory.newMap())
+#set($dmKeys = $objectFactory.newMap())
+#set($dmCnt = $objectFactory.newMap())
+#set($dmLine = $objectFactory.newMap())
+#set($void = $dmKind.put("", "map"))
+#set($void = $dmKeys.put("", []))
+#set($dmStack = [])
+#set($dmRf = $objectFactory.newMap())
+#set($void = $dmRf.put("p", "0"))
+#set($void = $dmRf.put("ind", 0))
+#set($void = $dmRf.put("kind", "map"))
+#set($void = $dmRf.put("path", ""))
+#set($void = $dmStack.add($dmRf))
+#set($dmLn = 0)
+#set($dmStarted = false)
+#foreach($dmRawL in $dmLines)
+  #set($dmLn = $dmLn + 1)
+  #set($dmRaw = "$dmRawL")
+  #set($dmTr = $dmRaw.trim())
+  #if(!$dmStarted && $dmRaw.matches("(version|name|model|uses|bindings|description):( .*)?"))
+    #set($dmStarted = true)
+  #end
+  #if($dmStarted && $dmTr != "" && !$dmTr.startsWith("#"))
+    #set($dmOk = true)
+    #set($dmNoInd = $dmRaw.replaceAll("^ +", ""))
+    #set($dmInd = $dmRaw.length() - $dmNoInd.length())
+    #set($dmC = $dmNoInd.trim())
+    ## Comment at the end of the line: " #" with no quote before it.
+    #set($dmCi = $dmC.indexOf(" #"))
+    #if($dmCi > 0)
+      #set($dmCb = $dmC.substring(0, $dmCi))
+      #if($dmCb.indexOf('"') < 0 && $dmCb.indexOf("'") < 0)
+        #set($dmC = $dmCb.trim())
+      #end
+    #end
+    #set($dmDash = false)
+    #if($dmC == "-")
+      #set($void = $dmProbs.add(["error", $dmLn, "Empty list entry: write the entry on the same line as the dash."]))
+      #set($dmOk = false)
+    #elseif($dmC.startsWith("- "))
+      #set($dmDash = true)
+      #set($dmC = $dmC.substring(2))
+      #set($dmC = $dmC.trim())
+    #end
+    #if($dmOk && !$dmNoInd.equals($dmRaw.trim()) && $dmNoInd.length() > 0)
+      ## A tab or another blank before the content (not a space): indentation cannot be read.
+      #set($dmFc = $dmNoInd.substring(0, 1))
+      #if($dmFc.trim() == "")
+        #set($void = $dmProbs.add(["error", $dmLn, "Indent with spaces only (tab or other blank found)."]))
+        #set($dmOk = false)
+      #end
+    #end
+    #if($dmOk)
+      ## Container of the line: close deeper blocks, open the block of a pending "key:". The stack is changed only when
+      ## the line fits (a wrongly indented line does not close the blocks around it).
+      #set($dmRes = "")
+      #set($dmGuard = $dmStack.size())
+      #set($dmTi = $dmGuard - 1)
+      #foreach($dmG in [1..$dmGuard])
+        #if($dmRes == "")
+          #set($dmTop = $dmStack.get($dmTi))
+          #if($dmTop.get("p") == "1")
+            #set($dmKI = $dmTop.get("kI"))
+            #if($dmInd > $dmKI || ($dmDash && $dmInd == $dmKI))
+              #set($dmRes = "open")
+            #else
+              #set($dmTi = $dmTi - 1)
+            #end
+          #elseif($dmTop.get("ind") == $dmInd)
+            #set($dmRes = "ok")
+          #elseif($dmTop.get("ind") > $dmInd && $dmTi > 0)
+            #set($dmTi = $dmTi - 1)
+          #else
+            #set($dmRes = "bad")
+          #end
+        #end
+      #end
+      #if($dmRes == "ok" || $dmRes == "open")
+        #set($dmTi1 = $dmTi + 1)
+        #foreach($dmG in [1..$dmGuard])
+          #if($dmStack.size() > $dmTi1)
+            #set($dmSl = $dmStack.size() - 1)
+            #set($void = $dmStack.remove($dmSl))
+          #end
+        #end
+      #end
+      #if($dmRes == "open")
+        #set($dmTop = $dmStack.get($dmTi))
+        #set($dmTp = $dmTop.get("path"))
+        #if($dmDash)
+          #set($void = $dmTop.put("kind", "list"))
+          #set($void = $dmKind.put($dmTp, "list"))
+          #set($void = $dmCnt.put($dmTp, 0))
+        #else
+          #set($void = $dmTop.put("kind", "map"))
+          #set($void = $dmKind.put($dmTp, "map"))
+          #set($void = $dmKeys.put($dmTp, []))
+        #end
+        #set($void = $dmTop.put("ind", $dmInd))
+        #set($void = $dmTop.put("p", "0"))
+        #set($void = $dmTop.put("n", 0))
+        #set($dmRes = "ok")
+      #end
+      #if($dmRes != "ok")
+        #set($void = $dmProbs.add(["error", $dmLn, "Unexpected indentation ($dmInd spaces)."]))
+      #else
+        #set($dmSl = $dmStack.size() - 1)
+        #set($dmTop = $dmStack.get($dmSl))
+        #set($dmTPath = $dmTop.get("path"))
+        #if($dmDash)
+          #if($dmTop.get("kind") != "list")
+            #set($void = $dmProbs.add(["error", $dmLn, "List entry (-) where a key was expected."]))
+          #else
+            #set($dmIdx = $dmTop.get("n"))
+            #set($dmNn = $dmIdx + 1)
+            #set($void = $dmTop.put("n", $dmNn))
+            #set($void = $dmCnt.put($dmTPath, $dmNn))
+            #set($dmItPath = "${dmTPath}[${dmIdx}]")
+            #set($void = $dmLine.put($dmItPath, $dmLn))
+            #if($dmC.matches($dmKeyRe))
+              #set($void = $dmKind.put($dmItPath, "map"))
+              #set($void = $dmKeys.put($dmItPath, []))
+              #set($dmMi = $dmInd + 2)
+              #set($dmMf = $objectFactory.newMap())
+              #set($void = $dmMf.put("p", "0"))
+              #set($void = $dmMf.put("ind", $dmMi))
+              #set($void = $dmMf.put("kind", "map"))
+              #set($void = $dmMf.put("path", $dmItPath))
+              #set($void = $dmStack.add($dmMf))
+              #set($dmKvPath = $dmItPath)
+              #set($dmKvInd = $dmMi)
+              #dmKv()
+            #else
+              #set($dmSv = $dmC)
+              #set($dmSp = $dmItPath)
+              #dmScalar()
+            #end
+          #end
+        #else
+          #if($dmTop.get("kind") != "map")
+            #set($void = $dmProbs.add(["error", $dmLn, "Key where a list entry (-) was expected."]))
+          #elseif(!$dmC.matches($dmKeyRe))
+            #set($void = $dmProbs.add(["error", $dmLn, "Cannot read the line (expected key: value; keys use letters, digits, _ and -): $dmC"]))
+          #else
+            #set($dmKvPath = $dmTPath)
+            #set($dmKvInd = $dmInd)
+            #dmKv()
+          #end
+        #end
+      #end
+    #end
+  #end
+#end
+#if(!$dmStarted && $dmLines.size() > 0)
+  #set($void = $dmProbs.add(["error", 0, "No line starts with version:, name:, model:, uses: or bindings: (no model found in the description)."]))
+#end
+#end
+#dmParse()
+## Shared snippet dm-model.vm (shared/vm), inlined by tools/build-widget.py at "## BW_SHARED dm-model.vm".
+## Normalizes and validates the parsed model and resolves the declared documents (docs/DATA_MODEL_FORMAT.md,
+## docs/ARCHITECTURE.md 3.4-3.6). Needs dm-read.vm and dm-yaml.vm ($dmKind, $dmVal, $dmKeys, $dmCnt, $dmLine, $dmProbs).
+## Output:
+##   $dmRoles  list of maps: key, title, line, unexp (error|warning|ignore), types (list of maps: type, min, max (Integer,
+##             -1 = none), ignored (true/false), line), decl (declared documents, text), docs (list of maps: decl, key,
+##             project, space, name, title, found), bound (true when the bindings name the role)
+##   $dmRoleByKey  role key -> role map
+##   $dmRules  list of maps: id, from, ft, role, rname, to, tt, fmin, tmin (Integer), sev, line
+##   $dmUnexpLinks  severity of links that match no rule (error|warning|info|ignore, default ignore)
+##   $dmName, $dmVersion, $dmErrors, $dmWarnings (counts of $dmProbs)
+##   $dmTypeNames / $dmRoleNames  id -> name from the project configuration (verified on 2512, dmSpike S6)
+## Project-specific names (types, link roles, documents) come only from the model and the project configuration.
+
+#macro(dmGet $dmGp)
+  #set($dmGv = "")
+  #set($dmGv = $dmVal.get($dmGp))
+  #set($dmGv = "$dmGv")
+#end
+#macro(dmKindOf $dmKp2)
+  #set($dmKo = "")
+  #set($dmKo = $dmKind.get($dmKp2))
+  #set($dmKo = "$dmKo")
+#end
+#macro(dmLineOf $dmLp)
+  #set($dmLo = 0)
+  #set($dmLo = $dmLine.get($dmLp))
+#end
+## Integer value of path $dmIp into $dmIv (default $dmIdef); a problem when it is not a whole number.
+#macro(dmIntOf $dmIp $dmIdef)
+  #set($dmIv = $dmIdef)
+  #dmKindOf($dmIp)
+  #if($dmKo == "scalar")
+    #dmGet($dmIp)
+    #if($dmGv.matches("[0-9]{1,6}"))
+      #set($dmIv = $dmInt.parseInt($dmGv))
+    #else
+      #dmLineOf($dmIp)
+      #set($void = $dmProbs.add(["error", $dmLo, "$dmIp must be a whole number (found: $dmGv)."]))
+    #end
+  #elseif($dmKo != "" && $dmKo != "null")
+    #dmLineOf($dmIp)
+    #set($void = $dmProbs.add(["error", $dmLo, "$dmIp must be a whole number."]))
+  #end
+#end
+## Unknown keys of the map at path $dmUp (allowed: list $dmAllowed) are warnings.
+#macro(dmUnknownKeys $dmUp $dmAllowed)
+  #set($dmUk = false)
+  #set($dmUk = $dmKeys.get($dmUp))
+  #if($dmUk)
+    #foreach($dmK2 in $dmUk)
+      #if(!$dmAllowed.contains($dmK2))
+        #set($dmUpp = $dmK2)
+        #if($dmUp != "")
+          #set($dmUpp = "${dmUp}.${dmK2}")
+        #end
+        #dmLineOf($dmUpp)
+        #set($void = $dmProbs.add(["warning", $dmLo, "Unknown key $dmUpp (ignored)."]))
+      #end
+    #end
+  #end
+#end
+
+## ---------------------------------------------------------------- project configuration
+#set($dmTypeNames = $objectFactory.newMap())
+#set($dmRoleNames = $objectFactory.newMap())
+#set($dmTp = false)
+#set($dmTp = $trackerService.getTrackerProject($dmProjectId))
+#if($dmTp)
+  #set($dmE = false)
+  #set($dmE = $dmTp.getWorkItemTypeEnum())
+  #if($dmE)
+    #foreach($dmO in $dmE.getAllOptions())
+      #set($void = $dmTypeNames.put("$dmO.getId()", "$dmO.getName()"))
+    #end
+  #end
+  #set($dmE = false)
+  #set($dmE = $dmTp.getWorkItemLinkRoleEnum())
+  #if($dmE)
+    #foreach($dmO in $dmE.getAllOptions())
+      #set($void = $dmRoleNames.put("$dmO.getId()", "$dmO.getName()"))
+    #end
+  #end
+#end
+#set($dmMinus1 = -1)
+#set($dmSev3 = ["error", "warning", "ignore"])
+#set($dmSevR = ["error", "warning", "info"])
+#set($dmSev4 = ["error", "warning", "info", "ignore"])
+#set($dmCheckTypes = $dmTypeNames.size() > 0)
+#set($dmCheckRoles = $dmRoleNames.size() > 0)
+
+## ---------------------------------------------------------------- uses: reference (ARCHITECTURE 3.4, dmDefine 0.4.0)
+## uses: "PROJECT/ID" (or "ID" in the current project) names a work item holding a model: part. Its model part replaces
+## the local one; bindings and pairs stay local. One level only; no local model: part; no revision pinning yet.
+## Output: $dmUses ("project/id" or ""), $dmUsesItem, $dmUsesRev. Problems of the referenced text carry line 0 and the
+## reference in the message (the line links show the local text).
+#set($dmUses = "")
+#set($dmUsesRev = "")
+#set($dmUsesItem = false)
+#dmGet("uses")
+#set($dmUsesRaw = $dmGv.trim())
+#if($dmUsesRaw != "")
+  #dmLineOf("uses")
+  #set($dmUl = $dmLo)
+  #set($dmUp = $dmProjectId)
+  #set($dmUi = $dmUsesRaw)
+  #if($dmUsesRaw.indexOf("/") > 0)
+    #set($dmUslash = $dmUsesRaw.indexOf("/"))
+    #set($dmUp = $dmUsesRaw.substring(0, $dmUslash))
+    #set($dmUslash = $dmUslash + 1)
+    #set($dmUi = $dmUsesRaw.substring($dmUslash))
+  #end
+  #dmKindOf("model")
+  #if($dmUsesRaw.indexOf("@") >= 0)
+    #set($void = $dmProbs.add(["error", $dmUl, "uses: $dmUsesRaw: a fixed revision (@) is not supported yet; write project/id."]))
+  #elseif(!$dmUp.matches("[A-Za-z0-9_.-]+") || !$dmUi.matches("[A-Za-z0-9_.-]+"))
+    #set($void = $dmProbs.add(["error", $dmUl, "uses: $dmUsesRaw is not project/id of a work item."]))
+  #elseif($dmKo != "")
+    #set($void = $dmProbs.add(["error", $dmUl, "With uses:, the model comes from $dmUsesRaw: remove the local model: part (bindings and pairs stay here)."]))
+  #else
+    #set($dmUw = false)
+    #set($dmUw = $trackerService.getWorkItem($dmUp, $dmUi))
+    #if(!$dmUw || $dmUw.isUnresolvable())
+      #set($void = $dmProbs.add(["error", $dmUl, "uses: work item $dmUp/$dmUi not found (or not readable)."]))
+    #else
+      #set($dmUses = "${dmUp}/${dmUi}")
+      #set($dmUsesItem = $dmUw)
+      #set($dmTmp = "")
+      #set($dmTmp = $dmUw.getLastRevision())
+      #set($dmUsesRev = "$dmTmp")
+      #set($dmUh = "")
+      #set($dmUdo = false)
+      #set($dmUdo = $dmUw.getDescription())
+      #if($dmUdo)
+        #set($dmTmp = "")
+        #set($dmTmp = $dmUdo.getContent())
+        #set($dmUh = "$dmTmp")
+      #end
+      ## Keep the local maps and text, parse the referenced text, then merge its model part into the local maps.
+      #set($dmLKind = $dmKind)
+      #set($dmLVal = $dmVal)
+      #set($dmLKeys = $dmKeys)
+      #set($dmLCnt = $dmCnt)
+      #set($dmLLine = $dmLine)
+      #set($dmLLines = $dmLines)
+      #set($dmLStarted = $dmStarted)
+      #set($dmP0 = $dmProbs.size())
+      #set($dmHtmlIn = $dmUh)
+      #dmHtmlLines()
+      #dmParse()
+      #set($dmP1 = $dmProbs.size() - 1)
+      #if($dmP1 >= $dmP0)
+        #foreach($dmI in [$dmP0..$dmP1])
+          #set($dmPo = $dmProbs.get($dmI))
+          #set($dmPm = "Referenced model ${dmUses}")
+          #if($dmPo.get(1) > 0)
+            #set($dmPm = "${dmPm} line $dmPo.get(1)")
+          #end
+          #set($dmPm = "${dmPm}: $dmPo.get(2)")
+          #set($void = $dmProbs.set($dmI, [$dmPo.get(0), 0, $dmPm]))
+        #end
+      #end
+      #set($dmRk = "")
+      #set($dmRk = $dmKind.get("model"))
+      #set($dmRuses = "")
+      #set($dmRuses = $dmKind.get("uses"))
+      #if("$dmRuses" != "")
+        #set($void = $dmProbs.add(["error", $dmUl, "The model of $dmUses itself uses another model: only one level of uses: is allowed."]))
+      #elseif("$dmRk" != "map")
+        #set($void = $dmProbs.add(["error", $dmUl, "Work item $dmUses has no model: part (roles, links) in its description."]))
+      #else
+        #foreach($dmPk in $dmKind.keySet())
+          #set($dmPks = "$dmPk")
+          #if($dmPks == "model" || $dmPks.startsWith("model."))
+            #set($void = $dmLKind.put($dmPk, $dmKind.get($dmPk)))
+            #set($dmPv = false)
+            #set($dmPv = $dmVal.get($dmPk))
+            #if($dmPv)
+              #set($void = $dmLVal.put($dmPk, $dmPv))
+            #end
+            #set($dmPv = false)
+            #set($dmPv = $dmKeys.get($dmPk))
+            #if($dmPv)
+              #set($void = $dmLKeys.put($dmPk, $dmPv))
+            #end
+            #set($dmPv = false)
+            #set($dmPv = $dmCnt.get($dmPk))
+            #if($dmPv)
+              #set($void = $dmLCnt.put($dmPk, $dmPv))
+            #end
+            #set($void = $dmLLine.put($dmPk, 0))
+          #end
+        #end
+        #set($dmRootKeys = $dmLKeys.get(""))
+        #if(!$dmRootKeys.contains("model"))
+          #set($void = $dmRootKeys.add("model"))
+        #end
+      #end
+      #set($dmKind = $dmLKind)
+      #set($dmVal = $dmLVal)
+      #set($dmKeys = $dmLKeys)
+      #set($dmCnt = $dmLCnt)
+      #set($dmLine = $dmLLine)
+      #set($dmLines = $dmLLines)
+      #set($dmStarted = $dmLStarted)
+    #end
+  #end
+#end
+
+## ---------------------------------------------------------------- top level
+#set($dmRoles = [])
+#set($dmRoleByKey = $objectFactory.newMap())
+#set($dmRules = [])
+#set($dmUnexpLinks = "ignore")
+#dmGet("name")
+#set($dmName = $dmGv)
+#dmGet("version")
+#set($dmVersion = $dmGv)
+#set($dmHasText = $dmLines.size() > 0)
+#if($dmHasText && $dmStarted)
+  #dmUnknownKeys("" ["version", "name", "description", "model", "bindings", "pairs", "uses"])
+  #if($dmVersion == "")
+    #set($void = $dmProbs.add(["warning", 0, "version: missing (version 1 assumed)."]))
+  #elseif($dmVersion != "1")
+    #dmLineOf("version")
+    #set($void = $dmProbs.add(["warning", $dmLo, "version: $dmVersion is not known by this widget (version 1 expected)."]))
+  #end
+  #dmKindOf("model")
+  #if($dmKo != "map" && $dmUsesRaw == "")
+    #set($void = $dmProbs.add(["error", 0, "model: missing or not a block of keys (roles, links)."]))
+  #end
+  #dmUnknownKeys("model" ["roles", "links", "unexpected_links", "description"])
+#end
+
+## ---------------------------------------------------------------- roles
+#dmKindOf("model.roles")
+#if($dmKo == "map")
+  #foreach($dmRk in $dmKeys.get("model.roles"))
+    #set($dmRp = "model.roles.${dmRk}")
+    #set($dmR = $objectFactory.newMap())
+    #set($void = $dmR.put("key", $dmRk))
+    #dmLineOf($dmRp)
+    #set($void = $dmR.put("line", $dmLo))
+    #set($dmRtypes = [])
+    #set($void = $dmR.put("types", $dmRtypes))
+    #set($void = $dmR.put("decl", []))
+    #set($void = $dmR.put("docs", []))
+    #set($void = $dmR.put("bound", false))
+    #set($dmPt = "${dmRp}.title")
+    #dmGet($dmPt)
+    #if($dmGv == "")
+      #set($dmGv = $dmRk)
+    #end
+    #set($void = $dmR.put("title", $dmGv))
+    #set($dmPu = "${dmRp}.unexpected_types")
+    #dmGet($dmPu)
+    #if($dmGv == "")
+      #set($dmGv = "warning")
+    #elseif(!$dmSev3.contains($dmGv))
+      #dmLineOf($dmPu)
+      #set($void = $dmProbs.add(["error", $dmLo, "$dmPu must be error, warning or ignore (found: $dmGv)."]))
+      #set($dmGv = "warning")
+    #end
+    #set($void = $dmR.put("unexp", $dmGv))
+    #dmKindOf($dmRp)
+    #if($dmKo != "map")
+      #set($void = $dmProbs.add(["error", $dmLo, "Role $dmRk must be a block of keys (title, items)."]))
+    #else
+      #dmUnknownKeys($dmRp ["title", "items", "unexpected_types", "description"])
+      #set($dmPi = "${dmRp}.items")
+      #dmKindOf($dmPi)
+      #if($dmKo == "list")
+        #set($dmNi = $dmCnt.get($dmPi))
+        #set($dmNi = $dmNi - 1)
+        #if($dmNi >= 0)
+          #foreach($dmI in [0..$dmNi])
+            #set($dmIp = "${dmPi}[${dmI}]")
+            #dmLineOf($dmIp)
+            #set($dmIl = $dmLo)
+            #dmKindOf($dmIp)
+            #if($dmKo != "map")
+              #set($void = $dmProbs.add(["error", $dmIl, "$dmIp must be a block or { } with type (and min, max, ignored)."]))
+            #else
+              #dmUnknownKeys($dmIp ["type", "min", "max", "ignored", "description"])
+              #set($dmTyp = "${dmIp}.type")
+              #dmGet($dmTyp)
+              #set($dmTyv = $dmGv)
+              #if($dmTyv == "")
+                #set($void = $dmProbs.add(["error", $dmIl, "$dmIp has no type."]))
+              #else
+                #if($dmCheckTypes && !$dmTypeNames.containsKey($dmTyv))
+                  #set($void = $dmProbs.add(["error", $dmIl, "Work item type $dmTyv does not exist in project $dmProjectId."]))
+                #end
+                #set($dmT = $objectFactory.newMap())
+                #set($void = $dmT.put("type", $dmTyv))
+                #set($void = $dmT.put("line", $dmIl))
+                #set($dmMp = "${dmIp}.min")
+                #dmIntOf($dmMp $dmMinus1)
+                #set($void = $dmT.put("min", $dmIv))
+                #set($dmMp = "${dmIp}.max")
+                #dmIntOf($dmMp $dmMinus1)
+                #set($void = $dmT.put("max", $dmIv))
+                #set($dmMin = $dmT.get("min"))
+                #if($dmIv >= 0 && $dmMin > $dmIv)
+                  #set($void = $dmProbs.add(["error", $dmIl, "$dmIp: min is greater than max."]))
+                #end
+                #set($dmMp = "${dmIp}.ignored")
+                #dmGet($dmMp)
+                #set($dmIg = false)
+                #if($dmGv == "true")
+                  #set($dmIg = true)
+                #end
+                #set($void = $dmT.put("ignored", $dmIg))
+                #if($dmGv != "" && $dmGv != "true" && $dmGv != "false")
+                  #set($void = $dmProbs.add(["error", $dmIl, "$dmMp must be true or false."]))
+                #end
+                #set($dmDup = false)
+                #foreach($dmT2 in $dmRtypes)
+                  #if($dmT2.get("type") == $dmTyv)
+                    #set($dmDup = true)
+                  #end
+                #end
+                #if($dmDup)
+                  #set($void = $dmProbs.add(["warning", $dmIl, "Type $dmTyv is listed twice in role $dmRk."]))
+                #else
+                  #set($void = $dmRtypes.add($dmT))
+                #end
+              #end
+            #end
+          #end
+        #end
+      #elseif($dmKo == "" || $dmKo == "null")
+        #set($void = $dmProbs.add(["warning", $dmLo, "Role $dmRk lists no work item type (items:)."]))
+      #else
+        #dmLineOf($dmPi)
+        #set($void = $dmProbs.add(["error", $dmLo, "$dmPi must be a list (one - entry per type)."]))
+      #end
+    #end
+    #set($void = $dmRoles.add($dmR))
+    #set($void = $dmRoleByKey.put($dmRk, $dmR))
+  #end
+#elseif($dmHasText && $dmStarted)
+  #set($void = $dmProbs.add(["error", 0, "model.roles: missing (the document roles of the model)."]))
+#end
+
+## ---------------------------------------------------------------- link rules
+## Role and type of one end ($dmEp = model.links[i].from or .to) into $dmEr / $dmEt.
+#macro(dmLinkEnd $dmEp)
+  #set($dmEr = "")
+  #set($dmEt = "")
+  #dmKindOf($dmEp)
+  #if($dmKo != "map")
+    #set($void = $dmProbs.add(["error", $dmLl, "$dmEp must be { role: ..., type: ... } or a block with role (and type)."]))
+  #else
+    #dmUnknownKeys($dmEp ["role", "type"])
+    #set($dmEpr = "${dmEp}.role")
+    #dmGet($dmEpr)
+    #set($dmEr = $dmGv)
+    #set($dmEpt = "${dmEp}.type")
+    #dmGet($dmEpt)
+    #set($dmEt = $dmGv)
+    #if($dmEr == "")
+      #set($void = $dmProbs.add(["error", $dmLl, "$dmEp has no role."]))
+    #elseif(!$dmRoleByKey.containsKey($dmEr))
+      #set($void = $dmProbs.add(["error", $dmLl, "$dmEp: role $dmEr is not defined in model.roles."]))
+    #elseif($dmEt != "")
+      #set($dmFoundT = false)
+      #foreach($dmT2 in $dmRoleByKey.get($dmEr).get("types"))
+        #if($dmT2.get("type") == $dmEt)
+          #set($dmFoundT = true)
+        #end
+      #end
+      #if(!$dmFoundT)
+        #set($void = $dmProbs.add(["warning", $dmLl, "$dmEp: type $dmEt is not listed in the items of role $dmEr."]))
+      #end
+    #end
+    #if($dmEt != "" && $dmCheckTypes && !$dmTypeNames.containsKey($dmEt))
+      #set($void = $dmProbs.add(["error", $dmLl, "Work item type $dmEt does not exist in project $dmProjectId."]))
+    #end
+  #end
+#end
+#set($dmRuleIds = [])
+#dmKindOf("model.links")
+#if($dmKo == "list")
+  #set($dmNl = $dmCnt.get("model.links"))
+  #set($dmNl = $dmNl - 1)
+  #if($dmNl >= 0)
+    #foreach($dmI in [0..$dmNl])
+      #set($dmLp = "model.links[${dmI}]")
+      #dmLineOf($dmLp)
+      #set($dmLl = $dmLo)
+      #dmKindOf($dmLp)
+      #if($dmKo != "map")
+        #set($void = $dmProbs.add(["error", $dmLl, "$dmLp must be a block (id, from, link_role, to, ...)."]))
+      #else
+        #dmUnknownKeys($dmLp ["id", "from", "link_role", "to", "from_min", "to_min", "severity", "description"])
+        #set($dmRu = $objectFactory.newMap())
+        #set($void = $dmRu.put("line", $dmLl))
+        #set($dmPp = "${dmLp}.id")
+        #dmGet($dmPp)
+        #set($dmNo = $dmI + 1)
+        #if($dmGv == "")
+          #set($dmGv = "L${dmNo}")
+          #set($void = $dmProbs.add(["warning", $dmLl, "$dmLp has no id (named $dmGv)."]))
+        #end
+        #if($dmRuleIds.contains($dmGv))
+          #set($void = $dmProbs.add(["error", $dmLl, "Rule id $dmGv is used twice."]))
+        #end
+        #set($void = $dmRuleIds.add($dmGv))
+        #set($void = $dmRu.put("id", $dmGv))
+        #set($dmPp = "${dmLp}.from")
+        #dmLinkEnd($dmPp)
+        #set($void = $dmRu.put("from", $dmEr))
+        #set($void = $dmRu.put("ft", $dmEt))
+        #set($dmPp = "${dmLp}.to")
+        #dmLinkEnd($dmPp)
+        #set($void = $dmRu.put("to", $dmEr))
+        #set($void = $dmRu.put("tt", $dmEt))
+        #set($dmPp = "${dmLp}.link_role")
+        #dmGet($dmPp)
+        #set($dmLr = $dmGv)
+        #set($dmLrn = $dmGv)
+        #if($dmLr == "")
+          #set($void = $dmProbs.add(["error", $dmLl, "$dmLp has no link_role."]))
+        #elseif($dmCheckRoles && !$dmRoleNames.containsKey($dmLr))
+          #set($void = $dmProbs.add(["error", $dmLl, "Link role $dmLr does not exist in project $dmProjectId."]))
+        #elseif($dmCheckRoles)
+          #set($dmLrn = $dmRoleNames.get($dmLr))
+        #end
+        #set($void = $dmRu.put("role", $dmLr))
+        #set($void = $dmRu.put("rname", $dmLrn))
+        #set($dmPp = "${dmLp}.from_min")
+        #dmIntOf($dmPp 0)
+        #set($void = $dmRu.put("fmin", $dmIv))
+        #set($dmPp = "${dmLp}.to_min")
+        #dmIntOf($dmPp 0)
+        #set($void = $dmRu.put("tmin", $dmIv))
+        #set($dmPp = "${dmLp}.severity")
+        #dmGet($dmPp)
+        #if($dmGv == "")
+          #set($dmGv = "error")
+        #elseif(!$dmSevR.contains($dmGv))
+          #set($void = $dmProbs.add(["error", $dmLl, "$dmPp must be error, warning or info (found: $dmGv)."]))
+          #set($dmGv = "error")
+        #end
+        #set($void = $dmRu.put("sev", $dmGv))
+        #set($void = $dmRules.add($dmRu))
+      #end
+    #end
+  #end
+#elseif($dmKo != "" && $dmKo != "null")
+  #dmLineOf("model.links")
+  #set($void = $dmProbs.add(["error", $dmLo, "model.links must be a list (one - entry per rule)."]))
+#end
+#dmGet("model.unexpected_links")
+#if($dmGv != "")
+  #if($dmSev4.contains($dmGv))
+    #set($dmUnexpLinks = $dmGv)
+  #else
+    #dmLineOf("model.unexpected_links")
+    #set($void = $dmProbs.add(["error", $dmLo, "model.unexpected_links must be error, warning, info or ignore (found: $dmGv)."]))
+  #end
+#end
+
+## ---------------------------------------------------------------- bindings (explicit documents, PO 2026-10-30)
+## Forms: "name" (default space of the current project), "space/name", "project/space/name".
+#set($dmDeclSql = "")
+#set($dmAllDocs = [])
+#dmKindOf("bindings")
+#if($dmKo == "map")
+  #foreach($dmBk in $dmKeys.get("bindings"))
+    #set($dmBp = "bindings.${dmBk}")
+    #dmLineOf($dmBp)
+    #set($dmBl = $dmLo)
+    #set($dmVals = [])
+    #dmKindOf($dmBp)
+    #if($dmKo == "list")
+      #set($dmNb = $dmCnt.get($dmBp))
+      #set($dmNb = $dmNb - 1)
+      #if($dmNb >= 0)
+        #foreach($dmI in [0..$dmNb])
+          #set($dmBe = "${dmBp}[${dmI}]")
+          #dmKindOf($dmBe)
+          #if($dmKo == "scalar")
+            #dmGet($dmBe)
+            #set($void = $dmVals.add($dmGv))
+          #else
+            #set($void = $dmProbs.add(["error", $dmBl, "$dmBe must be a document (space/name)."]))
+          #end
+        #end
+      #end
+    #elseif($dmKo == "scalar")
+      #dmGet($dmBp)
+      #set($void = $dmVals.add($dmGv))
+    #elseif($dmKo == "map")
+      #set($void = $dmProbs.add(["error", $dmBl, "$dmBp must be a document or a list of documents."]))
+    #end
+    #if(!$dmRoleByKey.containsKey($dmBk))
+      #set($void = $dmProbs.add(["error", $dmBl, "bindings: $dmBk is not a role of model.roles."]))
+    #else
+      #set($dmR = $dmRoleByKey.get($dmBk))
+      #set($void = $dmR.put("bound", true))
+      #set($dmRdocs = $dmR.get("docs"))
+      #foreach($dmDv in $dmVals)
+        #set($dmDt = $dmDv.trim())
+        #if($dmDt != "")
+          #set($dmSegs = [])
+          #foreach($dmS in $dmDt.split("/"))
+            #set($void = $dmSegs.add($dmS.trim()))
+          #end
+          #set($dmD = $objectFactory.newMap())
+          #set($void = $dmD.put("decl", $dmDt))
+          #set($void = $dmD.put("line", $dmBl))
+          #set($void = $dmD.put("found", false))
+          #set($void = $dmD.put("title", ""))
+          #set($dmDp = $dmProjectId)
+          #set($dmDs = "_default")
+          #set($dmDn = "")
+          #if($dmSegs.size() == 1)
+            #set($dmDn = $dmSegs.get(0))
+          #elseif($dmSegs.size() == 2)
+            #set($dmDs = $dmSegs.get(0))
+            #set($dmDn = $dmSegs.get(1))
+          #elseif($dmSegs.size() == 3)
+            #set($dmDp = $dmSegs.get(0))
+            #set($dmDs = $dmSegs.get(1))
+            #set($dmDn = $dmSegs.get(2))
+          #end
+          #if($dmDn == "" || $dmDs == "" || $dmDp == "")
+            #set($void = $dmProbs.add(["error", $dmBl, "Document $dmDt: write name, space/name or project/space/name."]))
+          #else
+            #set($dmDk = "${dmDp}/${dmDs}/${dmDn}")
+            #set($void = $dmD.put("key", $dmDk))
+            #set($void = $dmD.put("project", $dmDp))
+            #set($void = $dmD.put("space", $dmDs))
+            #set($void = $dmD.put("name", $dmDn))
+            #set($dmDupDoc = false)
+            #foreach($dmD2 in $dmAllDocs)
+              #if($dmD2.get("key") == $dmDk)
+                #set($dmDupDoc = true)
+              #end
+            #end
+            #if($dmDupDoc)
+              #set($void = $dmProbs.add(["warning", $dmBl, "Document $dmDk is declared more than once."]))
+            #end
+            #set($void = $dmRdocs.add($dmD))
+            #set($void = $dmAllDocs.add($dmD))
+            #set($dmDpQ = $dmDp.replace("'", "''"))
+            #set($dmDsQ = $dmDs.replace("'", "''"))
+            #set($dmDnQ = $dmDn.replace("'", "''"))
+            #if($dmDeclSql != "")
+              #set($dmDeclSql = "${dmDeclSql} OR ")
+            #end
+            #set($dmDeclSql = "${dmDeclSql}(p.c_id = '${dmDpQ}' AND m.c_modulefolder = '${dmDsQ}' AND m.c_id = '${dmDnQ}')")
+          #end
+        #end
+      #end
+    #end
+  #end
+#elseif($dmKo != "" && $dmKo != "null")
+  #dmLineOf("bindings")
+  #set($void = $dmProbs.add(["error", $dmLo, "bindings must be a block: role: [documents]."]))
+#end
+## One SQL query for all declared documents (verified on 2512, dmSpike S5).
+#if($dmDeclSql != "")
+  #set($dmFound = $objectFactory.newMap())
+  #set($dmMods = $trackerService.getDataService().sqlSearch("SELECT m.c_uri FROM module m INNER JOIN project p ON p.c_uri = m.fk_uri_project WHERE ${dmDeclSql}"))
+  #foreach($dmM in $dmMods)
+    #if(!$dmM.isUnresolvable())
+      #set($void = $dmFound.put("$dmM.getProjectId()/$dmM.getModuleFolder()/$dmM.getId()", $dmM))
+    #end
+  #end
+  #foreach($dmD in $dmAllDocs)
+    #set($dmM = false)
+    #set($dmM = $dmFound.get($dmD.get("key")))
+    #if($dmM)
+      #set($void = $dmD.put("found", true))
+      #set($dmTmp = "")
+      #set($dmTmp = $dmM.getTitle())
+      #set($void = $dmD.put("title", "$dmTmp"))
+    #else
+      #set($dmDk = $dmD.get("key"))
+      #set($void = $dmProbs.add(["error", $dmD.get("line"), "Document $dmDk not found (or not readable)."]))
+    #end
+  #end
+#end
+## ---------------------------------------------------------------- pairs (paired rules, PO 2026-10-30, dmCheck K15)
+## pairs: { ruleId: [[source document, target document], ...] }. Documents written as in bindings; the source document
+## must be declared for the rule's from role, the target for its to role. A rule without entry stays pooled.
+## Output on each rule map: paired (true/false), pairs (list of [source key, target key, line]).
+## Key of a declared document text $dmPd (forms of bindings) into $dmPk ("" when the form is wrong).
+#macro(dmDocKeyOf $dmPd)
+  #set($dmPk = "")
+  #set($dmPsegs = [])
+  #set($dmPdS = "$dmPd")
+  #foreach($dmS in $dmPdS.trim().split("/"))
+    #set($void = $dmPsegs.add($dmS.trim()))
+  #end
+  #if($dmPsegs.size() == 1 && $dmPsegs.get(0) != "")
+    #set($dmPk = "${dmProjectId}/_default/$dmPsegs.get(0)")
+  #elseif($dmPsegs.size() == 2 && $dmPsegs.get(0) != "" && $dmPsegs.get(1) != "")
+    #set($dmPk = "${dmProjectId}/$dmPsegs.get(0)/$dmPsegs.get(1)")
+  #elseif($dmPsegs.size() == 3 && $dmPsegs.get(0) != "" && $dmPsegs.get(1) != "" && $dmPsegs.get(2) != "")
+    #set($dmPk = "$dmPsegs.get(0)/$dmPsegs.get(1)/$dmPsegs.get(2)")
+  #end
+#end
+## Keys of the declared documents of role $dmRoleK into $dmRkeys.
+#macro(dmRoleDocKeys $dmRoleK)
+  #set($dmRkeys = [])
+  #set($dmRr = false)
+  #set($dmRr = $dmRoleByKey.get($dmRoleK))
+  #if($dmRr)
+    #foreach($dmD2 in $dmRr.get("docs"))
+      #set($void = $dmRkeys.add($dmD2.get("key")))
+    #end
+  #end
+#end
+#set($dmRuleById = $objectFactory.newMap())
+#foreach($dmRu in $dmRules)
+  #set($void = $dmRu.put("paired", false))
+  #set($void = $dmRu.put("pairs", []))
+  #if(!$dmRuleById.containsKey($dmRu.get("id")))
+    #set($void = $dmRuleById.put($dmRu.get("id"), $dmRu))
+  #end
+#end
+#dmKindOf("pairs")
+#if($dmKo == "map")
+  #foreach($dmPr in $dmKeys.get("pairs"))
+    #set($dmPp = "pairs.${dmPr}")
+    #dmLineOf($dmPp)
+    #set($dmPl = $dmLo)
+    #set($dmRu = false)
+    #set($dmRu = $dmRuleById.get($dmPr))
+    #dmKindOf($dmPp)
+    #if(!$dmRu)
+      #set($void = $dmProbs.add(["error", $dmPl, "pairs: $dmPr is not the id of a rule in model.links."]))
+    #elseif($dmKo != "list")
+      #set($void = $dmProbs.add(["error", $dmPl, "pairs.$dmPr must be a list of [source document, target document]."]))
+    #else
+      #set($void = $dmRu.put("paired", true))
+      #set($dmRpairs = $dmRu.get("pairs"))
+      #set($dmFromR = $dmRu.get("from"))
+      #set($dmToR = $dmRu.get("to"))
+      #dmRoleDocKeys($dmFromR)
+      #set($dmFromKeys = $dmRkeys)
+      #dmRoleDocKeys($dmToR)
+      #set($dmToKeys = $dmRkeys)
+      #set($dmNp = $dmCnt.get($dmPp))
+      #set($dmNp = $dmNp - 1)
+      #if($dmNp >= 0)
+        #foreach($dmI in [0..$dmNp])
+          #set($dmPe = "${dmPp}[${dmI}]")
+          #dmLineOf($dmPe)
+          #set($dmPel = $dmLo)
+          #dmKindOf($dmPe)
+          #set($dmPc = 0)
+          #if($dmKo == "list")
+            #set($dmPc = $dmCnt.get($dmPe))
+          #end
+          #if($dmPc != 2)
+            #set($void = $dmProbs.add(["error", $dmPel, "$dmPe must be [source document, target document]."]))
+          #else
+            #set($dmPe0 = "${dmPe}[0]")
+            #set($dmPe1 = "${dmPe}[1]")
+            #dmGet($dmPe0)
+            #set($dmSrcD = $dmGv)
+            #dmGet($dmPe1)
+            #set($dmTgtD = $dmGv)
+            #dmDocKeyOf($dmSrcD)
+            #set($dmSrcK = $dmPk)
+            #dmDocKeyOf($dmTgtD)
+            #set($dmTgtK = $dmPk)
+            #set($dmPok = true)
+            #if($dmSrcK == "" || !$dmFromKeys.contains($dmSrcK))
+              #set($void = $dmProbs.add(["error", $dmPel, "Pair of $dmPr: $dmSrcD is not declared in bindings for role $dmFromR (source of the rule)."]))
+              #set($dmPok = false)
+            #end
+            #if($dmTgtK == "" || !$dmToKeys.contains($dmTgtK))
+              #set($void = $dmProbs.add(["error", $dmPel, "Pair of $dmPr: $dmTgtD is not declared in bindings for role $dmToR (target of the rule)."]))
+              #set($dmPok = false)
+            #end
+            #if($dmPok)
+              #set($dmDupP = false)
+              #foreach($dmP2 in $dmRpairs)
+                #if($dmP2.get(0) == $dmSrcK && $dmP2.get(1) == $dmTgtK)
+                  #set($dmDupP = true)
+                #end
+              #end
+              #if($dmDupP)
+                #set($void = $dmProbs.add(["warning", $dmPel, "Pair [$dmSrcD, $dmTgtD] of $dmPr is listed twice."]))
+              #else
+                #set($void = $dmRpairs.add([$dmSrcK, $dmTgtK, $dmPel]))
+              #end
+            #end
+          #end
+        #end
+      #end
+      ## Declared documents of the two roles that are in no pair of this rule (dmCheck reports them as unpaired).
+      #set($dmInPair = [])
+      #foreach($dmP2 in $dmRpairs)
+        #set($void = $dmInPair.add("s:$dmP2.get(0)"))
+        #set($void = $dmInPair.add("t:$dmP2.get(1)"))
+      #end
+      #foreach($dmK3 in $dmFromKeys)
+        #if(!$dmInPair.contains("s:$dmK3"))
+          #set($void = $dmProbs.add(["warning", $dmPl, "Document $dmK3 (role $dmFromR) is in no pair of rule ${dmPr}: dmCheck will report it as unpaired."]))
+        #end
+      #end
+      #foreach($dmK3 in $dmToKeys)
+        #if(!$dmInPair.contains("t:$dmK3"))
+          #set($void = $dmProbs.add(["warning", $dmPl, "Document $dmK3 (role $dmToR) is in no pair of rule ${dmPr}: dmCheck will report it as unpaired."]))
+        #end
+      #end
+    #end
+  #end
+#elseif($dmKo != "" && $dmKo != "null")
+  #dmLineOf("pairs")
+  #set($void = $dmProbs.add(["error", $dmLo, "pairs must be a block: rule id: [[source document, target document], ...]."]))
+#end
+
+#foreach($dmR in $dmRoles)
+  #if(!$dmR.get("bound"))
+    #set($dmRk = $dmR.get("key"))
+    #set($void = $dmProbs.add(["warning", $dmR.get("line"), "Role $dmRk has no document in bindings."]))
+  #end
+#end
+
+## ---------------------------------------------------------------- counts
+#set($dmErrors = 0)
+#set($dmWarnings = 0)
+#foreach($dmP in $dmProbs)
+  #if($dmP.get(0) == "error")
+    #set($dmErrors = $dmErrors + 1)
+  #elseif($dmP.get(0) == "warning")
+    #set($dmWarnings = $dmWarnings + 1)
+  #end
+#end
+#set($dcItemCap = 20000)
+#set($dcLinkCap = 40000)
+#set($dcListCap = 500)
+#set($tmp = "")
+#set($tmp = $parameters.listCap.value())
+#set($tmpS = "$tmp")
+#if($tmpS.matches("[0-9]{1,5}"))
+  #set($dcListCap = $dmInt.parseInt($tmpS))
+#end
+## Shared snippet dm-check.vm (shared/vm), inlined by tools/build-widget.py at "## BW_SHARED dm-check.vm" (dmCheck).
+## Checks the declared documents against the model (widgets/dmCheck/SPECIFICATION.md K3-K5, K15; docs/ARCHITECTURE.md 4).
+## Needs dm-read.vm, dm-yaml.vm and dm-model.vm ($dmRoles, $dmRules, $dmUnexpLinks, $dmErrors, $dmDeclSql).
+## Data, SQL forms verified on 2512 (sister repo, docCoverage): (1) the items of the declared documents, one query;
+## (2) the link sources between declared documents with a link role used by the rules (DISTINCT, joins on module and
+## project); their links are read with getLinkedWorkItemsStructsDirect(). Only the declared documents are read.
+## Input: $dcItemCap, $dcLinkCap, $dcListCap.
+## Output:
+##   $dcRun (true when the checks ran), $dcNote (why not), $dcItemN, $dcLinkN, $dcUnres (unresolvable link targets),
+##   $dcCapped (item or link cap reached)
+##   $dcViol   list of [severity, kind, rule id, document key, item key, message]; kinds: missing-type, too-many,
+##             unexpected-type, from, to, cross-pair, unpaired, unexpected-link (at most $dcListCap per rule and kind)
+##   $dcViolN  map "rule|kind" -> full count;  $dcSevN map severity -> full count
+##   $dcStat   map rule id -> map fc, fo (from side: checked, compliant), tc, to (to side), cross, unp, sev
+##   $dcDocs   list of maps key, roles (list), items (counted), bad (items with a violation), types ("type|n;" text)
+#set($dcRun = false)
+#set($dcNote = "")
+#set($dcItemN = 0)
+#set($dcLinkN = 0)
+#set($dcUnres = 0)
+#set($dcCapped = false)
+#set($dcViol = [])
+#set($dcViolN = $objectFactory.newMap())
+#set($dcSevN = $objectFactory.newMap())
+#set($dcStat = $objectFactory.newMap())
+#set($dcDocs = [])
+
+## Violation [sev, kind, rule, doc, item, msg]: counted always, stored up to $dcListCap per rule and kind.
+## Arguments are passed by name (Velocity 1.4): the macro uses its own variable names (dca*) so that an argument such
+## as "$dcN link(s)" is not changed by the macro before it is read.
+#macro(dcAdd $dcaS $dcaK $dcaR $dcaD $dcaI $dcaM)
+  #set($dcaMsg = "$dcaM")
+  #set($dcaSev = "$dcaS")
+  #set($dcaItem = "$dcaI")
+  #set($dcaKey = "${dcaR}|${dcaK}")
+  #set($dcaN = 0)
+  #set($dcaN = $dcViolN.get($dcaKey))
+  #set($dcaN = $dcaN + 1)
+  #set($void = $dcViolN.put($dcaKey, $dcaN))
+  #set($dcaSn = 0)
+  #set($dcaSn = $dcSevN.get($dcaSev))
+  #set($dcaSn = $dcaSn + 1)
+  #set($void = $dcSevN.put($dcaSev, $dcaSn))
+  #if($dcaN <= $dcListCap)
+    #set($void = $dcViol.add([$dcaSev, "$dcaK", "$dcaR", "$dcaD", $dcaItem, $dcaMsg]))
+  #end
+  #if($dcaItem != "")
+    #set($void = $dcBadItems.put($dcaItem, true))
+  #end
+#end
+
+#set($dcBadItems = $objectFactory.newMap())
+#set($dcFound = [])
+#set($dcDocRoles = $objectFactory.newMap())
+#foreach($dmR in $dmRoles)
+  #foreach($dmD in $dmR.get("docs"))
+    #if($dmD.get("found"))
+      #set($dcDk = $dmD.get("key"))
+      #if(!$dcFound.contains($dcDk))
+        #set($void = $dcFound.add($dcDk))
+        #set($void = $dcDocRoles.put($dcDk, []))
+      #end
+      #set($dcRl = $dcDocRoles.get($dcDk))
+      #if(!$dcRl.contains($dmR.get("key")))
+        #set($void = $dcRl.add($dmR.get("key")))
+      #end
+    #end
+  #end
+#end
+#if($dmErrors > 0)
+  #set($dcNote = "The model has errors: correct them (see the problems; dmDefine shows the model with its lines), then the data is checked.")
+#elseif($dcFound.size() == 0)
+  #set($dcNote = "No declared document was found: nothing to check.")
+#else
+  #set($dcRun = true)
+#end
+
+#if($dcRun)
+  ## ------------------------------------------------------------- items of the declared documents
+  #set($dcItems = $objectFactory.newMap())
+  #set($dcByDoc = $objectFactory.newMap())
+  #set($dcTypeN = $objectFactory.newMap())
+  #foreach($dcDk in $dcFound)
+    #set($void = $dcByDoc.put($dcDk, []))
+  #end
+  #set($dcRows = $trackerService.getDataService().sqlSearch("SELECT w.c_uri FROM workitem w INNER JOIN module m ON m.c_uri = w.fk_uri_module INNER JOIN project p ON p.c_uri = m.fk_uri_project WHERE (${dmDeclSql})"))
+  #foreach($dcW in $dcRows)
+    #if($dcItemN < $dcItemCap && !$dcW.isUnresolvable())
+      #set($dcM = false)
+      #set($dcM = $dcW.getModule())
+      #if($dcM && !$dcM.isUnresolvable())
+        #set($dcDk = "$dcM.getProjectId()/$dcM.getModuleFolder()/$dcM.getId()")
+        #if($dcByDoc.containsKey($dcDk))
+          #set($dcIk = "$dcW.getProjectId()/$dcW.getId()")
+          #set($dcTy = "$dcW.getType().getId()")
+          #set($void = $dcItems.put($dcIk, [$dcTy, $dcDk, "$dcW.getId()"]))
+          #set($void = $dcByDoc.get($dcDk).add($dcIk))
+          #set($dcTk = "${dcDk}|${dcTy}")
+          #set($dcN = 0)
+          #set($dcN = $dcTypeN.get($dcTk))
+          #set($dcN = $dcN + 1)
+          #set($void = $dcTypeN.put($dcTk, $dcN))
+          #set($dcItemN = $dcItemN + 1)
+        #end
+      #end
+    #elseif($dcItemN >= $dcItemCap)
+      #set($dcCapped = true)
+    #end
+  #end
+
+  ## ------------------------------------------------------------- links between declared documents (rule roles)
+  #set($dcRoleIds = [])
+  #foreach($dmU in $dmRules)
+    #if(!$dcRoleIds.contains($dmU.get("role")))
+      #set($void = $dcRoleIds.add($dmU.get("role")))
+    #end
+  #end
+  #set($dcLinks = [])
+  #if($dcRoleIds.size() > 0)
+    #set($dcRoleSql = "")
+    #foreach($dcR in $dcRoleIds)
+      #if($dcRoleSql != "")
+        #set($dcRoleSql = "${dcRoleSql},")
+      #end
+      #set($dcRq = $dcR.replace("'", "''"))
+      #set($dcRoleSql = "${dcRoleSql}'${dcRq}'")
+    #end
+    #set($dcSrcSql = $dmDeclSql.replace("p.c_id", "ps.c_id").replace("m.c_", "ms.c_"))
+    #set($dcTgtSql = $dmDeclSql.replace("p.c_id", "pt.c_id").replace("m.c_", "mt.c_"))
+    #set($dcSrc = $trackerService.getDataService().sqlSearch("SELECT DISTINCT ws.c_uri FROM struct_workitem_linkedworkitems l INNER JOIN workitem ws ON ws.c_uri = l.fk_uri_p_workitem INNER JOIN workitem wt ON wt.c_uri = l.fk_uri_workitem INNER JOIN module ms ON ms.c_uri = ws.fk_uri_module INNER JOIN project ps ON ps.c_uri = ms.fk_uri_project INNER JOIN module mt ON mt.c_uri = wt.fk_uri_module INNER JOIN project pt ON pt.c_uri = mt.fk_uri_project WHERE l.c_role IN (${dcRoleSql}) AND (${dcSrcSql}) AND (${dcTgtSql})"))
+    #foreach($dcW in $dcSrc)
+      #if(!$dcW.isUnresolvable())
+        #set($dcSk = "$dcW.getProjectId()/$dcW.getId()")
+        #if($dcItems.containsKey($dcSk))
+          #foreach($dcL in $dcW.getLinkedWorkItemsStructsDirect())
+            #set($dcT = false)
+            #set($dcT = $dcL.getLinkedItem())
+            #if(!$dcT || $dcT.isUnresolvable())
+              #set($dcUnres = $dcUnres + 1)
+            #else
+              #set($dcLr = "$dcL.getLinkRole().getId()")
+              #set($dcTk = "$dcT.getProjectId()/$dcT.getId()")
+              #if($dcRoleIds.contains($dcLr) && $dcItems.containsKey($dcTk))
+                #if($dcLinkN < $dcLinkCap)
+                  #set($void = $dcLinks.add([$dcSk, $dcLr, $dcTk, false]))
+                  #set($dcLinkN = $dcLinkN + 1)
+                #else
+                  #set($dcCapped = true)
+                #end
+              #end
+            #end
+          #end
+        #end
+      #end
+    #end
+  #end
+
+  ## ------------------------------------------------------------- item types per role and document (K3)
+  #foreach($dmR in $dmRoles)
+    #set($dcRk = $dmR.get("key"))
+    #foreach($dmD in $dmR.get("docs"))
+      #if($dmD.get("found"))
+        #set($dcDk = $dmD.get("key"))
+        #foreach($dcT in $dmR.get("types"))
+          #set($dcTy = $dcT.get("type"))
+          #set($dcN = 0)
+          #set($dcN = $dcTypeN.get("${dcDk}|${dcTy}"))
+          #set($dcMin = $dcT.get("min"))
+          #set($dcMax = $dcT.get("max"))
+          #if($dcMin >= 0 && $dcN < $dcMin)
+            #dcAdd("error" "missing-type" "types:$dcRk" $dcDk "" "Role $dcRk: $dcN item(s) of type $dcTy, at least $dcMin required.")
+          #end
+          #if($dcMax >= 0 && $dcN > $dcMax)
+            #dcAdd("error" "too-many" "types:$dcRk" $dcDk "" "Role $dcRk: $dcN item(s) of type $dcTy, at most $dcMax allowed.")
+          #end
+        #end
+      #end
+    #end
+  #end
+  ## Unexpected types: not listed in any role of the document (severity of the first role; ignore = not reported).
+  #foreach($dcDk in $dcFound)
+    #set($dcListed = [])
+    #set($dcSev = "")
+    #set($dcFirstRole = "")
+    #foreach($dcRk in $dcDocRoles.get($dcDk))
+      #set($dmR = $dmRoleByKey.get($dcRk))
+      #if($dcSev == "")
+        #set($dcSev = $dmR.get("unexp"))
+        #set($dcFirstRole = $dcRk)
+      #end
+      #foreach($dcT in $dmR.get("types"))
+        #set($void = $dcListed.add($dcT.get("type")))
+      #end
+    #end
+    #if($dcSev != "ignore")
+      #foreach($dcIk in $dcByDoc.get($dcDk))
+        #set($dcTy = $dcItems.get($dcIk).get(0))
+        #if(!$dcListed.contains($dcTy))
+          #set($dcIid = $dcItems.get($dcIk).get(2))
+          #dcAdd($dcSev "unexpected-type" "types:$dcFirstRole" $dcDk $dcIk "$dcIid: type $dcTy is not listed in role $dcFirstRole.")
+        #end
+      #end
+    #end
+  #end
+
+  ## ------------------------------------------------------------- link rules (K4, K15)
+  ## Counted items of a role end: items of the role's found documents, of the end type, or of a listed, not ignored
+  ## type when the end has none. Into $dcCand (list of item keys) and $dcCandSet (map).
+  #macro(dcEnd $dcEr $dcEt)
+    #set($dcCand = [])
+    #set($dcCandSet = $objectFactory.newMap())
+    #set($dcRr = $dmRoleByKey.get($dcEr))
+    #set($dcOkTypes = [])
+    #if("$dcEt" != "")
+      #set($void = $dcOkTypes.add("$dcEt"))
+    #else
+      #foreach($dcT in $dcRr.get("types"))
+        #if(!$dcT.get("ignored"))
+          #set($void = $dcOkTypes.add($dcT.get("type")))
+        #end
+      #end
+    #end
+    #foreach($dmD in $dcRr.get("docs"))
+      #if($dmD.get("found"))
+        #foreach($dcIk in $dcByDoc.get($dmD.get("key")))
+          #if($dcOkTypes.contains($dcItems.get($dcIk).get(0)) && !$dcCandSet.containsKey($dcIk))
+            #set($void = $dcCand.add($dcIk))
+            #set($void = $dcCandSet.put($dcIk, true))
+          #end
+        #end
+      #end
+    #end
+  #end
+  #foreach($dmU in $dmRules)
+    #set($dcUid = $dmU.get("id"))
+    #set($dcSev = $dmU.get("sev"))
+    #set($dcSt = $objectFactory.newMap())
+    #set($void = $dcSt.put("sev", $dcSev))
+    #set($void = $dcStat.put($dcUid, $dcSt))
+    #dcEnd($dmU.get("from") $dmU.get("ft"))
+    #set($dcFrom = $dcCand)
+    #set($dcFromSet = $dcCandSet)
+    #dcEnd($dmU.get("to") $dmU.get("tt"))
+    #set($dcTo = $dcCand)
+    #set($dcToSet = $dcCandSet)
+    #set($dcPairs = [])
+    #foreach($dcP in $dmU.get("pairs"))
+      #set($void = $dcPairs.add("$dcP.get(0)>$dcP.get(1)"))
+    #end
+    #set($dcPaired = $dmU.get("paired"))
+    #set($dcFn = $objectFactory.newMap())
+    #set($dcTn = $objectFactory.newMap())
+    #set($dcCross = 0)
+    #foreach($dcL in $dcLinks)
+      #if($dcL.get(1) == $dmU.get("role") && $dcFromSet.containsKey($dcL.get(0)) && $dcToSet.containsKey($dcL.get(2)))
+        #set($dcSd = $dcItems.get($dcL.get(0)).get(1))
+        #set($dcTd = $dcItems.get($dcL.get(2)).get(1))
+        #set($void = $dcL.set(3, true))
+        #if($dcPaired && !$dcPairs.contains("${dcSd}>${dcTd}"))
+          #set($dcCross = $dcCross + 1)
+          #set($dcSid = $dcItems.get($dcL.get(0)).get(2))
+          #set($dcTid = $dcItems.get($dcL.get(2)).get(2))
+          #dcAdd($dcSev "cross-pair" $dcUid $dcSd $dcL.get(0) "$dcSid $dmU.get('rname') $dcTid: documents not paired for ${dcUid} ($dcSd, $dcTd).")
+        #else
+          #set($dcN = 0)
+          #set($dcN = $dcFn.get($dcL.get(0)))
+          #set($dcN = $dcN + 1)
+          #set($void = $dcFn.put($dcL.get(0), $dcN))
+          #set($dcN = 0)
+          #set($dcN = $dcTn.get($dcL.get(2)))
+          #set($dcN = $dcN + 1)
+          #set($void = $dcTn.put($dcL.get(2), $dcN))
+        #end
+      #end
+    #end
+    #set($dcFc = 0)
+    #set($dcFo = 0)
+    #set($dcFmin = $dmU.get("fmin"))
+    #if($dcFmin > 0)
+      #foreach($dcIk in $dcFrom)
+        #set($dcFc = $dcFc + 1)
+        #set($dcN = 0)
+        #set($dcN = $dcFn.get($dcIk))
+        #if($dcN >= $dcFmin)
+          #set($dcFo = $dcFo + 1)
+        #else
+          #set($dcIt = $dcItems.get($dcIk))
+          #set($dcIid = $dcIt.get(2))
+          #dcAdd($dcSev "from" $dcUid $dcIt.get(1) $dcIk "$dcIid: $dcN link(s) $dmU.get('rname') to role $dmU.get('to'), at least $dcFmin required (${dcUid}).")
+        #end
+      #end
+    #end
+    #set($dcTc = 0)
+    #set($dcTo2 = 0)
+    #set($dcTmin = $dmU.get("tmin"))
+    #if($dcTmin > 0)
+      #foreach($dcIk in $dcTo)
+        #set($dcTc = $dcTc + 1)
+        #set($dcN = 0)
+        #set($dcN = $dcTn.get($dcIk))
+        #if($dcN >= $dcTmin)
+          #set($dcTo2 = $dcTo2 + 1)
+        #else
+          #set($dcIt = $dcItems.get($dcIk))
+          #set($dcIid = $dcIt.get(2))
+          #dcAdd($dcSev "to" $dcUid $dcIt.get(1) $dcIk "$dcIid: $dcN link(s) $dmU.get('rname') from role $dmU.get('from'), at least $dcTmin required (${dcUid}).")
+        #end
+      #end
+    #end
+    ## Unpaired documents of a paired rule.
+    #set($dcUnp = 0)
+    #if($dcPaired)
+      #foreach($dcSide in ["from", "to"])
+        #set($dcRr = $dmRoleByKey.get($dmU.get($dcSide)))
+        #foreach($dmD in $dcRr.get("docs"))
+          #if($dmD.get("found"))
+            #set($dcIn = false)
+            #foreach($dcP in $dmU.get("pairs"))
+              #if(($dcSide == "from" && $dcP.get(0) == $dmD.get("key")) || ($dcSide == "to" && $dcP.get(1) == $dmD.get("key")))
+                #set($dcIn = true)
+              #end
+            #end
+            #if(!$dcIn)
+              #set($dcUnp = $dcUnp + 1)
+              #dcAdd($dcSev "unpaired" $dcUid $dmD.get("key") "" "Document $dmD.get('key') (role $dcRr.get('key')) is in no pair of ${dcUid}.")
+            #end
+          #end
+        #end
+      #end
+    #end
+    #set($void = $dcSt.put("fc", $dcFc))
+    #set($void = $dcSt.put("fo", $dcFo))
+    #set($void = $dcSt.put("tc", $dcTc))
+    #set($void = $dcSt.put("to", $dcTo2))
+    #set($void = $dcSt.put("cross", $dcCross))
+    #set($void = $dcSt.put("unp", $dcUnp))
+  #end
+
+  ## ------------------------------------------------------------- unexpected links (K5)
+  #if($dmUnexpLinks != "ignore")
+    #foreach($dcL in $dcLinks)
+      #if(!$dcL.get(3))
+        #set($dcUs = $dcItems.get($dcL.get(0)))
+        #set($dcUt = $dcItems.get($dcL.get(2)))
+        #set($dcSid = $dcUs.get(2))
+        #set($dcTid = $dcUt.get(2))
+        #set($dcUsd = $dcUs.get(1))
+        #set($dcUsk = $dcL.get(0))
+        #set($dcUmsg = "$dcSid ($dcUs.get(0)) $dcL.get(1) $dcTid ($dcUt.get(0), $dcUt.get(1)): no rule allows this link.")
+        #dcAdd($dmUnexpLinks "unexpected-link" "" $dcUsd $dcUsk $dcUmsg)
+      #end
+    #end
+  #end
+
+  ## ------------------------------------------------------------- documents: counted items, items with a violation
+  #foreach($dcDk in $dcFound)
+    #set($dcIgn = [])
+    #foreach($dcRk in $dcDocRoles.get($dcDk))
+      #foreach($dcT in $dmRoleByKey.get($dcRk).get("types"))
+        #if($dcT.get("ignored"))
+          #set($void = $dcIgn.add($dcT.get("type")))
+        #end
+      #end
+    #end
+    #set($dcCnt = 0)
+    #set($dcBad = 0)
+    #set($dcTyText = "")
+    #set($dcTyDone = [])
+    #foreach($dcIk in $dcByDoc.get($dcDk))
+      #set($dcTy = $dcItems.get($dcIk).get(0))
+      #if(!$dcIgn.contains($dcTy))
+        #set($dcCnt = $dcCnt + 1)
+        #if($dcBadItems.containsKey($dcIk))
+          #set($dcBad = $dcBad + 1)
+        #end
+      #end
+      #if(!$dcTyDone.contains($dcTy))
+        #set($void = $dcTyDone.add($dcTy))
+        #set($dcTk = "${dcDk}|${dcTy}")
+        #set($dcTyN = $dcTypeN.get($dcTk))
+        #set($dcTyText = "${dcTyText}${dcTy}|${dcTyN};")
+      #end
+    #end
+    #set($dcDm = $objectFactory.newMap())
+    #set($void = $dcDm.put("key", $dcDk))
+    #set($void = $dcDm.put("roles", $dcDocRoles.get($dcDk)))
+    #set($void = $dcDm.put("items", $dcCnt))
+    #set($void = $dcDm.put("bad", $dcBad))
+    #set($void = $dcDm.put("types", $dcTyText))
+    #set($void = $dcDocs.add($dcDm))
+  #end
+#end
+
+#set($graphHeight = 500)
+#set($tmp = "")
+#set($tmp = $parameters.height.value())
+#set($tmpS = "$tmp")
+#if($tmpS.matches("[0-9]{2,4}"))
+  #set($graphHeight = $dmInt.parseInt($tmpS))
+#end
+#set($isPdf = false)
+#set($isPdf = $widgetContext.target().isPdf())
+#set($isPrint = false)
+#set($isPrint = $widgetContext.target().isPrint())
+#set($isStatic = $isPdf || $isPrint)
+#set($itemLabel = "")
+#if($dmItem)
+  #set($itemLabel = "${dmItemProject}/${dmItemId}")
+  #if($dmItemRev != "")
+    #set($itemLabel = "${itemLabel} (revision ${dmItemRev})")
+  #end
+#end
+#if($dmUses != "")
+  #set($itemLabel = "${itemLabel}, roles and rules from ${dmUses}")
+#end
+#set($nErr = 0)
+#set($nErr = $dcSevN.get("error"))
+#set($nWarn = 0)
+#set($nWarn = $dcSevN.get("warning"))
+#set($nInfo = 0)
+#set($nInfo = $dcSevN.get("info"))
+## "|" and ";" separate values in the page model: replaced by a space inside values.
+#macro(dcSafe $dcsV)
+  #set($dcsO = "$dcsV")
+  #set($dcsO = $dcsO.replace("|", " ").replace(";", " "))
+#end
+
+#if(!$dmOpt && $dmItemIdP == "")
+<div class="dc-root"><div class="bw-muted"><b>Data Model Check</b>: select the model document (and, if needed, the model work item) in the widget parameters. <span class="bw-muted">(widget v$bwVersion)</span></div></div>
+#elseif($isStatic)
+## ======================================================================= static view (PDF / print)
+<div class="dc-root dc-static">
+<div class="dc-head"><b>Data Model Check</b>#if($dmName != "") &mdash; $esc.html($dmName)#end &mdash; model $esc.html($itemLabel) <span class="bw-muted">(widget v$bwVersion)</span></div>
+#if(!$dcRun)
+<div class="bw-error">$esc.html($dcNote)</div>
+#end
+#if($dmProbs.size() > 0)
+<div class="dc-h">Model problems</div>
+<table class="bw-table">
+<tr><th>Severity</th><th>Line</th><th>Problem</th></tr>
+#foreach($p in $dmProbs)
+<tr><td>$p.get(0)</td><td>#if($p.get(1) > 0)$p.get(1)#end</td><td>$esc.html($p.get(2))</td></tr>
+#end
+</table>
+#end
+#if($dcRun)
+<div>$dcItemN work items, $dcLinkN links checked &mdash; $nErr errors, $nWarn warnings, $nInfo info#if($dcCapped) &mdash; <span class="bw-error">limit reached: results are incomplete</span>#end</div>
+<div class="dc-h">Rules</div>
+<table class="bw-table">
+<tr><th>Rule</th><th>From</th><th>Link role</th><th>To</th><th>Source items with enough links</th><th>Target items with enough links</th><th>Cross-pair links</th><th>Unpaired documents</th><th>Severity</th></tr>
+#foreach($u in $dmRules)
+  #set($st = $dcStat.get($u.get("id")))
+<tr><td>$esc.html($u.get("id"))</td><td>$esc.html($u.get("from"))</td><td>$esc.html($u.get("rname"))</td><td>$esc.html($u.get("to"))</td><td>#if($u.get("fmin") > 0)$st.get("fo") / $st.get("fc")#else &mdash;#end</td><td>#if($u.get("tmin") > 0)$st.get("to") / $st.get("tc")#else &mdash;#end</td><td>$st.get("cross")</td><td>$st.get("unp")</td><td>$u.get("sev")</td></tr>
+#end
+</table>
+<div class="dc-h">Documents</div>
+<table class="bw-table">
+<tr><th>Document</th><th>Roles</th><th>Counted items</th><th>Items with a violation</th></tr>
+#foreach($d in $dcDocs)
+<tr><td>$esc.html($d.get("key"))</td><td>$esc.html($d.get("roles"))</td><td>$d.get("items")</td><td>$d.get("bad")</td></tr>
+#end
+</table>
+<div class="dc-h">Violations ($dcViol.size() listed)</div>
+<table class="bw-table">
+<tr><th>Severity</th><th>Check</th><th>Rule</th><th>Document</th><th>Message</th></tr>
+#foreach($v in $dcViol)
+<tr><td>$v.get(0)</td><td>$v.get(1)</td><td>$esc.html($v.get(2))</td><td>$esc.html($v.get(3))</td><td>$esc.html($v.get(5))</td></tr>
+#end
+</table>
+#end
+</div>
+#else
+## ======================================================================= interactive view: page model + script
+#set($dcRunF = "0")
+#if($dcRun)
+  #set($dcRunF = "1")
+#end
+#set($dcCapF = "0")
+#if($dcCapped)
+  #set($dcCapF = "1")
+#end
+<div class="dc-root" data-project="$esc.html($dmProjectId)" data-version="$bwVersion" data-height="$graphHeight" data-item="$esc.html($dmItemId)" data-item-project="$esc.html($dmItemProject)" data-rev="$esc.html($dmItemRev)" data-uses="$esc.html($dmUses)" data-name="$esc.html($dmName)" data-run="$dcRunF" data-note="$esc.html($dcNote)" data-items="$dcItemN" data-links="$dcLinkN" data-unres="$dcUnres" data-capped="$dcCapF" data-cap="$dcListCap" data-unexp="$dmUnexpLinks">
+<div class="dc-head"><b>Data Model Check</b>#if($dmName != "") &mdash; $esc.html($dmName)#end &mdash; model $esc.html($itemLabel) <span class="bw-muted">(widget v$bwVersion)</span></div>
+<div class="bw-model" style="display:none">
+#foreach($r in $dmRoles)
+  #set($ts = "")
+  #foreach($t in $r.get("types"))
+    #dcSafe($t.get("type"))
+    #set($ig = "0")
+    #if($t.get("ignored"))
+      #set($ig = "1")
+    #end
+    #set($ts = "${ts}${dcsO}|$t.get('min')|$t.get('max')|${ig};")
+  #end
+  #set($ds = "")
+  #foreach($d in $r.get("docs"))
+    #set($f = "0")
+    #if($d.get("found"))
+      #set($f = "1")
+    #end
+    #dcSafe($d.get("key"))
+    #set($ds = "${ds}${dcsO}|${f};")
+  #end
+<i class="dm-r" data-k="$esc.html($r.get('key'))" data-title="$esc.html($r.get('title'))" data-unexp="$r.get('unexp')" data-types="$esc.html($ts)" data-docs="$esc.html($ds)"></i>
+#end
+#foreach($u in $dmRules)
+  #set($st = false)
+  #set($st = $dcStat.get($u.get("id")))
+  #set($pf = "0")
+  #if($u.get("paired"))
+    #set($pf = "1")
+  #end
+<i class="dm-l" data-id="$esc.html($u.get('id'))" data-from="$esc.html($u.get('from'))" data-ft="$esc.html($u.get('ft'))" data-role="$esc.html($u.get('role'))" data-rn="$esc.html($u.get('rname'))" data-to="$esc.html($u.get('to'))" data-tt="$esc.html($u.get('tt'))" data-fmin="$u.get('fmin')" data-tmin="$u.get('tmin')" data-sev="$u.get('sev')" data-paired="$pf"#if($st) data-fc="$st.get('fc')" data-fo="$st.get('fo')" data-tc="$st.get('tc')" data-to2="$st.get('to')" data-cross="$st.get('cross')" data-unp="$st.get('unp')"#end></i>
+#end
+#foreach($p in $dmProbs)
+<i class="dm-p" data-sev="$p.get(0)" data-line="$p.get(1)" data-msg="$esc.html($p.get(2))"></i>
+#end
+#foreach($v in $dcViol)
+<i class="dc-v" data-sev="$v.get(0)" data-kind="$v.get(1)" data-rule="$esc.html($v.get(2))" data-doc="$esc.html($v.get(3))" data-item="$esc.html($v.get(4))" data-msg="$esc.html($v.get(5))"></i>
+#end
+#foreach($k in $dcViolN.keySet())
+<i class="dc-n" data-k="$esc.html($k)" data-n="$dcViolN.get($k)"></i>
+#end
+#foreach($d in $dcDocs)
+  #set($rs = "")
+  #foreach($rk in $d.get("roles"))
+    #set($rs = "${rs}${rk};")
+  #end
+<i class="dc-d" data-k="$esc.html($d.get('key'))" data-roles="$esc.html($rs)" data-items="$d.get('items')" data-bad="$d.get('bad')" data-types="$esc.html($d.get('types'))"></i>
+#end
+</div>
+</div>
+<div class="bw-lib" style="display:none">#loadWidgetJs("resources/xlsx.js")</div>
+<script>
+(function () {
+  'use strict';
+
+  /*
+   * Shared client core of the widgets (copied from the sister repository's docBranches / docCoverage core;
+   * used here by dmDefine; optional widget fields: isolatedText, searchText).
+   *
+   * tools/build-widget.py places this fragment inside each widget's IIFE, before the widget's own
+   * graph.js code, so nothing is global. Velocity parses the result: no dollar sign, hash sign,
+   * backslash or non-ASCII character in this file (the build checks it). Use HASH in URLs.
+   *
+   * Edge categories ("cats") describe the kinds of relation a widget draws:
+   *   [{ id: 'branch', name: 'branch', label: 'Branches', color: 'rgb(...)', dash: '9,5' }, ...]
+   * in precedence order (the first category present on an edge gives its line style). An edge is
+   *   { o: originKey, c: targetKey, kinds: { catId: count }, meta: { catId: bool }, indirect: bool,
+   *     samples: [{ c: itemInTarget, o: itemInOrigin, k: catId }], ... widget fields }
+   */
+
+  var SVG_NS = 'http://www.w3.org/2000/svg';
+  var HASH = String.fromCharCode(35);
+  var INDIRECT_COLOR = 'rgb(150,150,150)';
+  var EXTRA_FIELDS = [
+    ['type', 'Type'], ['status', 'Status'], ['created', 'Created'], ['updated', 'Updated'], ['items', 'Work items']
+  ];
+  var NODE_W = 240;
+  var LINE_H = 15;
+  var PAD = 8;
+  var COL_GAP = 130;
+  var ROW_GAP = 22;
+  var MARGIN = 20;
+  var FONT = 'Segoe UI, Arial, sans-serif';
+  // Non-ASCII characters are built at runtime so the template stays ASCII-only.
+  var ARROW = String.fromCharCode(8594);
+  var ELLIPSIS = String.fromCharCode(8230);
+  var MINUS = String.fromCharCode(8722);
+  var DASH = String.fromCharCode(8211);
+
+  // ------------------------------------------------------------------ helpers
+
+  function el(tag, attrs, parent, text) {
+    var e = document.createElement(tag);
+    setAttrs(e, attrs);
+    if (text !== undefined) { e.textContent = text; }
+    if (parent) { parent.appendChild(e); }
+    return e;
+  }
+
+  function svg(tag, attrs, parent, text) {
+    var e = document.createElementNS(SVG_NS, tag);
+    setAttrs(e, attrs);
+    if (text !== undefined) { e.textContent = text; }
+    if (parent) { parent.appendChild(e); }
+    return e;
+  }
+
+  function setAttrs(e, attrs) {
+    if (!attrs) { return; }
+    for (var k in attrs) {
+      if (Object.prototype.hasOwnProperty.call(attrs, k) && attrs[k] !== null && attrs[k] !== undefined) {
+        e.setAttribute(k, attrs[k]);
+      }
+    }
+  }
+
+  function trunc(s, n) {
+    s = s || '';
+    return s.length > n ? s.substring(0, n - 1) + ELLIPSIS : s;
+  }
+
+  function toInt(v) {
+    var n = parseInt(v, 10);
+    return isNaN(n) ? 0 : n;
+  }
+
+  function pct(part, whole) {
+    if (!whole || whole <= 0) { return null; }
+    return Math.round(100 * part / whole);
+  }
+
+  function basePath() {
+    var p = window.location.pathname;
+    return p.substring(0, p.lastIndexOf('/') + 1);
+  }
+
+  // Documents and work items open in their own project (node.project, from the page model). In a collection (col =
+  // "collection project/collection id", root data-col) they open in the collection context, at the collection revision:
+  // .../project/P/collection/ID/... for the collection's project, .../project/P/collection/CP//ID/... for another
+  // project (formats rendered by Polarion 2512, docCoverage spike K2/K3).
+  function projectPath(project, col) {
+    var p = basePath() + HASH + '/project/' + encodeURIComponent(project);
+    if (!col) { return p; }
+    var i = col.lastIndexOf('/');
+    var cp = col.substring(0, i);
+    var cid = encodeURIComponent(col.substring(i + 1));
+    return p + '/collection/' + (cp === project ? cid : encodeURIComponent(cp) + '//' + cid);
+  }
+
+  function docUrl(node) {
+    return projectPath(node.project, node.col) + '/wiki/' + encodeURIComponent(node.space) + '/' + encodeURIComponent(node.id);
+  }
+
+  function itemUrl(project, id, col) {
+    return projectPath(project, col) + '/workitem?id=' + encodeURIComponent(id);
+  }
+
+  function absUrl(u) {
+    return window.location.protocol + '//' + window.location.host + u;
+  }
+
+  function bez(a, b, c, d, t) {
+    var u = 1 - t;
+    return u * u * u * a + 3 * u * u * t * b + 3 * u * t * t * c + t * t * t * d;
+  }
+
+  function fieldIndex(f) {
+    for (var i = 0; i < EXTRA_FIELDS.length; i++) { if (EXTRA_FIELDS[i][0] === f) { return i; } }
+    return 99;
+  }
+
+  function fieldLabel(f) {
+    for (var i = 0; i < EXTRA_FIELDS.length; i++) { if (EXTRA_FIELDS[i][0] === f) { return EXTRA_FIELDS[i][1]; } }
+    return f;
+  }
+
+  function download(blob, name) {
+    var url = URL.createObjectURL(blob);
+    var a = el('a', { href: url, download: name }, document.body);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(url); a.parentNode.removeChild(a); }, 1000);
+  }
+
+  // ------------------------------------------------------------------ model helpers
+
+  function readNodes(root) {
+    var nodes = [];
+    var byKey = {};
+    var nEls = root.querySelectorAll('.bw-model .bw-n');
+    for (var i = 0; i < nEls.length; i++) {
+      var d = nEls[i].dataset;
+      var n = {
+        key: d.k, project: d.p || root.dataset.project || '', id: d.id || '', title: d.title || d.id || '', space: d.space || '',
+        col: root.dataset.col || '', rev: d.rev || '',
+        type: d.type || '', status: d.status || '',
+        created: d.created || '', updated: d.updated || '',
+        items: d.items === '' || d.items === undefined ? -1 : toInt(d.items),
+        el: nEls[i]
+      };
+      if (n.key && !byKey[n.key]) {
+        byKey[n.key] = n;
+        nodes.push(n);
+      }
+    }
+    return { nodes: nodes, byKey: byKey };
+  }
+
+  // "c|o|k;c|o|k" -> [{ c, o, k }]
+  function parseSamples(s) {
+    var out = [];
+    if (!s) { return out; }
+    var parts = s.split(';');
+    for (var i = 0; i < parts.length; i++) {
+      var f = parts[i].split('|');
+      if (f.length === 3) { out.push({ c: f[0], o: f[1], k: f[2] }); }
+    }
+    return out;
+  }
+
+  // Sort key of a document: project, space, name.
+  function docSortKey(n) {
+    return n.project + '/' + n.space + '/' + n.id;
+  }
+
+  function catById(cats, id) {
+    for (var i = 0; i < cats.length; i++) { if (cats[i].id === id) { return cats[i]; } }
+    return null;
+  }
+
+  // First category present on the edge (precedence order); the last category as fallback.
+  function mainKind(e, cats) {
+    for (var i = 0; i < cats.length; i++) {
+      var k = cats[i].id;
+      if (e.kinds[k] > 0 || e.meta[k]) { return cats[i]; }
+    }
+    return cats[cats.length - 1];
+  }
+
+  // noCounts: kind names only (line labels when the viewer hides the linked item counts).
+  function kindsLabel(e, cats, noCounts) {
+    var parts = [];
+    for (var i = 0; i < cats.length; i++) {
+      var k = cats[i].id;
+      if (e.kinds[k] > 0) { parts.push(cats[i].name + (noCounts ? '' : ' ' + e.kinds[k])); }
+      else if (e.meta[k]) { parts.push(cats[i].name); }
+    }
+    return parts.join(' + ');
+  }
+
+  // "a,b" -> { a: true, b: true }; empty or unknown -> every category.
+  function relFromData(s, cats) {
+    var r = {};
+    var any = false;
+    var parts = (s || '').split(',');
+    for (var i = 0; i < parts.length; i++) {
+      if (catById(cats, parts[i])) { r[parts[i]] = true; any = true; }
+    }
+    if (!any) { cats.forEach(function (c) { r[c.id] = true; }); }
+    return r;
+  }
+
+  // Edge restricted to the selected categories (null when none of its categories is selected).
+  function restrictEdge(e, cats, rel) {
+    var kinds = {};
+    var meta = {};
+    var any = false;
+    for (var i = 0; i < cats.length; i++) {
+      var k = cats[i].id;
+      kinds[k] = rel[k] ? e.kinds[k] : 0;
+      meta[k] = rel[k] ? !!e.meta[k] : false;
+      if (kinds[k] > 0 || meta[k]) { any = true; }
+    }
+    if (!any) { return null; }
+    var r = {};
+    for (var p in e) { if (Object.prototype.hasOwnProperty.call(e, p)) { r[p] = e[p]; } }
+    r.kinds = kinds;
+    r.meta = meta;
+    r.samples = e.samples.filter(function (sm) { return !catById(cats, sm.k) || rel[sm.k]; });
+    return r;
+  }
+
+  // ------------------------------------------------------------------ layout
+
+  function nodeHeight(state) {
+    return PAD * 2 + LINE_H * ((state.baseLines || 3) + state.extras.length);
+  }
+
+  // Layered layout: origin documents on the left (longest path over direct edges), barycentre
+  // ordering to reduce crossings, documents without a shown edge in a grid below (mode 'all').
+  // state.keep(node) can force a node without edges into the grid.
+  function layout(model, state, edges) {
+    var h = nodeHeight(state);
+    var degree = {};
+    for (var i = 0; i < edges.length; i++) {
+      degree[edges[i].o] = (degree[edges[i].o] || 0) + 1;
+      degree[edges[i].c] = (degree[edges[i].c] || 0) + 1;
+    }
+    var linked = [];
+    var isolated = [];
+    for (var j = 0; j < model.nodes.length; j++) {
+      var n = model.nodes[j];
+      if (state.hidden && state.hidden[n.key]) { continue; }
+      if (degree[n.key]) { linked.push(n); }
+      else if (state.mode === 'all') { isolated.push(n); }
+    }
+
+    // Levels: longest path over direct edges (sources on the left).
+    var lvl = {};
+    for (var a = 0; a < linked.length; a++) { lvl[linked[a].key] = 0; }
+    var direct = [];
+    for (var b = 0; b < edges.length; b++) { if (!edges[b].indirect) { direct.push(edges[b]); } }
+    for (var pass = 0; pass <= linked.length; pass++) {
+      var changed = false;
+      for (var c = 0; c < direct.length; c++) {
+        var e = direct[c];
+        if (lvl[e.c] < lvl[e.o] + 1 && lvl[e.o] + 1 < 50) { lvl[e.c] = lvl[e.o] + 1; changed = true; }
+      }
+      if (!changed) { break; }
+    }
+
+    var cols = [];
+    linked.sort(function (x, y) {
+      return (x.project + '/' + x.space + '/' + x.title).localeCompare(y.project + '/' + y.space + '/' + y.title);
+    });
+    for (var d = 0; d < linked.length; d++) {
+      var L = lvl[linked[d].key];
+      if (!cols[L]) { cols[L] = []; }
+      cols[L].push(linked[d]);
+    }
+    for (var f = 0; f < cols.length; f++) { if (!cols[f]) { cols[f] = []; } }
+
+    // Barycentre ordering to reduce crossings.
+    var parents = {};
+    var children = {};
+    for (var g = 0; g < direct.length; g++) {
+      (children[direct[g].o] = children[direct[g].o] || []).push(direct[g].c);
+      (parents[direct[g].c] = parents[direct[g].c] || []).push(direct[g].o);
+    }
+    var order = {};
+    function index() {
+      for (var q = 0; q < cols.length; q++) {
+        for (var r = 0; r < cols[q].length; r++) { order[cols[q][r].key] = r; }
+      }
+    }
+    function bary(list) {
+      if (!list || !list.length) { return null; }
+      var s = 0;
+      for (var t = 0; t < list.length; t++) { s += order[list[t]]; }
+      return s / list.length;
+    }
+    function sortCol(col, rel) {
+      var keyed = col.map(function (n2, idx) {
+        var bv = bary(rel[n2.key]);
+        return { n: n2, v: bv === null ? idx : bv, idx: idx };
+      });
+      keyed.sort(function (x, y) { return x.v - y.v || x.idx - y.idx; });
+      return keyed.map(function (k) { return k.n; });
+    }
+    index();
+    for (var sweep = 0; sweep < 4; sweep++) {
+      for (var u = 1; u < cols.length; u++) { cols[u] = sortCol(cols[u], parents); index(); }
+      for (var v = cols.length - 2; v >= 0; v--) { cols[v] = sortCol(cols[v], children); index(); }
+    }
+
+    // Edges that skip a level arc over the graph; reserve room above the first row.
+    var topPad = 0;
+    for (var sk = 0; sk < edges.length; sk++) {
+      if (lvl[edges[sk].c] - lvl[edges[sk].o] > 1) { topPad = 40; break; }
+    }
+    var pos = {};
+    var maxRows = 0;
+    for (var w = 0; w < cols.length; w++) {
+      maxRows = Math.max(maxRows, cols[w].length);
+      for (var z = 0; z < cols[w].length; z++) {
+        pos[cols[w][z].key] = { x: MARGIN + w * (NODE_W + COL_GAP), y: MARGIN + topPad + z * (h + ROW_GAP) };
+      }
+    }
+    var width = MARGIN * 2 + Math.max(1, cols.length) * NODE_W + Math.max(0, cols.length - 1) * COL_GAP;
+    var height = MARGIN * 2 + topPad + maxRows * (h + ROW_GAP);
+    var isoTop = linked.length ? height + ROW_GAP : MARGIN + 18;
+    var gridCols = Math.max(3, cols.length);
+    if (isolated.length) {
+      isolated.sort(function (x, y) {
+        return (x.project + '/' + x.space + '/' + x.title).localeCompare(y.project + '/' + y.space + '/' + y.title);
+      });
+      for (var m = 0; m < isolated.length; m++) {
+        pos[isolated[m].key] = {
+          x: MARGIN + (m % gridCols) * (NODE_W + 40),
+          y: isoTop + Math.floor(m / gridCols) * (h + ROW_GAP)
+        };
+      }
+      width = Math.max(width, MARGIN * 2 + Math.min(gridCols, isolated.length) * (NODE_W + 40));
+      height = isoTop + Math.ceil(isolated.length / gridCols) * (h + ROW_GAP) + MARGIN;
+    }
+    return {
+      pos: pos, width: width, height: Math.max(height, 80), nodeH: h,
+      linked: linked, isolated: isolated, isoTop: linked.length ? height : MARGIN, topPad: topPad
+    };
+  }
+
+  // ------------------------------------------------------------------ base widget
+  // Methods shared by the widgets; each widget constructor calls initBase(this, root) and
+  // defines cats, filePrefix, emptyText, edgeSummary(e), showDetails(e), drawTable(), exportExcel().
+
+  var Base = {};
+
+  function initBase(self, root, model) {
+    self.root = root;
+    self.model = model;
+    var ds = root.dataset;
+    self.project = ds.project || '';
+    // Several projects in scope: documents are labelled with their project.
+    self.multi = (ds.projects || '').split(',').filter(function (x) { return x; }).length > 1;
+    self.height = toInt(ds.height) || 600;
+    self.state = {
+      mode: ds.mode === 'all' ? 'all' : 'related',
+      counts: ds.counts !== '0',
+      extras: (ds.extras || '').split(',').filter(function (x) { return x; }),
+      filter: '',
+      zoom: 1,
+      view: 'graph'
+    };
+  }
+
+  function extendBase(Ctor) {
+    for (var k in Base) { if (Object.prototype.hasOwnProperty.call(Base, k)) { Ctor.prototype[k] = Base[k]; } }
+  }
+
+  Base.checkbox = function (parent, label, checked, onChange) {
+    var lab = el('label', { 'class': 'bw-check' }, parent);
+    var cb = el('input', { type: 'checkbox' }, lab);
+    cb.checked = !!checked;
+    el('span', null, lab, label);
+    cb.addEventListener('change', function () { onChange(cb.checked); });
+    return lab;
+  };
+
+  Base.button = function (parent, label, title, onClick) {
+    var b = el('button', { type: 'button', 'class': 'bw-btn', title: title }, parent, label);
+    b.addEventListener('click', onClick);
+    return b;
+  };
+
+  // Toolbar group with one checkbox per category (state.rel).
+  Base.kindChecks = function (bar, title) {
+    var self = this;
+    var box = el('span', { 'class': 'bw-fields' }, bar);
+    el('span', { 'class': 'bw-muted' }, box, title);
+    this.cats.forEach(function (cat) {
+      self.checkbox(box, cat.label, self.state.rel[cat.id], function (on) {
+        self.state.rel[cat.id] = on; self.render(true);
+      });
+    });
+    return box;
+  };
+
+  Base.countsCheck = function (bar) {
+    var self = this;
+    var cnt = this.checkbox(bar, 'Item counts', this.state.counts, function (on) {
+      self.state.counts = on; self.render(false);
+    });
+    cnt.title = 'Show the number of linked work items on the lines';
+    return cnt;
+  };
+
+  Base.fieldChecks = function (bar) {
+    var self = this;
+    var fields = el('span', { 'class': 'bw-fields' }, bar);
+    el('span', { 'class': 'bw-muted' }, fields, 'Fields:');
+    EXTRA_FIELDS.forEach(function (f) {
+      self.checkbox(fields, f[1], self.state.extras.indexOf(f[0]) >= 0, function (on) {
+        var ex = self.state.extras.filter(function (x) { return x !== f[0]; });
+        if (on) { ex.push(f[0]); }
+        ex.sort(function (x, y) { return fieldIndex(x) - fieldIndex(y); });
+        self.state.extras = ex;
+        self.render(false);
+      });
+    });
+    return fields;
+  };
+
+  Base.searchBox = function (bar) {
+    var self = this;
+    var search = el('input', { 'class': 'bw-ctl bw-search', type: 'search', placeholder: (this.searchText || 'Highlight documents') + ELLIPSIS }, bar);
+    search.addEventListener('input', function () { self.state.filter = search.value.trim().toLowerCase(); self.render(false); });
+    return search;
+  };
+
+  Base.viewButtons = function (bar) {
+    var self = this;
+    var btns = el('span', { 'class': 'bw-btns' }, bar);
+    this.button(btns, 'Fit', 'Fit the graph to the view', function () { self.fit(); });
+    this.button(btns, MINUS, 'Zoom out', function () { self.setZoom(self.state.zoom / 1.25); });
+    this.button(btns, '+', 'Zoom in', function () { self.setZoom(self.state.zoom * 1.25); });
+    this.viewBtn = this.button(btns, 'Table', 'Switch between graph and table', function () {
+      self.state.view = self.state.view === 'graph' ? 'table' : 'graph';
+      self.render(false);
+    });
+    this.button(btns, 'SVG', 'Download the graph as SVG', function () { self.exportSvg(); });
+    this.button(btns, 'Excel', 'Download the shown documents and relations as an Excel workbook', function () { self.exportExcel(); });
+    // Polarion cannot re-render one widget alone in view mode: the analysis runs again by reloading the page.
+    this.button(btns, 'Reload page', 'Reload the whole page to run the analysis again (all widgets of the page are reloaded)', function () { window.location.reload(); });
+    return btns;
+  };
+
+  // Areas below the toolbar: legend, status, details, graph view, table, tooltip.
+  Base.buildAreas = function () {
+    var root = this.root;
+    this.legend(el('div', { 'class': 'bw-legend' }, root));
+    this.status = el('div', { 'class': 'bw-status' }, root);
+    this.details = el('div', { 'class': 'bw-details' }, root);
+    this.details.style.display = 'none';
+    this.view = el('div', { 'class': 'bw-view' }, root);
+    this.view.style.height = this.height + 'px';
+    this.svgEl = svg('svg', { xmlns: SVG_NS, 'class': 'bw-svg' }, this.view);
+    this.table = el('div', { 'class': 'bw-table-wrap' }, root);
+    this.tip = el('div', { 'class': 'bw-tip' }, root);
+    this.tip.style.display = 'none';
+  };
+
+  Base.legendKinds = function (box) {
+    this.cats.forEach(function (cat) {
+      var item = el('span', { 'class': 'bw-leg' }, box);
+      var s = svg('svg', { width: 34, height: 10 }, item);
+      svg('line', { x1: 1, y1: 5, x2: 33, y2: 5, stroke: cat.color, 'stroke-width': 2.5, 'stroke-dasharray': cat.dash || null }, s);
+      el('span', null, item, cat.name);
+    });
+  };
+
+  // Redraws graph and table after a state change; statusText(edges) gives the status line.
+  Base.layoutAndDraw = function (edges, refit) {
+    var st = this.state;
+    this.lay = layout(this.model, st, edges);
+    this.edges = edges;
+    this.viewBtn.textContent = st.view === 'graph' ? 'Table' : 'Graph';
+    this.view.style.display = st.view === 'graph' ? '' : 'none';
+    this.table.style.display = st.view === 'table' ? '' : 'none';
+    this.drawGraph();
+    this.drawTable();
+    if (refit) { this.fit(); } else { this.applyZoom(); }
+  };
+
+  // Text lines of a document box; widgets can override it (keep it in line with state.baseLines).
+  Base.nodeLines = function (n) {
+    var lines = [
+      { text: n.id, weight: 600, color: 'rgb(25,35,55)' },
+      { text: n.title, weight: 400, color: 'rgb(25,35,55)' },
+      { text: (this.multi ? n.project + ' / ' + n.space : n.space) + (n.rev === 'HEAD' ? '  (HEAD)' : ''), weight: 400, color: 'rgb(110,118,135)' }
+    ];
+    this.state.extras.forEach(function (f) {
+      var v = n[f];
+      if (f === 'items') { v = n.items >= 0 ? String(n.items) : ''; }
+      lines.push({ text: fieldLabel(f) + ': ' + (v || DASH), weight: 400, color: 'rgb(80,88,105)' });
+    });
+    return lines;
+  };
+
+  Base.drawGraph = function () {
+    var self = this;
+    var root = this.svgEl;
+    while (root.firstChild) { root.removeChild(root.firstChild); }
+    var lay = this.lay;
+    var h = lay.nodeH;
+    svg('rect', { x: 0, y: 0, width: lay.width, height: lay.height, fill: 'rgb(255,255,255)' }, root);
+    if (!lay.linked.length && !lay.isolated.length) {
+      svg('text', { x: MARGIN, y: MARGIN + 14, 'font-family': FONT, 'font-size': 13, fill: 'rgb(90,90,90)' }, root,
+        this.emptyText);
+      return;
+    }
+    if (lay.isolated.length && lay.linked.length) {
+      svg('text', { x: MARGIN, y: lay.isoTop + 14, 'font-family': FONT, 'font-size': 12, fill: 'rgb(110,110,110)' }, root,
+        this.isolatedText || 'Documents without relations');
+    }
+    var gEdges = svg('g', null, root);
+    var gNodes = svg('g', null, root);
+    var gLabels = svg('g', null, root);
+    var filter = this.state.filter;
+
+    this.edges.forEach(function (e) {
+      var p = lay.pos[e.o];
+      var q = lay.pos[e.c];
+      if (!p || !q) { return; }
+      var x1 = p.x + NODE_W, y1 = p.y + h / 2, x2 = q.x, y2 = q.y + h / 2;
+      var dx = x2 > x1 ? Math.max(30, (x2 - x1) / 2) : 70;
+      var c1x = x1 + dx, c2x = x2 - dx, c1y = y1, c2y = y2;
+      if (x2 - x1 > COL_GAP + NODE_W) {
+        // Skips at least one level: arc above the graph instead of crossing documents.
+        c1x = x1 + COL_GAP;
+        c2x = x2 - COL_GAP;
+        c1y = c2y = Math.max(4, Math.min(y1, y2) - h / 2 - lay.topPad - 30);
+      }
+      var d = 'M' + x1 + ',' + y1 + ' C' + c1x + ',' + c1y + ' ' + c2x + ',' + c2y + ' ' + (x2 - 2) + ',' + y2;
+      var cat = mainKind(e, self.cats);
+      var color = e.indirect ? INDIRECT_COLOR : cat.color;
+      var g = svg('g', { 'class': 'bw-edge' }, gEdges);
+      svg('path', {
+        d: d, fill: 'none', stroke: color, 'stroke-width': e.indirect ? 1.4 : 2.2,
+        'stroke-dasharray': e.indirect ? '4,4' : (cat.dash || null),
+        opacity: e.indirect ? 0.7 : 1
+      }, g);
+      // Arrow head at the target document, or at the origin when the widget draws arrows backwards
+      // (docCoverage: origin = upstream on the left, arrow in the link direction downstream -> upstream).
+      var head = self.arrowAtOrigin ?
+        (x1 + 10) + ',' + (y1 - 5) + ' ' + x1 + ',' + y1 + ' ' + (x1 + 10) + ',' + (y1 + 5) :
+        (x2 - 10) + ',' + (y2 - 5) + ' ' + x2 + ',' + y2 + ' ' + (x2 - 10) + ',' + (y2 + 5);
+      svg('polygon', { points: head, fill: color }, g);
+      var hit = svg('path', { d: d, fill: 'none', stroke: 'rgb(0,0,0)', 'stroke-opacity': 0, 'stroke-width': 12, 'class': 'bw-hit' }, g);
+      // Label near the target end (one per edge there, while several edges can share an origin).
+      var lt = 0.8;
+      var mx = bez(x1, c1x, c2x, x2, lt);
+      var my = bez(y1, c1y, c2y, y2, lt) - 3;
+      var label = kindsLabel(e, self.cats, !self.state.counts) + (e.indirect ? ' (indirect)' : '');
+      var lg = svg('g', { 'class': 'bw-edge-label' }, gLabels);
+      var bg = svg('rect', { fill: 'rgb(255,255,255)', opacity: 0.9, rx: 3 }, lg);
+      var t = svg('text', { x: mx, y: my + 4, 'text-anchor': 'middle', 'font-family': FONT, 'font-size': 11, fill: color }, lg, label);
+      try {
+        var bb = t.getBBox();
+        // Keep the label clear of the target document box.
+        var over = bb.x + bb.width + 6 - x2;
+        if (over > 0) { setAttrs(t, { x: mx - over }); bb = t.getBBox(); }
+        setAttrs(bg, { x: bb.x - 3, y: bb.y - 1, width: bb.width + 6, height: bb.height + 2 });
+      } catch (err) { /* not rendered yet */ }
+      [hit, lg].forEach(function (target) {
+        target.addEventListener('mousemove', function (ev) { self.showTip(ev, self.edgeSummary(e)); });
+        target.addEventListener('mouseleave', function () { self.hideTip(); });
+        target.addEventListener('click', function () { self.showDetails(e); });
+      });
+    });
+
+    var nodes = lay.linked.concat(lay.isolated);
+    nodes.forEach(function (n) {
+      var p = lay.pos[n.key];
+      var match = !filter || (n.id + ' ' + n.title + ' ' + n.space + ' ' + n.project).toLowerCase().indexOf(filter) >= 0;
+      var a = svg('a', { href: docUrl(n), target: '_top', 'class': 'bw-node' }, gNodes);
+      var g = svg('g', { opacity: match ? 1 : 0.3 }, a);
+      svg('rect', {
+        x: p.x, y: p.y, width: NODE_W, height: h, rx: 6,
+        fill: 'rgb(246,248,252)', stroke: filter && match ? 'rgb(230,126,34)' : 'rgb(120,132,155)',
+        'stroke-width': filter && match ? 2.5 : 1.2
+      }, g);
+      self.nodeLines(n).forEach(function (ln, i) {
+        svg('text', {
+          x: p.x + PAD, y: p.y + PAD + 11 + i * LINE_H, 'font-family': FONT, 'font-size': 12,
+          'font-weight': ln.weight, fill: ln.color
+        }, g, trunc(ln.text, 36));
+      });
+      svg('title', null, a, self.docLabel(n) + ' ' + DASH + ' ' + n.title);
+      if (self.onNode) { self.onNode(a, n); }
+    });
+  };
+
+  Base.showTip = function (ev, lines) {
+    var tip = this.tip;
+    tip.textContent = '';
+    lines.forEach(function (l, i) { el('div', i === 0 ? { 'class': 'bw-tip-head' } : null, tip, l); });
+    var r = this.root.getBoundingClientRect();
+    tip.style.display = 'block';
+    tip.style.left = (ev.clientX - r.left + 14) + 'px';
+    tip.style.top = (ev.clientY - r.top + 14) + 'px';
+  };
+
+  Base.hideTip = function () { this.tip.style.display = 'none'; };
+
+  // "space / name", prefixed with the project when several projects are in scope; "(HEAD)" for a document of a
+  // collection without a pinned revision.
+  Base.docLabel = function (n) {
+    return (this.multi ? n.project + ' / ' : '') + n.space + ' / ' + n.id + (n.rev === 'HEAD' ? ' (HEAD)' : '');
+  };
+
+  // Opens the details box with a header "origin -> target" and a Close button; returns the box.
+  Base.openDetails = function (o, c) {
+    var box = this.details;
+    box.textContent = '';
+    box.style.display = 'block';
+    var head = el('div', { 'class': 'bw-details-head' }, box);
+    el('a', { href: docUrl(o), target: '_top' }, head, o.id);
+    if (c) {
+      el('span', null, head, '  ' + ARROW + '  ');
+      el('a', { href: docUrl(c), target: '_top' }, head, c.id);
+    }
+    var close = this.button(head, 'Close', 'Close the details', function () { box.style.display = 'none'; });
+    close.style.marginLeft = '12px';
+    return box;
+  };
+
+  // List of work item pairs (target item -> origin item) with the category name. Each item opens in the project
+  // of its document.
+  Base.sampleList = function (box, e, title) {
+    var self = this;
+    var nc = this.model.byKey[e.c];
+    var no = this.model.byKey[e.o];
+    if (!e.samples.length) { return; }
+    el('div', { 'class': 'bw-muted' }, box, title);
+    var ul = el('ul', { 'class': 'bw-items' }, box);
+    e.samples.forEach(function (s) {
+      var li = el('li', null, ul);
+      el('a', { href: itemUrl(nc.project, s.c, nc.col), target: '_top' }, li, s.c);
+      el('span', null, li, ' ' + ARROW + ' ');
+      el('a', { href: itemUrl(no.project, s.o, no.col), target: '_top' }, li, s.o);
+      var cat = catById(self.cats, s.k);
+      el('span', { 'class': 'bw-muted' }, li, ' (' + (cat ? cat.name : s.k) + ')');
+    });
+    if (e.total > e.samples.length) {
+      el('div', { 'class': 'bw-muted' }, box, ELLIPSIS + ' and ' + (e.total - e.samples.length) + ' more');
+    }
+  };
+
+  // Simple HTML table: header names and rows of cells ({ text, href } or plain text).
+  Base.htmlTable = function (headers, rows, emptyText) {
+    var wrap = this.table;
+    var t = el('table', { 'class': 'bw-table' }, wrap);
+    var hr = el('tr', null, el('thead', null, t));
+    headers.forEach(function (x) { el('th', null, hr, x); });
+    var tb = el('tbody', null, t);
+    rows.forEach(function (row) {
+      var tr = el('tr', null, tb);
+      row.forEach(function (cell) {
+        var td = el('td', null, tr);
+        if (cell && cell.href) { el('a', { href: cell.href, target: '_top' }, td, cell.text); }
+        else { td.textContent = cell === null || cell === undefined ? '' : String(cell); }
+      });
+    });
+    if (!rows.length) { el('div', { 'class': 'bw-muted' }, wrap, emptyText); }
+  };
+
+  Base.setZoom = function (z) {
+    this.state.zoom = Math.max(0.1, Math.min(3, z));
+    this.applyZoom();
+  };
+
+  Base.applyZoom = function () {
+    var lay = this.lay;
+    var z = this.state.zoom;
+    setAttrs(this.svgEl, {
+      viewBox: '0 0 ' + lay.width + ' ' + lay.height,
+      width: Math.round(lay.width * z), height: Math.round(lay.height * z)
+    });
+  };
+
+  Base.fit = function () {
+    var lay = this.lay;
+    var w = this.view.clientWidth || 800;
+    var h = this.view.clientHeight || this.height;
+    var z = Math.min(1, (w - 12) / lay.width, (h - 12) / lay.height);
+    this.setZoom(Math.max(z, 0.2));
+  };
+
+  Base.svgString = function () {
+    var clone = this.svgEl.cloneNode(true);
+    setAttrs(clone, { xmlns: SVG_NS, width: this.lay.width, height: this.lay.height });
+    return new XMLSerializer().serializeToString(clone);
+  };
+
+  Base.fileName = function (ext) {
+    return this.filePrefix + (this.project || 'project') + '.' + ext;
+  };
+
+  Base.exportSvg = function () {
+    download(new Blob([this.svgString()], { type: 'image/svg+xml' }), this.fileName('svg'));
+  };
+
+  Base.shownDocs = function () {
+    return this.lay.linked.concat(this.lay.isolated).slice().sort(function (a, b) {
+      return docSortKey(a).localeCompare(docSortKey(b));
+    });
+  };
+
+  Base.sortedEdges = function () {
+    var by = this.model.byKey;
+    return this.edges.slice().sort(function (a, b) {
+      var oa = by[a.o], ob = by[b.o], ca = by[a.c], cb = by[b.c];
+      return docSortKey(oa).localeCompare(docSortKey(ob)) || docSortKey(ca).localeCompare(docSortKey(cb));
+    });
+  };
+
+  // ------------------------------------------------------------------ Excel export
+  // Uses the XLSX library (xlsx-js-style) loaded from the widget resources with loadWidgetJs.
+  // sheets: [{ name, rows (first row = header), widths, links: [{ r, c, url }] }]; name = file name (default fileName).
+  // Falls back to a CSV of the first sheet when the library is not available.
+
+  function sheetFromRows(X, rows, widths, links) {
+    var ws = X.utils.aoa_to_sheet(rows);
+    var head = { font: { bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '3367D6' } }, alignment: { vertical: 'center' } };
+    for (var c = 0; c < rows[0].length; c++) {
+      var ref = X.utils.encode_cell({ r: 0, c: c });
+      if (ws[ref]) { ws[ref].s = head; }
+    }
+    (links || []).forEach(function (lk) {
+      var cell = ws[X.utils.encode_cell({ r: lk.r, c: lk.c })];
+      if (cell) { cell.l = { Target: lk.url }; cell.s = { font: { color: { rgb: '1A4DB3' }, underline: true } }; }
+    });
+    ws['!cols'] = widths.map(function (w) { return { wch: w }; });
+    if (rows.length > 1) {
+      ws['!autofilter'] = { ref: X.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rows.length - 1, c: rows[0].length - 1 } }) };
+    }
+    return ws;
+  }
+
+  function csvCell(v) {
+    var t = v === null || v === undefined ? '' : String(v);
+    return /[",;]|[^ -~]/.test(t) ? '"' + t.split('"').join('""') + '"' : t;
+  }
+
+  Base.exportWorkbook = function (sheets, name) {
+    var X = window.XLSX;
+    if (!X || !X.utils || !X.write) { this.exportCsv(sheets[0].rows, sheets[0].what); return; }
+    var wb = X.utils.book_new();
+    sheets.forEach(function (sh) {
+      X.utils.book_append_sheet(wb, sheetFromRows(X, sh.rows, sh.widths, sh.links), sh.name);
+    });
+    var data = X.write(wb, { bookType: 'xlsx', type: 'array' });
+    download(new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), name || this.fileName('xlsx'));
+  };
+
+  Base.exportCsv = function (rows, what) {
+    var nl = String.fromCharCode(13, 10);
+    var lines = rows.map(function (row) { return row.map(csvCell).join(','); });
+    download(new Blob([String.fromCharCode(65279) + lines.join(nl) + nl], { type: 'text/csv' }), this.fileName('csv'));
+    this.status.textContent += ' ' + DASH + ' Excel library not loaded: ' + (what || 'data') + ' exported as CSV.';
+  };
+
+  // ------------------------------------------------------------------ start
+
+  function startWidgets(rootClass, Ctor, name) {
+    var roots = document.querySelectorAll('.' + rootClass);
+    for (var i = 0; i < roots.length; i++) {
+      if (roots[i].getAttribute('data-bw-ready') === '1') { continue; }
+      roots[i].setAttribute('data-bw-ready', '1');
+      try {
+        new Ctor(roots[i]);
+      } catch (err) {
+        roots[i].appendChild(el('div', { 'class': 'bw-error' }, null, name + ' widget error: ' + err));
+      }
+    }
+  }
+
+  /*
+   * Data Model Check - client-side view (widget-specific part).
+   *
+   * tools/build-widget.py inlines shared/js/core.js and this file into render.vm, inside one IIFE.
+   * Same restrictions as core.js: no dollar sign, hash sign, backslash or non-ASCII character.
+   *
+   * The checks run on the server (shared/vm/dm-check.vm); this code reads the results from the page model.
+   * Nodes = document roles; edges = link rules between two roles grouped per pair (o = target role, left; c = source
+   * role; arrow in the link direction). The edge categories are compliance states (errors, warnings, info, compliant):
+   * the first state present gives the colour.
+   */
+
+  var STATES = [
+    { id: 'error', name: 'errors', label: 'Errors', color: 'rgb(198,40,40)', dash: '' },
+    { id: 'warning', name: 'warnings', label: 'Warnings', color: 'rgb(211,120,0)', dash: '' },
+    { id: 'info', name: 'info', label: 'Info', color: 'rgb(51,103,214)', dash: '' },
+    { id: 'ok', name: 'compliant', label: 'Compliant', color: 'rgb(26,127,55)', dash: '' }
+  ];
+  var LOOP = String.fromCharCode(8635);
+  var KIND_TEXT = {
+    'missing-type': 'missing type', 'too-many': 'too many items', 'unexpected-type': 'unexpected type',
+    'from': 'missing link (source)', 'to': 'not covered (target)', 'cross-pair': 'cross-pair link',
+    'unpaired': 'unpaired document', 'unexpected-link': 'unexpected link'
+  };
+  var VIOL_SHOWN = 2000;
+
+  function parts(s, sep) {
+    return (s || '').split(sep).filter(function (x) { return x !== ''; });
+  }
+
+  function splitKey(k) {
+    var i = k.indexOf('/');
+    return { project: k.substring(0, i), rest: k.substring(i + 1) };
+  }
+
+  // "project/space/name" -> URL of the document; "project/id" -> URL of the work item.
+  function docHref(k) {
+    var a = k.split('/');
+    return docUrl({ project: a[0], space: a[1] || '', id: a.slice(2).join('/'), col: '' });
+  }
+  function itemHref(k) {
+    var p = splitKey(k);
+    return itemUrl(p.project, p.rest, '');
+  }
+  function shortDoc(k, project) {
+    return k.indexOf(project + '/') === 0 ? k.substring(project.length + 1) : k;
+  }
+  function shortItem(k, project) {
+    return k.indexOf(project + '/') === 0 ? k.substring(project.length + 1) : k;
+  }
+
+  function readModel(root) {
+    var project = root.dataset.project || '';
+    var nodes = [];
+    var byKey = {};
+    Array.prototype.forEach.call(root.querySelectorAll('.bw-model .dm-r'), function (e) {
+      var d = e.dataset;
+      var n = {
+        key: d.k, project: project, id: d.k, title: d.title || d.k, space: '', col: '', rev: '', items: -1, el: e,
+        unexp: d.unexp || 'warning',
+        types: parts(d.types, ';').map(function (p) { var f = p.split('|'); return { type: f[0], min: toInt(f[1]), max: toInt(f[2]), ignored: f[3] === '1' }; }),
+        docs: parts(d.docs, ';').map(function (p) { var f = p.split('|'); return { key: f[0], found: f[1] === '1' }; }),
+        selfRules: []
+      };
+      if (n.key && !byKey[n.key]) { byKey[n.key] = n; nodes.push(n); }
+    });
+    var counts = {};
+    Array.prototype.forEach.call(root.querySelectorAll('.bw-model .dc-n'), function (e) { counts[e.dataset.k] = toInt(e.dataset.n); });
+    var rules = [];
+    Array.prototype.forEach.call(root.querySelectorAll('.bw-model .dm-l'), function (e) {
+      var a = e.dataset;
+      var r = {
+        id: a.id, from: a.from, ft: a.ft || '', role: a.role, rname: a.rn || a.role, to: a.to, tt: a.tt || '',
+        fmin: toInt(a.fmin), tmin: toInt(a.tmin), sev: a.sev || 'error', paired: a.paired === '1',
+        fc: toInt(a.fc), fo: toInt(a.fo), tc: toInt(a.tc), to2: toInt(a.to2), cross: toInt(a.cross), unp: toInt(a.unp)
+      };
+      r.violations = ['from', 'to', 'cross-pair', 'unpaired'].reduce(function (s, k) { return s + (counts[r.id + '|' + k] || 0); }, 0);
+      rules.push(r);
+    });
+    var viol = [];
+    Array.prototype.forEach.call(root.querySelectorAll('.bw-model .dc-v'), function (e) {
+      var d = e.dataset;
+      viol.push({ sev: d.sev, kind: d.kind, rule: d.rule || '', doc: d.doc || '', item: d.item || '', msg: d.msg || '' });
+    });
+    var docs = [];
+    Array.prototype.forEach.call(root.querySelectorAll('.bw-model .dc-d'), function (e) {
+      var d = e.dataset;
+      docs.push({ key: d.k, roles: parts(d.roles, ';'), items: toInt(d.items), bad: toInt(d.bad),
+        types: parts(d.types, ';').map(function (p) { var f = p.split('|'); return { type: f[0], n: toInt(f[1]) }; }) });
+    });
+    var probs = [];
+    Array.prototype.forEach.call(root.querySelectorAll('.bw-model .dm-p'), function (e) {
+      probs.push({ sev: e.dataset.sev, line: toInt(e.dataset.line), msg: e.dataset.msg || '' });
+    });
+    var edges = [];
+    var edgeBy = {};
+    rules.forEach(function (r) {
+      if (!byKey[r.from] || !byKey[r.to]) { return; }
+      if (r.from === r.to) { byKey[r.from].selfRules.push(r); return; }
+      var key = r.to + '>' + r.from;
+      var e = edgeBy[key];
+      if (!e) { e = edgeBy[key] = { o: r.to, c: r.from, kinds: {}, meta: {}, indirect: false, samples: [], rules: [] }; edges.push(e); }
+      e.rules.push(r);
+    });
+    edges.forEach(function (e) {
+      STATES.forEach(function (s) { e.kinds[s.id] = 0; });
+      e.rules.forEach(function (r) { if (r.violations) { e.kinds[r.sev] += r.violations; } });
+      if (!e.kinds.error && !e.kinds.warning && !e.kinds.info) { e.meta.ok = true; }
+    });
+    return { nodes: nodes, byKey: byKey, rules: rules, viol: viol, docs: docs, probs: probs, edges: edges, counts: counts };
+  }
+
+  function ruleState(r) { return r.violations ? r.sev : 'ok'; }
+
+  function pct(ok, n) { return n > 0 ? Math.round(100 * ok / n) + '%' : DASH; }
+
+  function Widget(root) {
+    var model = readModel(root);
+    this.cats = STATES;
+    initBase(this, root, model);
+    var ds = root.dataset;
+    this.filePrefix = 'data-model-check-';
+    this.emptyText = ds.run === '1' ? 'The model defines no document role.' : (ds.note || 'Nothing checked.');
+    this.isolatedText = 'Roles without rules to other roles';
+    this.searchText = 'Highlight roles';
+    this.arrowAtOrigin = true;
+    this.run = ds.run === '1';
+    this.item = { id: ds.item || '', project: ds.itemProject || this.project };
+    var st = this.state;
+    st.mode = 'all';
+    st.counts = true;
+    st.extras = [];
+    st.rel = relFromData('', this.cats);
+    st.filterText = '';
+    st.baseLines = model.nodes.some(function (n) { return n.selfRules.length; }) ? 5 : 4;
+    this.build();
+    this.render(true);
+  }
+  extendBase(Widget);
+
+  Widget.prototype.build = function () {
+    var self = this;
+    var ds = this.root.dataset;
+    var m = this.model;
+    if (m.probs.length) {
+      var pb = el('div', { 'class': 'dc-probs' }, this.root);
+      el('div', { 'class': 'dc-h' }, pb, 'Model problems (shown by Data Model Definition with their lines)');
+      m.probs.forEach(function (p) {
+        var row = el('div', null, pb);
+        el('span', { 'class': 'dc-' + p.sev }, row, p.sev + ' ');
+        el('span', null, row, (p.line > 0 ? 'line ' + p.line + ': ' : '') + p.msg);
+      });
+    }
+    var sum = el('div', { 'class': 'dc-sum' }, this.root);
+    if (!this.run) {
+      el('span', { 'class': 'dc-error' }, sum, ds.note || 'Nothing checked.');
+    } else {
+      var n = { error: 0, warning: 0, info: 0 };
+      Object.keys(m.counts).forEach(function (k) {
+        var rule = k.substring(0, k.lastIndexOf('|'));
+        var kind = k.substring(k.lastIndexOf('|') + 1);
+        var sev = self.sevOf(rule, kind);
+        n[sev] = (n[sev] || 0) + m.counts[k];
+      });
+      this.totals = n;
+      el('span', { 'class': 'dc-chip ' + (n.error ? 'dc-error' : 'dc-ok') }, sum, n.error + ' errors');
+      el('span', { 'class': 'dc-chip ' + (n.warning ? 'dc-warning' : 'dc-ok') }, sum, n.warning + ' warnings');
+      el('span', { 'class': 'dc-chip ' + (n.info ? 'dc-info' : 'dc-ok') }, sum, n.info + ' info');
+      el('span', { 'class': 'dc-chip' }, sum, ds.items + ' work items, ' + ds.links + ' links checked');
+      if (toInt(ds.unres)) { el('span', { 'class': 'dc-chip bw-muted' }, sum, ds.unres + ' links to unreadable items skipped'); }
+      if (ds.capped === '1') { el('span', { 'class': 'dc-chip dc-error' }, sum, 'Limit reached: results are incomplete'); }
+    }
+    var bar = el('div', { 'class': 'bw-toolbar' }, this.root);
+    this.kindChecks(bar, 'Show:');
+    this.searchBox(bar);
+    var f = el('input', { 'class': 'bw-ctl dc-filter', type: 'search', placeholder: 'Filter violations (text)' + ELLIPSIS }, bar);
+    f.addEventListener('input', function () { self.state.filterText = f.value.trim().toLowerCase(); self.render(false); });
+    this.viewButtons(bar);
+    if (this.item.id) {
+      var a = el('a', { href: itemUrl(this.item.project, this.item.id, ''), target: '_top', title: 'Open the model work item' }, bar, 'Open model item');
+      a.style.alignSelf = 'center';
+    }
+    this.buildAreas();
+  };
+
+  // Severity of a violation kind of a rule ("types:R" kinds: missing / too many = error, unexpected type = role setting).
+  Widget.prototype.sevOf = function (rule, kind) {
+    if (!rule) { return this.root.dataset.unexp || 'warning'; }
+    if (rule.indexOf('types:') === 0) {
+      if (kind !== 'unexpected-type') { return 'error'; }
+      var n = this.model.byKey[rule.substring(6)];
+      return n ? n.unexp : 'warning';
+    }
+    var r = this.model.rules.filter(function (x) { return x.id === rule; })[0];
+    return r ? r.sev : 'error';
+  };
+
+  Widget.prototype.legend = function (box) {
+    this.legendKinds(box);
+    el('span', { 'class': 'bw-muted' }, box, 'Arrow: link direction (source ' + ARROW + ' target). Line labels: violations per severity. ' +
+      'Click a role or a line for its results.');
+  };
+
+  Widget.prototype.compute = function () {
+    var st = this.state;
+    var cats = this.cats;
+    var out = [];
+    this.model.edges.forEach(function (e) {
+      var r = restrictEdge(e, cats, st.rel);
+      if (r) { r.rules = e.rules; out.push(r); }
+    });
+    return out;
+  };
+
+  Widget.prototype.shownViolations = function () {
+    var st = this.state;
+    var q = st.filterText;
+    return this.model.viol.filter(function (v) {
+      return st.rel[v.sev] !== false && (!q || (v.msg + ' ' + v.doc + ' ' + v.item + ' ' + v.rule + ' ' + v.kind).toLowerCase().indexOf(q) >= 0);
+    });
+  };
+
+  Widget.prototype.render = function (refit) {
+    this.layoutAndDraw(this.compute(), refit);
+    var shown = this.shownViolations().length;
+    this.status.textContent = this.model.nodes.length + ' roles, ' + this.model.rules.length + ' rules, ' + this.model.docs.length +
+      ' documents checked ' + DASH + ' ' + shown + ' of ' + this.model.viol.length + ' listed violations shown';
+  };
+
+  Widget.prototype.docLabel = function (n) { return n.key; };
+
+  Widget.prototype.roleDocs = function (n) {
+    return this.model.docs.filter(function (d) { return d.roles.indexOf(n.key) >= 0; });
+  };
+
+  Widget.prototype.typeViolations = function (n) {
+    var c = this.model.counts;
+    var k = 'types:' + n.key;
+    return { missing: (c[k + '|missing-type'] || 0) + (c[k + '|too-many'] || 0), unexpected: c[k + '|unexpected-type'] || 0 };
+  };
+
+  Widget.prototype.nodeLines = function (n) {
+    var dark = 'rgb(25,35,55)';
+    var grey = 'rgb(90,98,115)';
+    var red = 'rgb(198,40,40)';
+    var green = 'rgb(26,127,55)';
+    var docs = this.roleDocs(n);
+    var items = 0;
+    var bad = 0;
+    docs.forEach(function (d) { items += d.items; bad += d.bad; });
+    var tv = this.typeViolations(n);
+    var tText = !this.run ? 'Types: ' + DASH : (tv.missing || tv.unexpected ?
+      'Types: ' + (tv.missing ? tv.missing + ' missing' : '') + (tv.missing && tv.unexpected ? ', ' : '') + (tv.unexpected ? tv.unexpected + ' unexpected' : '') : 'Types: compliant');
+    var missingDocs = n.docs.filter(function (d) { return !d.found; }).length;
+    var lines = [
+      { text: n.key, weight: 600, color: dark },
+      { text: n.title, weight: 400, color: dark },
+      { text: this.run ? 'Items: ' + items + ', without violation: ' + pct(items - bad, items) : 'Documents: ' + n.docs.length, weight: 400, color: bad ? red : (this.run ? green : grey) },
+      { text: missingDocs ? tText + ' ' + DASH + ' ' + missingDocs + ' doc. not found' : tText, weight: 400, color: tv.missing || tv.unexpected || missingDocs ? red : (this.run ? green : grey) }
+    ];
+    if (this.state.baseLines > 4) {
+      lines.push({ text: n.selfRules.map(function (r) { return LOOP + ' ' + r.id + ': ' + (r.violations ? r.violations + ' ' + r.sev : 'compliant'); }).join(', '), weight: 400,
+        color: n.selfRules.some(function (r) { return r.violations; }) ? red : green });
+    }
+    return lines;
+  };
+
+  Widget.prototype.onNode = function (a, n) {
+    var self = this;
+    a.addEventListener('click', function (ev) { ev.preventDefault(); self.showRole(n); });
+  };
+
+  Widget.prototype.ruleSummary = function (r) {
+    var s = r.id + ': ' + (r.ft || 'any type') + ' ' + r.rname + ' ' + (r.tt || 'any type') + (r.paired ? ' (paired)' : '');
+    if (r.fmin > 0) { s += '; sources with ' + GE_TEXT + r.fmin + ': ' + r.fo + '/' + r.fc; }
+    if (r.tmin > 0) { s += '; targets with ' + GE_TEXT + r.tmin + ': ' + r.to2 + '/' + r.tc; }
+    if (r.cross) { s += '; cross-pair links: ' + r.cross; }
+    if (r.unp) { s += '; unpaired documents: ' + r.unp; }
+    return s + (r.violations ? ' ' + DASH + ' ' + r.violations + ' ' + r.sev : ' ' + DASH + ' compliant');
+  };
+  var GE_TEXT = String.fromCharCode(8805);
+
+  Widget.prototype.edgeSummary = function (e) {
+    var self = this;
+    return [e.c + ' ' + ARROW + ' ' + e.o].concat(e.rules.map(function (r) { return self.ruleSummary(r); }));
+  };
+
+  Widget.prototype.detailsHead = function (title) {
+    var box = this.details;
+    box.textContent = '';
+    box.style.display = 'block';
+    var head = el('div', { 'class': 'bw-details-head' }, box);
+    el('span', null, head, title);
+    var close = this.button(head, 'Close', 'Close the details', function () { box.style.display = 'none'; });
+    close.style.marginLeft = '12px';
+    return box;
+  };
+
+  Widget.prototype.violList = function (box, list, title) {
+    var self = this;
+    if (!list.length) { el('div', { 'class': 'dc-ok' }, box, title + ': none.'); return; }
+    el('div', { 'class': 'bw-muted' }, box, title + ' (' + list.length + (list.length > 200 ? ', first 200' : '') + '):');
+    var ul = el('ul', { 'class': 'bw-items' }, box);
+    list.slice(0, 200).forEach(function (v) {
+      var li = el('li', null, ul);
+      el('span', { 'class': 'dc-' + v.sev }, li, v.sev + ' ');
+      if (v.item) { el('a', { href: itemHref(v.item), target: '_top' }, li, shortItem(v.item, self.project)); el('span', null, li, ' '); }
+      else if (v.doc) { el('a', { href: docHref(v.doc), target: '_top' }, li, shortDoc(v.doc, self.project)); el('span', null, li, ' '); }
+      el('span', null, li, v.msg);
+    });
+  };
+
+  Widget.prototype.showDetails = function (e) {
+    var self = this;
+    var box = this.detailsHead('Rules ' + e.c + ' ' + ARROW + ' ' + e.o);
+    e.rules.forEach(function (r) {
+      el('div', { 'class': 'dc-' + ruleState(r) }, box, self.ruleSummary(r));
+      self.violList(box, self.shownViolations().filter(function (v) { return v.rule === r.id; }), 'Violations of ' + r.id);
+    });
+  };
+
+  Widget.prototype.showRole = function (n) {
+    var self = this;
+    var box = this.detailsHead('Role ' + n.key + ' ' + DASH + ' ' + n.title);
+    var t = el('table', { 'class': 'bw-table' }, box);
+    var hr = el('tr', null, t);
+    ['Document', 'Counted items', 'Without violation', 'Types (items)'].forEach(function (h) { el('th', null, hr, h); });
+    this.roleDocs(n).forEach(function (d) {
+      var tr = el('tr', null, t);
+      el('a', { href: docHref(d.key), target: '_top' }, el('td', null, tr), shortDoc(d.key, self.project));
+      el('td', null, tr, String(d.items));
+      el('td', null, tr, pct(d.items - d.bad, d.items));
+      el('td', null, tr, d.types.map(function (x) { return x.type + ' ' + x.n; }).join(', '));
+    });
+    n.docs.filter(function (d) { return !d.found; }).forEach(function (d) {
+      var tr = el('tr', null, t);
+      el('td', { 'class': 'dc-error' }, tr, shortDoc(d.key, self.project) + ' (not found)');
+    });
+    this.violList(box, this.shownViolations().filter(function (v) { return v.rule === 'types:' + n.key; }), 'Item type violations');
+    n.selfRules.forEach(function (r) {
+      el('div', { 'class': 'dc-' + ruleState(r) }, box, self.ruleSummary(r));
+      self.violList(box, self.shownViolations().filter(function (v) { return v.rule === r.id; }), 'Violations of ' + r.id);
+    });
+  };
+
+  Widget.prototype.rows = function () {
+    var self = this;
+    var m = this.model;
+    var viol = [['Severity', 'Check', 'Rule', 'Document', 'Work item', 'Message']];
+    var vLinks = [];
+    this.shownViolations().slice(0, VIOL_SHOWN).forEach(function (v) {
+      var r = viol.length;
+      if (v.doc) { vLinks.push({ r: r, c: 3, url: absUrl(docHref(v.doc)) }); }
+      if (v.item) { vLinks.push({ r: r, c: 4, url: absUrl(itemHref(v.item)) }); }
+      viol.push([v.sev, KIND_TEXT[v.kind] || v.kind, v.rule || DASH, shortDoc(v.doc, self.project), shortItem(v.item, self.project), v.msg]);
+    });
+    var rules = [['Rule', 'From', 'Link role', 'To', 'Documents', 'Sources checked', 'Sources compliant', 'Targets checked', 'Targets compliant', 'Cross-pair links', 'Unpaired documents', 'Violations', 'Severity', 'State']];
+    m.rules.forEach(function (r) {
+      rules.push([r.id, r.from + (r.ft ? ' / ' + r.ft : ''), r.rname, r.to + (r.tt ? ' / ' + r.tt : ''), r.paired ? 'paired' : 'pooled',
+        r.fmin > 0 ? r.fc : '', r.fmin > 0 ? r.fo : '', r.tmin > 0 ? r.tc : '', r.tmin > 0 ? r.to2 : '', r.cross, r.unp, r.violations, r.sev, ruleState(r)]);
+    });
+    var docs = [['Document', 'Roles', 'Counted items', 'Items with a violation', 'Without violation', 'Types (items)']];
+    var dLinks = [];
+    m.docs.forEach(function (d) {
+      dLinks.push({ r: docs.length, c: 0, url: absUrl(docHref(d.key)) });
+      docs.push([shortDoc(d.key, self.project), d.roles.join(', '), d.items, d.bad, pct(d.items - d.bad, d.items), d.types.map(function (x) { return x.type + ' ' + x.n; }).join(', ')]);
+    });
+    var probs = [['Severity', 'Line', 'Problem']];
+    m.probs.forEach(function (p) { probs.push([p.sev, p.line > 0 ? p.line : '', p.msg]); });
+    return { viol: viol, vLinks: vLinks, rules: rules, docs: docs, dLinks: dLinks, probs: probs };
+  };
+
+  Widget.prototype.drawTable = function () {
+    var wrap = this.table;
+    wrap.textContent = '';
+    var r = this.rows();
+    var self = this;
+    function section(title, rows, links) {
+      el('div', { 'class': 'dc-h' }, wrap, title);
+      var body = rows.slice(1).map(function (row, i) {
+        return row.map(function (v, c) {
+          var lk = (links || []).filter(function (l) { return l.r === i + 1 && l.c === c; })[0];
+          return lk && v !== '' ? { text: String(v), href: lk.url } : v;
+        });
+      });
+      self.htmlTable(rows[0], body, 'None.');
+    }
+    section('Violations', r.viol, r.vLinks);
+    section('Rules', r.rules);
+    section('Documents', r.docs, r.dLinks);
+    if (r.probs.length > 1) { section('Model problems', r.probs); }
+  };
+
+  Widget.prototype.exportExcel = function () {
+    var r = this.rows();
+    var sheets = [
+      { name: 'Rules', rows: r.rules, widths: [10, 26, 16, 26, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10] },
+      { name: 'Violations', rows: r.viol, widths: [10, 22, 16, 36, 18, 90], links: r.vLinks },
+      { name: 'Documents', rows: r.docs, widths: [36, 24, 12, 12, 12, 50], links: r.dLinks },
+      { name: 'Model problems', rows: r.probs, widths: [10, 8, 90] }
+    ];
+    sheets[0].what = 'rules';
+    this.exportWorkbook(sheets);
+  };
+
+  startWidgets('dc-root', Widget, 'Data Model Check');
+})();
+</script>
+#end

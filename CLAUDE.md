@@ -15,7 +15,9 @@ requirements linked with `satisfies` → tests linked with `verifies`). Two widg
   to validate on 2512: `docs/PO_CHECKS.md`, keep it up to date with every new feature).
   PO 2026-10-30: dmDefine is completed before dmCheck is started.
 - **dmCheck** (`widgets/dmCheck/`): reads the same model, checks the real documents/items/links, reports violations
-  (table, Excel, graph coloured by compliance, Lucene drill-down).
+  (table, Excel, graph coloured by compliance, Lucene drill-down later). **0.1.0 built** (`shared/vm/dm-check.vm`,
+  verified SQL forms only; harness `tools/vtest/dmCheck/` builds its mock project from
+  `test-data/vcycle-check/structure.md` and expects exactly the violations listed there: keep both in line).
 
 Each widget has its own `SPECIFICATION.md` (requirements, decisions, open questions, spike list). The shared model
 format is in `docs/DATA_MODEL_FORMAT.md` (the contract between the two widgets). `README.md` is the overview.
@@ -139,7 +141,8 @@ widgets/<w>/VERSION            N.N.N;   widgets/<w>/SPECIFICATION.md
 shared/js/core.js              client core copied from the sister repo (layout, SVG, toolbar, table, exports)
 shared/vm/*.vm                 Velocity snippets inlined at BW_SHARED markers: dm-read.vm (model item -> text lines),
                                dm-yaml.vm (YAML subset parser -> path maps), dm-model.vm (validation, roles, rules,
-                               bindings); style.vm (copied); params/common/collection/documents.vm (copied, unused yet)
+                               bindings), dm-check.vm (dmCheck evaluation); style.vm (copied);
+                               params/common/collection/documents.vm (copied, unused yet)
 shared/resources/              xlsx.js + LICENSE (third-party, unchanged)
 tools/                         build-widget.py, vcheck.sh + VCheck.java (copied), test-widget.sh (build + harness +
                                Chromium, "all" also runs test-spikes.sh); tools/vtest/dmmocks/DmMocks.java = mock Polarion

@@ -175,7 +175,18 @@ documents (join `project`, filter on `c_moduleFolder` and `c_moduleName` per pro
 copies are included only when declared (PO). An unresolvable or not found document is a problem, and its role is
 checked on the documents found.
 
-## 4. dmCheck: data and evaluation [T1, T2]
+## 4. dmCheck: data and evaluation (0.1.0 built; T1 = dmSpike S10 for faster forms)
+
+**As built in 0.1.0** (`shared/vm/dm-check.vm`, verified SQL forms only): (1) one query for the items of all declared
+documents (`WHERE (` the binding conditions of `dm-model.vm` `)`), cap 20 000; (2) one query for the link sources
+between declared documents with the rule link roles (`SELECT DISTINCT ws.c_uri … l.c_role IN (…)`, source and target
+conditions with the aliases `ps/ms`, `pt/mt`, as docCoverage), their links read with
+`getLinkedWorkItemsStructsDirect()`, kept when the target is an item of a declared document, cap 40 000. Then in
+Velocity: type counts per document (min/max, unexpected types against the union of the document's roles); per rule
+the counted items of each end (end type, or the listed not-ignored types), the matching links (pooled: any documents
+of the roles; paired: declared pairs only, others = cross-pair), `from_min` / `to_min` per item, unpaired documents;
+unexpected links = links not matched by any rule. Violations are counted always and listed up to the list cap per rule
+and check. The table below was the preliminary plan; the set queries (`NOT EXISTS` / `NOT IN`) are measured by S10.
 
 Inputs: the normalized model, the module URIs per role, and the excluded types. Every query is restricted to the
 **declared documents**, never to the whole project.
@@ -218,8 +229,11 @@ values escaped with `$esc.html`, separators replaced inside values, caps with wa
 | `dm-v` (editor) | one per path of the parsed model: `data-p` (path), `data-k` (`map`/`list`/`scalar`/`null`), `data-v` (scalar), `data-n` (list length), `data-keys` (map keys in source order, `k;…`) | dmDefine 0.3.0 |
 | `dm-ct`, `dm-cr`, `dm-pd` (editor) | project work item types (`data-id`, `data-n` name), link roles (same), documents of the current project (`data-s` space, `data-n` name, `data-t` title; one SQL query, at most 2000) | dmDefine 0.3.0 |
 | root, editor | `data-errors` (errors of the model), `data-text` (1 when the model item has text) | dmDefine 0.3.0 |
-| `dm-c` (rule result) | `data-id` (rule id or `types:<role>`), `data-kind`, `data-n` (checked), `data-ok`, `data-vn` (full count), `data-v` (`id|docKey|type|msg;…` capped), `data-q` (drill-down query) | dmCheck (planned) |
-| `dm-d` (document) | `data-k`, `data-role`, `data-title`, `data-items`, counts per type | dmCheck (planned) |
+| root `dc-root` | `data-project`, `data-version`, `data-height`, `data-item`, `data-item-project`, `data-rev`, `data-uses`, `data-name`, `data-run` (1 = checks ran), `data-note` (why not), `data-items`, `data-links`, `data-unres` (unreadable link targets), `data-capped`, `data-cap` (list cap), `data-unexp` | dmCheck 0.1.0 |
+| `dm-r` / `dm-l` (dmCheck) | as dmDefine, `data-docs` = `key|found;…`; rules add `data-paired`, `data-fc`, `data-fo` (sources checked / compliant), `data-tc`, `data-to2` (targets), `data-cross`, `data-unp` | dmCheck 0.1.0 |
+| `dc-v` (violation) | `data-sev`, `data-kind` (`missing-type`, `too-many`, `unexpected-type`, `from`, `to`, `cross-pair`, `unpaired`, `unexpected-link`), `data-rule` (rule id, `types:<role>`, or empty for unexpected links), `data-doc` (`project/space/name`), `data-item` (`project/id`), `data-msg` | dmCheck 0.1.0 |
+| `dc-n` (full count) | `data-k` (`rule|kind`), `data-n` | dmCheck 0.1.0 |
+| `dc-d` (document) | `data-k`, `data-roles` (`R;…`), `data-items` (counted), `data-bad` (with a violation), `data-types` (`type|n;…`) | dmCheck 0.1.0 |
 
 `|` and `;` inside values are replaced by a space.
 
@@ -309,7 +323,7 @@ T1) there.
 | 0.2.0 | **Built**: `pairs` validated and shown (rule details, table, Excel sheet, PDF column) | — (started after dmDefine is completed, PO) |
 | 0.3.0 | **Built**: editor (forms + YAML text, Copy, Download, start from an empty model) | — |
 | 0.4.0 | **Built**: `uses:` reference, documents of other projects (tested on mocks) | — |
-| 0.5.0 | **Built**: *Save to Polarion* (REST, optional, tested with a mocked REST API) | — |
+| 0.5.0 | **Built**: *Save to Polarion* (REST, optional, tested with a mocked REST API) | **0.1.0 built**: v1 checks, graph by compliance, report table, Excel, PDF (tested on mocks from `test-data/vcycle-check/`) |
 | 0.2.0 | `uses:` reference, starter generator, editor + Copy | 0.1.0: three v1 checks, report, Excel, coloured graph, PDF |
 | 0.3.0 | REST save (if S4 positive), cross-project bindings | drill-down, cross-project documents |
 | later | — | collection context, orphans, wrong document, field rules |

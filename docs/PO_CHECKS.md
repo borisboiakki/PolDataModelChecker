@@ -5,7 +5,7 @@ Polarion instance**. Run the checks in this order when you have time; for each o
 screenshots or PDF exports: the repository is public). Findings are then recorded in the specification and in
 `tests/dmSpike-v0.1.x/spike-tests.md`.
 
-Last update: 2026-10-30, dmDefine 0.5.0, dmSpike S7 and S10, dmCheck started.
+Last update: 2026-10-30, dmDefine 0.5.0, dmCheck 0.1.0, dmSpike S7 and S10.
 
 ## 1. Spike widget dmSpike (upload `tests/dmSpike-v0.1.x/spike-widget/dmSpike.zip`)
 
@@ -42,12 +42,16 @@ Use a model with the names of your project (start from `test-data/vcycle-model.y
 | 2.17 | With a user who can read but not edit the model item | Save shown, then "Not saved: no permission …" (or Save not shown) | 0.5.0 |
 | 2.18 | Widget parameter *Save to Polarion* = Off | no Save button, "switched off in the widget parameters" | 0.5.0 |
 
-## 3. dmCheck (when its package exists: `widgets/dmCheck/dist/dmCheck.zip`)
+## 3. dmCheck (upload `widgets/dmCheck/dist/dmCheck.zip`)
 
 | # | Check | Expected | Version |
 |---|---|---|---|
 | 3.1 | In the sandbox project, create the test structure of `test-data/vcycle-check/structure.md` (5 documents, ~20 items, links; adapt the type and role names) and a model item with `test-data/vcycle-check/model.yaml` (adapted) | dmDefine shows the model with no problem | dmCheck 0.1.0 |
-| 3.2 | dmCheck on that model | the 11 expected violations of `structure.md` (and nothing else), counters as listed there | dmCheck 0.1.0 |
+| 3.2 | dmCheck on that model (same parameters as dmDefine) | summary 4 errors, 7 warnings; the 11 expected violations of `structure.md` (and nothing else); counters as listed there; L1 red, L2 orange | dmCheck 0.1.0 |
+| 3.3 | Line and role details, *Table*, *Filter violations*, *Show* checkboxes, *Excel*; links to work items and documents open them | as described in `docs/dmCheck/install.md` | dmCheck 0.1.0 |
+| 3.4 | PDF export of the page | rules, documents, violations tables | dmCheck 0.1.0 |
+| 3.5 | dmCheck on a real model of your largest project | rendering time (seconds), no "limit reached"; the violations make sense | dmCheck 0.1.0 |
+| 3.6 | A model with an error (e.g. an unknown link role) | the problems, "The model has errors", nothing checked | dmCheck 0.1.0 |
 
 ## 4. Decisions to confirm (dmCheck, proposed in `widgets/dmCheck/SPECIFICATION.md` §7)
 
