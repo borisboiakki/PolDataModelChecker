@@ -43,9 +43,19 @@ The widget reads the first item of the type with a line starting with `version:`
   *Document pairs*; other rules are *pooled*.
 - Toolbar: link role filters, *Highlight roles*, zoom, *Table*, *SVG*, *Excel* (roles, item types, rules, document pairs, documents,
   problems, model text), *Reload page*, *Model text*, *Copy YAML*, *Open model item*.
-- To change the model: *Open model item*, edit the description, save, *Reload page*.
+- To change the model: **Edit model** (0.3.0) opens a form editor prefilled with the current model: general settings,
+  document roles with their work item types, link rules, documents of each role (picked from the project's documents,
+  or typed as `project/space/name`), paired documents. Types, link roles and roles are chosen in search-and-pick lists.
+  The forms list their problems as you edit. **Generate YAML** writes the text in the *YAML text* tab: **Copy** it, open
+  the model work item, select its whole description, paste as plain text (Ctrl+Shift+V), save, *Reload page*.
+  The lines above `version:` and the `description` fields are kept; comments inside the model are not (the editor says
+  so). A model with errors opens in the *YAML text* tab only. With no model item yet, the forms start empty: paste the
+  generated text into a new `text` work item of the model document.
+- You can also edit the description of the model item directly (*Open model item*), save, *Reload page*.
 - PDF export: tables of problems, roles and rules.
 
 ![dmDefine graph (mock data)](preview-graph.png)
 
 ![dmDefine problems and model text (mock data)](preview-problems.png)
+
+![dmDefine editor (mock data)](preview-editor.png)

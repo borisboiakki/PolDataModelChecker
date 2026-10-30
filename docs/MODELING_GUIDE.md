@@ -5,6 +5,9 @@ validates the model) and **dmCheck** (checks the real data against it). The full
 [DATA_MODEL_FORMAT.md](DATA_MODEL_FORMAT.md); how to install the widget and where to paste the model is in
 [dmDefine/install.md](dmDefine/install.md).
 
+You can write the YAML by hand, or use **Edit model** in dmDefine (0.3.0): forms with search-and-pick lists of the
+project's types, link roles and documents, which generate the YAML to copy into the model work item.
+
 All type, link role and document names below are invented: replace them with the ones of your project (dmDefine
 reports a type, a link role or a document that does not exist).
 

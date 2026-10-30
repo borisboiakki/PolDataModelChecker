@@ -212,6 +212,9 @@ values escaped with `$esc.html`, separators replaced inside values, caps with wa
 | `dm-l` (link rule) | `data-paired` (1/0), `data-pairs` (`source|target;…`, current project's documents as `space/name`), `data-id`, `data-from`, `data-ft`, `data-role`, `data-rn` (role name), `data-to`, `data-tt`, `data-fmin`, `data-tmin`, `data-sev`, `data-line` | dmDefine (dmCheck: same) |
 | `dm-p` (problem) | `data-sev`, `data-line` (0 = not tied to a line), `data-msg` | dmDefine (dmCheck: same) |
 | `dm-y` | `data-t`: one element per line of the model text | dmDefine |
+| `dm-v` (editor) | one per path of the parsed model: `data-p` (path), `data-k` (`map`/`list`/`scalar`/`null`), `data-v` (scalar), `data-n` (list length), `data-keys` (map keys in source order, `k;…`) | dmDefine 0.3.0 |
+| `dm-ct`, `dm-cr`, `dm-pd` (editor) | project work item types (`data-id`, `data-n` name), link roles (same), documents of the current project (`data-s` space, `data-n` name, `data-t` title; one SQL query, at most 2000) | dmDefine 0.3.0 |
+| root, editor | `data-errors` (errors of the model), `data-text` (1 when the model item has text) | dmDefine 0.3.0 |
 | `dm-c` (rule result) | `data-id` (rule id or `types:<role>`), `data-kind`, `data-n` (checked), `data-ok`, `data-vn` (full count), `data-v` (`id|docKey|type|msg;…` capped), `data-q` (drill-down query) | dmCheck (planned) |
 | `dm-d` (document) | `data-k`, `data-role`, `data-title`, `data-items`, counts per type | dmCheck (planned) |
 
@@ -238,6 +241,14 @@ optional widget fields added: `isolatedText` and `searchText`. Widget code:
   Call (checked against the instance's OpenAPI definition): `PATCH /polarion/rest/v1/projects/{p}/workitems/{id}` without
   query parameter, body `{"data":{"type":"workitems","id":"p/id","attributes":{"description":{"type":"text/html","value":…}}}}`,
   success 204. Optional later: GET with `revision=` to show or compare a past revision of the model in the browser.
+- **dmDefine `editor.js`** (0.3.0, SPEC D9 / 7.8), inlined by the build before `graph.js` (optional `EXTRA_JS` of
+  `tools/build-widget.py`): the forms are built from the `dm-v` path maps (no YAML parser in the browser), edit a
+  plain JS model (roles with items, rules, bindings, pairs) and `edYaml()` writes the YAML subset (header lines and
+  `description` fields kept; values quoted when needed; `{ }` / `[ ]` only when the values allow it, block form
+  otherwise). Pickers = button + search-and-pick panel (no `<select>`, guide §11.7); client checks in the forms; YAML
+  text tab with Copy (clipboard API, `execCommand` fallback) and Download. A model with errors opens in the text tab
+  only; without model text the forms start empty. Round-trip test: the generated YAML is read again by the Velocity
+  pipeline and must give the same roles, rules and pairs (`DefineHarness --roundtrip`, run by `tools/test-widget.sh`).
 - **dmCheck `graph.js`**: same graph, coloured by compliance (green = all compliant, orange = warnings only, red =
   errors; counts on edges and nodes); a click lists the violations; a report table filtered by severity, rule and
   document; Excel sheets Summary, Item types, Required links, Unexpected links, Model.
@@ -293,6 +304,7 @@ T1) there.
 |---|---|---|
 | 0.1.0 | **Built**: pipeline §3 (without `uses:`), graph, table, documents, problems, exports, PDF | — |
 | 0.2.0 | **Built**: `pairs` validated and shown (rule details, table, Excel sheet, PDF column) | — (started after dmDefine is completed, PO) |
+| 0.3.0 | **Built**: editor (forms + YAML text, Copy, Download, start from an empty model) | — |
 | 0.2.0 | `uses:` reference, starter generator, editor + Copy | 0.1.0: three v1 checks, report, Excel, coloured graph, PDF |
 | 0.3.0 | REST save (if S4 positive), cross-project bindings | drill-down, cross-project documents |
 | later | — | collection context, orphans, wrong document, field rules |

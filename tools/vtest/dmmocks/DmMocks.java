@@ -117,6 +117,10 @@ public class DmMocks {
                         + "' AND m.c_id = '" + m.name.replace("'", "''") + "')";
                     if (sql.contains(cond)) { out.add(m); }
                 }
+                if (out.isEmpty() && sql.matches(".* WHERE p[.]c_id = '[^']*'")) {
+                    String proj = sql.substring(sql.lastIndexOf("= '") + 3, sql.length() - 1);
+                    for (Module m : MODULES) { if (m.project.equals(proj)) { out.add(m); } }
+                }
                 return out;
             }
             throw new RuntimeException("unexpected SQL in the mock: " + sql);

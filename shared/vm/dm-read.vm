@@ -134,6 +134,8 @@
   #if(!$dmItem)
     #set($void = $dmProbs.add(["error", 0, "The model document has no work item of type $dmTypes."]))
   #end
+#elseif(!$dmOpt)
+  #set($void = $dmProbs.add(["info", 0, "No model document is selected in the widget parameters. Select it to show the model, or use Edit model to write a new one."]))
 #end
 
 #set($dmItemId = "")

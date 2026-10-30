@@ -175,6 +175,10 @@
     var more = el('span', { 'class': 'bw-btns' }, bar);
     this.button(more, 'Model text', 'Show or hide the YAML text of the model with line numbers', function () { self.toggleText(); });
     this.button(more, 'Copy YAML', 'Copy the YAML text of the model to the clipboard', function () { self.copyYaml(); });
+    this.editBtn = this.button(more, 'Edit model', 'Edit the model with forms or as YAML text, then copy it into the model work item', function () {
+      if (!self.editor) { self.editor = new Editor(self); }
+      self.editor.toggle();
+    });
     if (this.item.id) {
       var a = el('a', { href: itemUrl(this.item.project, this.item.id, ''), target: '_top', title: 'Open the model work item to edit the model' }, more, 'Open model item');
       a.style.alignSelf = 'center';

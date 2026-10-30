@@ -34,6 +34,7 @@ WIDGETS = os.path.join(ROOT, 'widgets')
 SHARED = os.path.join(ROOT, 'shared')
 MARKER = '## BW_INLINE_JS'
 SHARED_RE = re.compile(r'^## BW_SHARED ([A-Za-z0-9_.-]+[.]vm)[ ]*$', re.M)
+EXTRA_JS = ['editor.js']
 FILES = ['widget.properties', 'parameters.vm', 'render.vm', 'details.vm', 'description.vm']
 # Static files copied unchanged (third-party library, loaded in the browser with #loadWidgetJs).
 RESOURCES = ['resources/xlsx.js', 'resources/LICENSE']
@@ -96,6 +97,13 @@ def build(widget, override):
     check_js(core, 'shared/js/core.js')
     own = read(os.path.join(src, 'graph.js'))
     check_js(own, 'widgets/%s/src/graph.js' % widget)
+    # Optional widget module inlined before graph.js (dmDefine: editor.js).
+    for extra in EXTRA_JS:
+        path = os.path.join(src, extra)
+        if os.path.exists(path):
+            code = read(path)
+            check_js(code, 'widgets/%s/src/%s' % (widget, extra))
+            own = code.rstrip('\n') + '\n\n' + own
     js = "(function () {\n  'use strict';\n\n" + core.rstrip('\n') + '\n\n' + own.rstrip('\n') + '\n})();'
 
     shutil.rmtree(out, ignore_errors=True)

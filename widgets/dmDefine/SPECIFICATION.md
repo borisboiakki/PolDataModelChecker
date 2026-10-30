@@ -1,7 +1,7 @@
 # Specification — Data model definition widget (dmDefine)
 
 **Status:** v0.2, 2026-10-30. Spike dmSpike runs 1–2 done on 2512 (`tests/dmSpike-v0.1.x/spike-tests.md`). Widget
-**0.1.0 implemented** (`widgets/dmDefine/src`: D1–D7, D11, D13), **0.2.0** adds the pairs (D14); tested with Velocity 1.4 on mocks and in Chromium; open checks
+**0.1.0 implemented** (`widgets/dmDefine/src`: D1–D7, D11, D13), **0.2.0** adds the pairs (D14), **0.3.0** the editor (D9); tested with Velocity 1.4 on mocks and in Chromium; open checks
 on the instance in §9. Items marked `[?]` are open or need verification on a Polarion instance.
 
 ## 1. Goal
@@ -36,7 +36,7 @@ The model is stored in Polarion (SPEC §6) and read by **dmCheck** (`widgets/dmC
 | D6 | **Bindings view**: for each role, the real documents it resolves to (or "not found") | Must (done) | 1 |
 | D7 | Excel and SVG export of the model; PDF/print static view | Should (done) | 1 |
 | D8 | **Starter generator**: propose a model skeleton from the real data (documents, item types per document, observed link roles between documents, as in docCoverage), to be corrected by the user and pasted into the model item | Should | 2 |
-| D9 | **In-widget editor** producing the YAML text to copy into the model item (details and decisions: §7.8, PO 2026-10-30): a **form editor** (general settings, roles with their item types, link rules, documents per role, pairs) whose lists come from the project configuration and the project's documents, and a **YAML text editor**; *Copy* and *Download* of the generated YAML; start from an empty model when the project has none | Should | 0.3.0 |
+| D9 | **In-widget editor** producing the YAML text to copy into the model item (details and decisions: §7.8, PO 2026-10-30): a **form editor** (general settings, roles with their item types, link rules, documents per role, pairs) whose lists come from the project configuration and the project's documents, and a **YAML text editor**; *Copy* and *Download* of the generated YAML; start from an empty model when the project has none | Should (done, 0.3.0) | 0.3.0 |
 | D10 | **REST write-back**: "Save to Polarion" updates the description of the model item from the browser; hidden when the REST API is unreachable | Could | 3 (after spike S4) |
 | D11 | Show the revision of the model LiveDoc / item used; link to open the model item for editing | Should (done: item revision from `getLastRevision()`) | 1 |
 | D12 | Cross-project documents in bindings (`project/space/document`) | Should (form accepted by 0.1.0, not verified on 2512) | 2 |
@@ -124,7 +124,7 @@ PO 2026-10-30: dmDefine is completed before dmCheck is started.
 1. **0.1.0** (done) read + validate + show: parameters, YAML read (spike S1–S3), validation, graph + table + documents,
    model text, Copy YAML. Reuse by copying/branching the model LiveDoc.
 2. **0.2.0** (done) pairs (D14).
-3. **0.3.0** (in progress, PO 2026-10-30: item 2 of the list first) in-widget editor with Copy (D9), spike S9.
+3. **0.3.0** (done; PO 2026-10-30: item 2 of the list first) in-widget editor with Copy (D9); spike S9 to run on 2512.
 4. Next increments: `uses:` reference (§3.4 of the architecture, S8 verified) and cross-project documents (D12, S5
    run 3); REST write-back (D10, checks of spike S4 listed in `tests/dmSpike-v0.1.x/spike-tests.md`); starter generator
    (D8, spike S7).
@@ -142,5 +142,9 @@ d. A model with mistakes (unknown type or link role, missing document, wrong ind
    right lines.
 e. PDF export: problems, roles and rules tables.
 f. Optional: a binding to a document of another project (`project/space/name`).
+h. 0.3.0 (with spike S9, run 3): *Edit model* opens the forms prefilled from the model; pickers (types, link roles,
+   roles, documents of the project) work; *Generate YAML*, *Copy*, *Download*; the copied YAML pasted into the model item
+   (plain text) reads with no problem and gives the same graph; a model with errors opens in the text editor only; with no
+   model item, the forms start empty.
 g. 0.2.0: use case 3 of `docs/MODELING_GUIDE.md` (names adapted) shows no problem, the pairs in the details, table and
    Excel; a reversed pair and a document in no pair are reported.

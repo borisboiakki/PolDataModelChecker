@@ -92,6 +92,52 @@ async function clickNode(p, key) {
   await p.waitForTimeout(100);
   expect((await p.$$('.bw-edge')).length === 1, 'link role filter: one line left');
 
+  // ---------------------------------------------------------------- editor (forms) on the valid model
+  await p.goto('file://' + dir + '/browser.html');
+  await p.waitForTimeout(300);
+  await p.click('button:has-text("Edit model")');
+  expect(await p.$eval('.dd-ed', e => e.style.display !== 'none'), 'editor: opens');
+  expect((await p.$$('.dd-ed-forms .dd-sec')).length === 5, 'editor: 5 form sections');
+  const roleKeys = await p.$$eval('.dd-ed-forms .dd-sec:nth-child(2) .dd-card', cs => cs.map(c => c.querySelector('input').value));
+  expect(JSON.stringify(roleKeys) === JSON.stringify(['SystemSpec', 'SubsystemReq', 'SystemTest']), 'editor: role cards from the model, in source order');
+  expect((await p.textContent('.dd-ed-checks')).indexOf('No problem found in the forms') >= 0, 'editor: no problem in the forms');
+  await p.click('button:has-text("Generate YAML")');
+  const yaml1 = await p.$eval('.dd-ta', t => t.value);
+  fs.writeFileSync(dir + '/roundtrip.yaml', yaml1);
+  expect(yaml1.indexOf(String.fromCharCode(35) + ' Invented V-cycle data model') === 0, 'editor: header comment lines kept');
+  expect(yaml1.indexOf('        - { type: subsystemRequirement, min: 1 }') > 0 && yaml1.indexOf('  SubsystemReq: ["Specs/Subsystem A Requirements", "Specs/Subsystem B Requirements"]') > 0, 'editor: YAML items and bindings');
+  expect(await p.$eval('.dd-ed-text', t => t.style.display !== 'none'), 'editor: Generate YAML shows the text tab');
+  // Edit: add a role with a type picked in the search-and-pick panel, check the forms, then generate.
+  await p.click('.dd-ed-head button:has-text("Forms")');
+  await p.click('button:has-text("+ Role")');
+  const checks = await p.textContent('.dd-ed-checks');
+  expect(checks.indexOf('Role Role4 lists no work item type') >= 0 && checks.indexOf('Role Role4 has no document') >= 0, 'editor: checks of a new role');
+  const cards = await p.$$('.dd-ed-forms .dd-sec:nth-child(2) .dd-card');
+  const last = cards[cards.length - 1];
+  await (await last.$('button:has-text("+ Work item type")')).click();
+  const cards2 = await p.$$('.dd-ed-forms .dd-sec:nth-child(2) .dd-card');
+  await (await cards2[cards2.length - 1].$('.dd-pick')).click();
+  expect(await p.$eval('.dd-pp', e => e.style.display === 'block'), 'editor: picker panel opens');
+  await p.fill('.dd-pp-search', 'testc');
+  const rows = await p.$$eval('.dd-pp-row', rs => rs.map(r => r.textContent));
+  expect(rows.length === 1 && rows[0].indexOf('testCase') === 0, 'editor: picker search');
+  await p.click('.dd-pp-row');
+  expect((await p.textContent('.dd-ed-checks')).indexOf('lists no work item type') < 0, 'editor: picked type removes the check');
+  await p.screenshot({ path: dir + '/shot-editor.png', fullPage: true });
+  await p.click('button:has-text("Generate YAML")');
+  const yaml2 = await p.$eval('.dd-ta', t => t.value);
+  expect(yaml2.indexOf('    Role4:' + String.fromCharCode(10) + '      items:' + String.fromCharCode(10) + '        - { type: testCase }') > 0, 'editor: new role in the YAML');
+  // Renaming a role key updates the rules and the documents that use it.
+  await p.click('.dd-ed-head button:has-text("Forms")');
+  const keyInput = await p.$('.dd-ed-forms .dd-sec:nth-child(2) .dd-card input');
+  await keyInput.fill('Spec');
+  await keyInput.dispatchEvent('change');
+  await p.click('button:has-text("Generate YAML")');
+  const yaml3 = await p.$eval('.dd-ta', t => t.value);
+  expect(yaml3.indexOf('    Spec:') > 0 && yaml3.indexOf('to: { role: Spec, type: systemRequirement }') > 0 && yaml3.indexOf('  Spec: ["Specs/System Specification"]') > 0 && yaml3.indexOf('SystemSpec') < 0, 'editor: role rename updates rules and documents');
+  const [ydl] = await Promise.all([p.waitForEvent('download'), p.click('.dd-ed-text button:has-text("Download")')]);
+  expect(ydl.suggestedFilename() === 'data-model-DMTEST.yaml', 'editor: download of the YAML');
+
   // ---------------------------------------------------------------- model with problems
   await p.goto('file://' + dir + '/errors.html');
   await p.waitForTimeout(300);
@@ -106,6 +152,10 @@ async function clickNode(p, key) {
   const errBoxes = await p.$$eval('.bw-node', ns => ns.map(n => n.textContent).join(' | '));
   expect(errBoxes.indexOf(String.fromCharCode(8635) + ' has parent') >= 0, 'role box: rule inside the role (self rule)');
   expect(errBoxes.indexOf('No document') >= 0 && errBoxes.indexOf('1 of 2 found') >= 0, 'role box: missing documents');
+  await p.click('button:has-text("Edit model")');
+  expect(await p.$eval('.dd-ed-head button:has-text("Forms")', b => b.disabled) && await p.$eval('.dd-ed-text', t => t.style.display !== 'none'), 'editor on a model with errors: text only');
+  expect((await p.$eval('.dd-ta', t => t.value)).indexOf('colour: blue') > 0, 'editor on a model with errors: current text');
+  await p.click('.dd-ed-head button:has-text("Close")');
   const cats = await p.$$eval('.bw-legend .bw-leg', ls => ls.map(l => l.textContent));
   expect(JSON.stringify(cats) === JSON.stringify(['satisfies', 'has parent']), 'legend: link roles of the drawn rules only');
   await p.screenshot({ path: dir + '/shot-errors.png', fullPage: true });
@@ -129,6 +179,18 @@ async function clickNode(p, key) {
   const pairRows = await p.$$eval('.bw-table-wrap table', ts => ts[2].querySelectorAll('tbody tr').length);
   expect(pairRows === 2, 'paired: 2 pairs in the table');
   await p.screenshot({ path: dir + '/shot-paired.png', fullPage: true });
+  await p.click('button:has-text("Graph")');
+  await p.click('button:has-text("Edit model")');
+  expect(await p.$$eval('.dd-pairs .dd-row', rs => rs.length) === 2, 'editor: pairs of L2 in the forms');
+  await p.click('button:has-text("Generate YAML")');
+  fs.writeFileSync(dir + '/roundtrip-paired.yaml', await p.$eval('.dd-ta', t => t.value));
+
+  // ---------------------------------------------------------------- no model yet: forms on an empty model
+  await p.goto('file://' + dir + '/nodoc.html');
+  await p.waitForTimeout(300);
+  await p.click('button:has-text("Edit model")');
+  expect((await p.textContent('.dd-ed-note')).indexOf('No model yet') === 0 && (await p.$$('.dd-ed-forms .dd-card')).length === 0, 'editor without model: empty forms');
+  expect((await p.textContent('.dd-ed-checks')).indexOf('Add at least one document role') >= 0, 'editor without model: check asks for a role');
 
   // ---------------------------------------------------------------- PDF view (static, no script)
   await p.goto('file://' + dir + '/pdf.html');

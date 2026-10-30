@@ -5,7 +5,7 @@
 ## Velocity 1.4 dialect (guide 3.1.9): no map literals, one statement per line, no backslashes in strings.
 ## Model pipeline (docs/ARCHITECTURE.md 3): dm-read.vm (model item -> text lines), dm-yaml.vm (YAML subset -> paths),
 ## dm-model.vm (roles, rules, bindings, validation). Graph edge "to>from": o = target role (left), c = source role.
-#set($bwVersion = "0.2.0")
+#set($bwVersion = "0.3.0")
 ## BW_SHARED style.vm
 <style>
   .dd-head { margin-bottom: 4px; }
@@ -24,6 +24,32 @@
   .dd-tl.dd-flash { outline: 2px solid rgb(230,126,34); }
   .dd-h { font-weight: 600; margin: 10px 0 2px 0; }
   .dd-static td, .dd-static th { font-size: 11px; }
+  .dd-ed { border: 1px solid rgb(170,178,195); background: rgb(252,252,254); padding: 6px 8px; margin-bottom: 6px; }
+  .dd-ed-head { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
+  .dd-ed-head .dd-on, .dd-seg-b.dd-on { background: rgb(51,103,214); color: rgb(255,255,255); border-color: rgb(51,103,214); }
+  .dd-ed-note { margin: 4px 0; }
+  .dd-sec { margin: 6px 0 10px 0; }
+  .dd-card { border: 1px solid rgb(215,220,230); background: rgb(255,255,255); padding: 4px 6px; margin: 4px 0; }
+  .dd-row { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; margin: 3px 0; }
+  .dd-lab { color: rgb(90,98,115); }
+  .dd-in { font-size: 12px; padding: 2px 4px; border: 1px solid rgb(170,178,195); border-radius: 3px; }
+  .dd-seg { display: inline-flex; }
+  .dd-seg-b { font-size: 11px; padding: 1px 6px; cursor: pointer; border: 1px solid rgb(170,178,195); background: rgb(248,249,252); margin-right: -1px; }
+  .dd-pick { font-size: 12px; padding: 2px 6px; cursor: pointer; border: 1px solid rgb(120,132,155); background: rgb(255,255,255); border-radius: 3px; min-width: 90px; text-align: left; }
+  .dd-pick.dd-empty { color: rgb(140,146,160); font-style: italic; }
+  .dd-rm { font-size: 11px; padding: 0 6px; }
+  .dd-items td { padding: 2px 4px; }
+  .dd-chip { display: inline-block; border: 1px solid rgb(170,178,195); border-radius: 10px; padding: 0 2px 0 8px; background: rgb(240,244,250); }
+  .dd-chip-x { border: none; background: none; cursor: pointer; color: rgb(198,40,40); }
+  .dd-pairs { margin-left: 24px; }
+  .dd-pp { position: absolute; z-index: 40; background: rgb(255,255,255); border: 1px solid rgb(170,178,195); box-shadow: 0 2px 6px rgba(0,0,0,0.2); padding: 4px; width: 340px; }
+  .dd-pp-search { width: 320px; margin-bottom: 4px; }
+  .dd-pp-list { max-height: 260px; overflow: auto; }
+  .dd-pp-row { padding: 2px 4px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dd-pp-row:hover { background: rgb(232,237,247); }
+  .dd-pp-free { font-style: italic; color: rgb(51,103,214); }
+  .dd-ed-checks { margin: 6px 0; max-height: 140px; overflow: auto; }
+  .dd-ta { width: 100%; box-sizing: border-box; font-family: Consolas, monospace; font-size: 12px; }
 </style>
 
 ## ======================================================================= model
@@ -104,7 +130,7 @@
   #end
 #end
 
-#if(!$dmOpt && $dmItemIdP == "")
+#if($isStatic && !$dmOpt && $dmItemIdP == "")
 <div class="dd-root"><div class="bw-muted"><b>Data Model Definition</b>: select the model document (and, if needed, the model work item) in the widget parameters. <span class="bw-muted">(widget v$bwVersion)</span></div></div>
 #elseif($isStatic)
 ## ======================================================================= static view (PDF / print): tables, no JavaScript
@@ -149,6 +175,10 @@
   #set($ddSo = "$ddS")
   #set($ddSo = $ddSo.replace("|", " ").replace(";", " "))
 #end
+#set($hasText = "0")
+#if($dmLines.size() > 0)
+  #set($hasText = "1")
+#end
 #set($roleData = [])
 #foreach($r in $dmRoles)
   #set($ts = "")
@@ -183,7 +213,7 @@
   #end
   #set($void = $roleData.add([$r, $ts, $ds, $b]))
 #end
-<div class="dd-root" data-project="$esc.html($dmProjectId)" data-version="$bwVersion" data-height="$graphHeight" data-item="$esc.html($dmItemId)" data-item-project="$esc.html($dmItemProject)" data-rev="$esc.html($dmItemRev)" data-doc="$esc.html($dmDocKey)" data-name="$esc.html($dmName)" data-unexp="$dmUnexpLinks">
+<div class="dd-root" data-project="$esc.html($dmProjectId)" data-version="$bwVersion" data-height="$graphHeight" data-item="$esc.html($dmItemId)" data-item-project="$esc.html($dmItemProject)" data-rev="$esc.html($dmItemRev)" data-doc="$esc.html($dmDocKey)" data-name="$esc.html($dmName)" data-unexp="$dmUnexpLinks" data-errors="$dmErrors" data-text="$hasText">
 <div class="dd-head"><b>Data Model Definition</b>#if($dmName != "") &mdash; $esc.html($dmName)#end &mdash; model $esc.html($itemLabel) <span class="bw-muted">(widget v$bwVersion)</span></div>
 <div class="bw-model" style="display:none">
 #foreach($rd in $roleData)
@@ -203,6 +233,40 @@
 #end
 #foreach($l in $dmLines)
 <i class="dm-y" data-t="$esc.html($l)"></i>
+#end
+## Editor data (D9): the path maps of the parsed model (dm-yaml.vm), the project's types and link roles, the project's
+## documents (one SQL query, at most 2000).
+#foreach($vp in $dmKind.keySet())
+  #set($vv = "")
+  #set($vv = $dmVal.get($vp))
+  #set($vn = "")
+  #set($vn = $dmCnt.get($vp))
+  #set($vk = "")
+  #set($vkl = false)
+  #set($vkl = $dmKeys.get($vp))
+  #if($vkl)
+    #foreach($k in $vkl)
+      #set($vk = "${vk}${k};")
+    #end
+  #end
+<i class="dm-v" data-p="$esc.html($vp)" data-k="$dmKind.get($vp)" data-v="$esc.html($vv)" data-n="$vn" data-keys="$esc.html($vk)"></i>
+#end
+#foreach($k in $dmTypeNames.keySet())
+<i class="dm-ct" data-id="$esc.html($k)" data-n="$esc.html($dmTypeNames.get($k))"></i>
+#end
+#foreach($k in $dmRoleNames.keySet())
+<i class="dm-cr" data-id="$esc.html($k)" data-n="$esc.html($dmRoleNames.get($k))"></i>
+#end
+#set($pdQ = $dmProjectId.replace("'", "''"))
+#set($pdMods = $trackerService.getDataService().sqlSearch("SELECT m.c_uri FROM module m INNER JOIN project p ON p.c_uri = m.fk_uri_project WHERE p.c_id = '${pdQ}'"))
+#set($pdN = 0)
+#foreach($pm in $pdMods)
+  #if($pdN < 2000 && !$pm.isUnresolvable())
+    #set($pdN = $pdN + 1)
+    #set($pdT = "")
+    #set($pdT = $pm.getTitle())
+<i class="dm-pd" data-s="$esc.html($pm.getModuleFolder())" data-n="$esc.html($pm.getId())" data-t="$esc.html($pdT)"></i>
+  #end
 #end
 </div>
 </div>
