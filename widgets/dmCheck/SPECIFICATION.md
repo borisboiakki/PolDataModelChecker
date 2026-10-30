@@ -68,7 +68,7 @@ every referenced object. Velocity 1.4-safe. No customer data in the repository.
 2. When several documents fill one role (e.g. subsystem specs), is a `from_min` link required to a document of the target role as a whole or to the sibling document of the same subsystem?
 3. Severity vocabulary (error/warning/info) and a compliance score per document: wanted?
 4. Should the report be storable (snapshot as a work item or a document) or is a live report enough?
-5. Inherited / transitive links (a copy of a copy keeps the links, seen in the sister repo): does the check ignore links from copied/branched documents?
+5. ~~Copies and branches~~ **Decided (PO, 2026-10-30)**: only the documents the user declares in the model are checked. A branch or copy is part of the model only if listed. Links from undeclared documents are ignored.
 
 ## 8. Increments
 

@@ -10,8 +10,8 @@ dedicated LiveDoc, documents referred to by logical role plus binding, one proje
 - A dedicated **model LiveDoc** in the project (its location is a widget parameter).
 - The model is the YAML text in the **description** of a work item of a configurable type (default `text`-like type, a
   widget parameter). The widget finds it by the document and the type, and optionally an id or title.
-- Open question OQ-S1 (specifications): one item holds the whole model, or several items are merged in document order
-  (e.g. one per document role) so that parts can be reviewed and commented separately.
+- **Decided (PO, 2026-10-30)**: one work item of type `text` holds the whole model, in a dedicated LiveDoc (baselines of
+  the LiveDoc version the model). No restriction on who edits it for now.
 - The description is rich text (HTML). The widget extracts the text of the YAML block (spike S1).
   To stay editable by hand, the YAML must be tolerant to what the editor does to it (line breaks, `&nbsp;`, quotes).
 
@@ -25,10 +25,8 @@ projects: [ ]                  # optional: other projects whose documents may be
 documents:                     # logical roles: stable names used by the rules
   SystemSpec:
     title: System specification
-    bind:                      # how a role is resolved to real LiveDocs (first matching form wins)
-      document: "Specs/System Specification"   # space/name, or "project/space/name" for another project
-      # type: systemSpecification              # Polarion document type (can match several documents)
-      # name: "^SUBSYS_.*_REQ$"                # name pattern (regular expression)
+    bind:                      # PO 2026-10-30: the user lists the documents explicitly (branches/copies only if listed)
+      - "Specs/System Specification"           # space/name, or "project/space/name" for another project
     items:                     # work item types allowed/required in this document
       - type: systemRequirement
         required: true         # at least min items (default min: 1 when required)
@@ -40,7 +38,7 @@ documents:                     # logical roles: stable names used by the rules
 
   SubsystemReq:
     title: Subsystem requirements
-    bind: { type: subsystemRequirementsSpec }  # several documents may fill one role
+    bind: ["Specs/Subsystem A Requirements", "Specs/Subsystem B Requirements"]  # several documents may fill one role
     items:
       - type: subsystemRequirement
         required: true
@@ -75,7 +73,7 @@ Link direction follows Polarion: the link is stored on the source item and point
 
 ## 4. Open points
 
-- Binding by document type / custom field (OQ-D1): does Polarion expose them in a form usable in SQL on 2512 and 2612?
+- Binding by document type / name pattern: dropped from v1 (PO: documents are declared explicitly). May return later.
 - Inheritance between models, reuse across projects (out of scope of v1).
 - Versioning of the model: baselines/revisions of the model LiveDoc give it for free; the checker should show the
   revision of the model it used.

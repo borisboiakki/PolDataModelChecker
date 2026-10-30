@@ -73,14 +73,22 @@ referenced object, Velocity 1.4-safe templates, PDF/print without JS, no custome
 | S6 | Validation sources: reading the project's work item types, link roles (name, opposite name), custom document types from the project configuration |
 | S7 | Starter generator data: item types per document, observed link roles between documents (reuse docCoverage queries), timing on a large project |
 
-## 7. Open questions (to ask the PO)
+## 7. Decisions and open questions
 
-1. **OQ-S1**: one work item for the whole model, or several items merged in document order (e.g. one per document role)?
-   (The Q&A said "one model work item per project in a dedicated LiveDoc": confirm the wording.)
-2. Which Polarion item type holds the model by default (`text` is not always a work item type; name the type of the PO's instance in the spike).
-3. Who may edit the model (permissions on the model LiveDoc) and is review/approval of the model wanted (workflow of the model item)?
-4. Model per project only, or a reusable model template applied to several projects later?
-5. Should dmDefine be usable without dmCheck (read-only documentation of the data model for the project team)? (Assumed yes.)
+Decided by the PO (2026-10-30):
+
+1. **One work item holds the whole model**, in a dedicated LiveDoc (so baselines of the LiveDoc version the model). No merging of several items.
+2. The model item has the Polarion type **`text`**; the type stays a widget parameter.
+3. **No constraint for now** on who creates or modifies the model (no permission or workflow rules in v1).
+4. **The user declares explicitly the documents** that belong to the data model. Branches and copies are considered
+   only if the user lists them as part of the model; they are never added automatically. Consequence: bindings are
+   explicit document lists per role. Binding by document type or name pattern is dropped from v1 (S5 reduced to
+   "resolve explicit documents, same project or `project/space/document`").
+
+Still open:
+
+5. Model per project only, or a reusable template applied to several projects later?
+6. Should dmDefine be usable without dmCheck (read-only documentation of the model for the team)? Assumed yes.
 
 ## 8. Increments
 
