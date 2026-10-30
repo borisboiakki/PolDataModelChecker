@@ -28,14 +28,15 @@ hand-written dummy model.
 This repository was started from [polarion_branches_copies_widget](https://github.com/borisboiakki/polarion_branches_copies_widget)
 (docBranches, docCoverage, advImpact), whose Polarion knowledge, build tooling and client core it reuses.
 
-1. Specifications of both widgets and the model format (**draft, open questions listed**).
-2. Preliminary architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (**draft, to be revised after the spikes**).
-3. Spikes with diagnostic widgets in `tests/`: **dmSpike** ([run sheet](tests/dmSpike-v0.1.x/spike-tests.md)) for the
-   model item, the YAML parser in Velocity, bindings, configuration and REST (**done on 2512: model reading, parser, configuration and REST GET/PATCH confirmed**); SQL of the checks later.
-4. **dmDefine**: 0.1.0 (read, validate, show), 0.2.0 (document pairs), 0.3.0 (form editor) and 0.4.0 (`uses:`,
-   documents of other projects), 0.5.0 (Save to Polarion through REST) built; checks to run on 2512: [docs/PO_CHECKS.md](docs/PO_CHECKS.md); the next dmDefine increments are listed
-   in its specification (§8). **dmCheck 0.1.0** built (v1 checks on SQL forms verified on 2512; faster set queries and
-   drill-down measured by dmSpike S10).
+1. Specifications of both widgets and the model format, with the PO's decisions: `widgets/*/SPECIFICATION.md`,
+   [docs/DATA_MODEL_FORMAT.md](docs/DATA_MODEL_FORMAT.md).
+2. Architecture as built: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+3. Spikes with the diagnostic widget **dmSpike** ([run sheet and findings](tests/dmSpike-v0.1.x/spike-tests.md)): all
+   run on 2512 (model item, YAML parser in Velocity, bindings, configuration, REST GET/PATCH, editor controls, starter
+   data S7, dmCheck set queries and Lucene drill-down S10).
+4. **dmDefine** 0.1.0–0.5.0 and **dmCheck** 0.1.0 verified on 2512; later increments (severity per side, starter
+   generator, drill-down, exploded view) built and tested on mocks, checks to run: [docs/PO_CHECKS.md](docs/PO_CHECKS.md).
+   Next increments: listed in §8 of each specification.
 
 ## Repository contents
 

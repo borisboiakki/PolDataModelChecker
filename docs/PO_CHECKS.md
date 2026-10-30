@@ -86,3 +86,6 @@ Use a model with the names of your project (start from `test-data/vcycle-model.y
 
 - On an instance where the REST API token is disabled: no Save button, "no REST token in this session".
 - Polarion 2612: repeat 1.1, 2.2, 2.3, 2.7 and the dmSpike runs 1–2 (S1, S3, S4).
+- Review 2026-10-30, points only an instance can settle: a declared document whose name holds parentheses, e.g.
+  `Spec (v2)`: does its dmCheck drill-down link still work (the query sits inside Lucene `SQL:( … )`)? Report the link
+  result; the fix would be to leave such documents out of the drill-down.

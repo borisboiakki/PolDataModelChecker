@@ -1,8 +1,9 @@
 # Specification — Data model definition widget (dmDefine)
 
-**Status:** v0.2, 2026-10-30. Spike dmSpike runs 1–2 done on 2512 (`tests/dmSpike-v0.1.x/spike-tests.md`). Widget
-**0.1.0 implemented** (`widgets/dmDefine/src`: D1–D7, D11, D13), **0.2.0** adds the pairs (D14), **0.3.0** the editor (D9), **0.4.0** `uses:` and documents of other projects (D15, D12), **0.5.0** *Save to Polarion* (D10); tested with Velocity 1.4 on mocks and in Chromium; open checks
-on the instance in §9. Items marked `[?]` are open or need verification on a Polarion instance.
+**Status:** v0.3, 2026-10-30. **dmDefine 0.8** built: 0.1.0 read, validate, show (D1–D7, D11, D13); 0.2.0 pairs (D14);
+0.3.0 editor (D9); 0.4.0 `uses:` and documents of other projects (D15, D12); 0.5.0 *Save to Polarion* (D10); 0.6.0 severity
+per side (D17); 0.7.0 starter generator (D8); 0.8.0 exploded view (D16). 0.1.0–0.5.0 and 0.6.0 verified on 2512 by the PO;
+later ones: `docs/PO_CHECKS.md`. Spikes S1–S10 all run on 2512 (`tests/dmSpike-v0.1.x/spike-tests.md`).
 
 ## 1. Goal
 
@@ -51,7 +52,7 @@ The model is stored in Polarion (SPEC §6) and read by **dmCheck** (`widgets/dmC
 As the sister widgets: render within the 10 s budget, SQL scoped to the project, `isUnresolvable()` guard on every
 referenced object, Velocity 1.4-safe templates, PDF/print without JS, no customer data in the repo.
 
-## 5. Technical approach (preliminary, to challenge in `docs/ARCHITECTURE.md`)
+## 5. Technical approach (initial; as built: `docs/ARCHITECTURE.md`)
 
 - Reuse `shared/` (style, params, common macros, `core.js` graph/table/export, `xlsx.js`) and the build/test tooling.
 - **Superseded by decision 7 (§7) and `docs/ARCHITECTURE.md` §3.3: one YAML subset parser in Velocity.** Original

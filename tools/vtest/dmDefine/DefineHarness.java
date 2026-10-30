@@ -26,7 +26,7 @@ public class DefineHarness {
 
     /** Use case 3 of docs/MODELING_GUIDE.md: pooled satisfies, paired verifies. */
     static final String[] PAIRED_MODEL = {
-        "version: 1", "name: Solutions with their own STD", "model:", "  roles:", "    CustomerSpec:", "      items:",
+        "version: 1", "name: \"Solutions with their own STD\" # a comment after a quoted value", "model:", "  roles:", "    CustomerSpec:", "      items:",
         "        - { type: systemRequirement, min: 1 }", "    SolutionSpec:", "      items:", "        - { type: subsystemRequirement, min: 1 }",
         "    SolutionSTD:", "      items:", "        - { type: testCase, min: 1 }", "  links:", "    - id: L1",
         "      from: { role: SolutionSpec, type: subsystemRequirement }", "      link_role: satisfies",
@@ -270,6 +270,7 @@ public class DefineHarness {
 
         h = run(dir, out, "paired", params(pairedDoc, ""), false);
         DmMocks.check(count(h, "<i class=\"dm-p\"") == 0, "paired: valid pairs, no problem");
+        DmMocks.check(h.contains("data-name=\"Solutions with their own STD\""), "parser: comment after a quoted value removed, quotes removed");
         DmMocks.check(h.contains("data-paired=\"1\" data-pairs=\"Tests/STD A|Specs/Solution Spec A;Tests/STD B|Specs/Solution Spec B;\" data-id=\"L2\""), "paired: pairs of L2 in the page model");
         DmMocks.check(h.contains("data-paired=\"0\" data-pairs=\"\" data-id=\"L1\""), "paired: L1 stays pooled");
         DmMocks.check(h.contains("data-sev=\"error\" data-fsev=\"info\" data-tsev=\"error\"") && h.contains("data-sev=\"error\" data-fsev=\"error\" data-tsev=\"error\""), "severity per side (D17): L1 sources info, L2 default");

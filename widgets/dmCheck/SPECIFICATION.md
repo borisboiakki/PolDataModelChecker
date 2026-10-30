@@ -1,9 +1,9 @@
 # Specification — Data model check widget (dmCheck)
 
-**Status:** v0.4, 2026-10-30. **dmCheck 0.2.0** adds the drill-down queries (K9; tested on mocks, in Chromium and on an SQLite copy of the test structure; checks on 2512: `docs/PO_CHECKS.md` 3.7–3.11). **dmCheck 0.1.0 implemented** (`widgets/dmCheck/src`, shared `dm-check.vm`: K1, K3–K8,
-K10, K12, K14–K16), tested with Velocity 1.4 on mocks built from `test-data/vcycle-check/` and in Chromium; **verified by the PO
-on 2512 (2026-10-30, `docs/PO_CHECKS.md` 3.1–3.6: test structure with the expected violations, details, table, Excel,
-PDF, a real model of the largest project, a model with an error)**. Spike S10 (T1, T3) prepared. Open questions of §7 all decided by the PO (2026-10-30). Items marked `[?]` are open or need verification on a Polarion instance.
+**Status:** v0.5, 2026-10-30. **dmCheck 0.4** built: 0.1.0 the v1 checks (K1, K3–K8, K10, K12, K14–K16; verified on 2512 by the
+PO, `docs/PO_CHECKS.md` 3.1–3.6); 0.2.0 drill-down queries (K9); 0.3.0 severity per side (K18, verified: 3.13); 0.4.0 exploded
+view (K17). Spike S10 (T1, T3) run on 2512. Open questions of §7 all decided by the PO. Items marked `[?]` need verification
+on a Polarion instance.
 
 ## 1. Goal
 
@@ -48,10 +48,10 @@ Same as dmDefine (C1–C8), plus:
 As the sister widgets (10 s budget; target < 2 s). Only the **declared documents** are read (never all the items of a
 project). 0.1.0 uses SQL forms verified on 2512 (items of the declared documents; link sources between them as in
 docCoverage; links read with `getLinkedWorkItemsStructsDirect()`), evaluated in Velocity; set queries per rule
-(`NOT EXISTS` / `NOT IN`, spike T1 = dmSpike S10) can replace parts of it once verified. `isUnresolvable()` guard on
+(`NOT EXISTS` / `NOT IN`, spike T1 = dmSpike S10, verified) serve the drill-down; the PO kept this evaluation (§8). `isUnresolvable()` guard on
 every referenced object. Velocity 1.4-safe. No customer data in the repository.
 
-## 5. Technical approach (preliminary)
+## 5. Technical approach (initial; as built: `docs/ARCHITECTURE.md` §4)
 
 - Model read as in dmDefine (shared Velocity snippets and YAML subset parser, `docs/ARCHITECTURE.md` §3). Resolution of
   bindings by SQL on `module`. Rules evaluated in Velocity on SQL results (ARCHITECTURE §4), so the PDF view has them too.

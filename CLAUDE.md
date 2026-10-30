@@ -10,18 +10,16 @@ documents) and **check the real data against it**. Typical case: the V-cycle (sy
 requirements linked with `satisfies` → tests linked with `verifies`). Two widgets, built iteratively:
 
 - **dmDefine** (`widgets/dmDefine/`): reads the model, shows it (graph + table), validates it, helps to edit it.
-  **0.8.0 built** (0.1.0 read, validate, show; 0.2.0 pairs; 0.3.0 editor: forms + YAML text, `src/editor.js`; 0.4.0
-  `uses:` + documents of other projects; 0.5.0 Save to Polarion (REST, optional); 0.6.0 severity per side of a rule
-  (`from_severity` / `to_severity`, D17, verified on 2512: PO_CHECKS 2.19–2.20; 2.21 open); 0.7.0 starter generator (D8, *Propose a model from the project*
-  on an empty model, S7 queries; checks 2.22–2.25); 0.8.0 exploded view (D16, checks 2.26–2.28); tested on mocks and in Chromium with a round trip of the generated YAML;
-  to validate on 2512: `docs/PO_CHECKS.md`, keep it up to date with every new feature).
-  PO 2026-10-30: dmDefine is completed before dmCheck is started.
+  **0.8.1**: 0.1.0 read, validate, show; 0.2.0 pairs; 0.3.0 editor (forms + YAML text, `src/editor.js`); 0.4.0 `uses:` +
+  documents of other projects; 0.5.0 Save to Polarion (REST, optional); 0.6.0 severity per side of a rule
+  (`from_severity` / `to_severity`, D17); 0.7.0 starter generator (D8, *Propose a model from the project*); 0.8.0 exploded
+  view (D16). **0.1.0–0.6.0 verified on 2512 by the PO**; later ones: open checks in `docs/PO_CHECKS.md`.
 - **dmCheck** (`widgets/dmCheck/`): reads the same model, checks the real documents/items/links, reports violations
-  (table, Excel, graph coloured by compliance, drill-down). **0.1.0 built and verified on 2512 (PO_CHECKS §3); 0.2.0 built:
-  drill-down queries (S10 NOT IN form inside Lucene `SQL:(…)`), checked on an SQLite copy of the test structure by
-  `tools/vtest/dmCheck/sql-check.py`; to check on 2512: PO_CHECKS 3.7–3.12; 0.3.0 built: severity per side (K18), verified on 2512 (3.13; 3.14 open); 0.4.0 built: exploded view (K17), checks 3.15–3.16** (`shared/vm/dm-check.vm`,
-  verified SQL forms only; harness `tools/vtest/dmCheck/` builds its mock project from
-  `test-data/vcycle-check/structure.md` and expects exactly the violations listed there: keep both in line).
+  (table, Excel, graph coloured by compliance). **0.4.1**: 0.1.0 v1 checks (`shared/vm/dm-check.vm`, verified SQL forms
+  only); 0.2.0 drill-down queries (S10 `NOT IN` form inside Lucene `SQL:(…)`, checked on an SQLite copy of the test
+  structure by `tools/vtest/dmCheck/sql-check.py`); 0.3.0 severity per side (K18); 0.4.0 exploded view (K17). **0.1.0 and
+  0.3.0 verified on 2512 by the PO**. The harness `tools/vtest/dmCheck/` builds its mock project from
+  `test-data/vcycle-check/structure.md` and expects exactly the violations listed there: keep both in line.
 
 Each widget has its own `SPECIFICATION.md` (requirements, decisions, open questions, spike list). The shared model
 format is in `docs/DATA_MODEL_FORMAT.md` (the contract between the two widgets). `README.md` is the overview.
@@ -43,8 +41,8 @@ If a task conflicts with a specification, ask; don't silently deviate. Update th
 1. `Polarion_Development_Guide.md` (copied from the sister repo) — read the sections that match the surface you touch:
    widget & parameters §2 · Velocity §3 (**§3.1.9 Velocity 1.4 dialect**) · Lucene §6 · SQL §7 · REST §8 · Java §9 ·
    checklist §13 · interactive widget UI on 2512 §11.7 · multi-level link traversal §3.3.
-2. `docs/ARCHITECTURE.md` — architecture of this repo (preliminary: model pipeline in Velocity, YAML subset parser,
-   checks in SQL + Velocity, page model, spikes). Keep it in line with the code. `docs/reference/ARCHITECTURE-docwidgets.md`
+2. `docs/ARCHITECTURE.md` — architecture of this repo as built (model pipeline in Velocity, YAML subset parser,
+   checks in SQL + Velocity, page model, exploded view, spikes). Keep it in line with the code. `docs/reference/ARCHITECTURE-docwidgets.md`
    describes the sister widgets for the parts reused unchanged (build, inlining, static view, client core).
 3. `widgets/<widget>/SPECIFICATION.md` of the widget you touch, and `docs/DATA_MODEL_FORMAT.md`.
 
@@ -62,7 +60,8 @@ If a task conflicts with a specification, ask; don't silently deviate. Update th
 - Respect PDF/print: no JS or external stylesheets there (static server-side SVG + tables).
 - Interactive path within the 10 s render budget: heavy work in SQL, never loop over all work items in Velocity.
 - **REST write-back is optional**: the REST API is not always reachable from a widget, so every editing feature must
-  have a manual fallback (copy/paste into the model work item). REST push is a later increment, to spike first.
+  have a manual fallback (copy/paste into the model work item). *Save to Polarion* probes the REST API first and
+  hides itself when it is not usable (verified on 2512).
 - Use `@document` selectors via `getModelObject()`, not Lucene built from option ids (guide §2.1).
 - Check `isUnresolvable()` before using ANY referenced object (document author, `branchedFrom`, link target…): every
   other call on an unresolvable object throws.
@@ -124,6 +123,17 @@ not blocked; Tab moves the focus, browser default; `<select>` change/input event
 `execCommand('copy')`; download of a generated file). One `module` SQL query (join on `project`, `c_modulefolder`, `c_id`)
 resolves documents of a named space and of another project; a missing one is simply absent.
 
+**Verified by dmSpike runs 4–5 on 2512** (`tests/dmSpike-v0.1.x/spike-tests.md`):
+- `sqlSearch` accepts `SELECT MIN(w.c_uri) … GROUP BY …` (one row per group, an item possibly several times) and the nested
+  form `… WHERE w.c_uri IN (SELECT MIN(w.c_uri) … GROUP BY …)` (each item once): one representative per document/type or
+  per link combination gives the same types and combinations as a full scan (151 documents: 80 ms vs 650 ms).
+  `searchInstancesCount` is **not available** to widgets.
+- `sqlSearch` accepts `NOT IN (SELECT …)` and correlated `NOT EXISTS (SELECT …)`; `queryWorkItems("project.id:P AND
+  SQL:(… NOT IN (…))", "id")` returns the same (non-empty) item lists as the Velocity evaluation, in 1–3 ms.
+
+Verified by the PO with dmCheck 0.1.0 (PO_CHECKS 3.1–3.6): the test structure gives exactly the expected violations; table,
+Excel, PDF; real model of the largest project in an acceptable time; a model with errors checks nothing.
+
 Found while building dmDefine 0.1.0 (in line with run 1: 48 lines read for the 45-line model): an empty line is stored as a
 span holding only a `<br/>` plus the line's own `<br/>`; `dm-read.vm` drops the inner one so line numbers match the editor.
 
@@ -143,7 +153,7 @@ docs/DATA_MODEL_FORMAT.md      model YAML format (contract between dmDefine and 
 docs/MODELING_GUIDE.md         user guide: use cases with example models (keep the examples valid: they parse with no
                                problem in dmDefine)
 docs/PO_CHECKS.md              ordered to-do list of the checks the PO runs on 2512 (update it with every increment)
-docs/ARCHITECTURE.md           architecture of this repo (preliminary, revised after the spikes)
+docs/ARCHITECTURE.md           architecture of this repo (as built, revised after the spikes)
 docs/reference/                architecture document of the sister widgets (reference for the reused parts)
 widgets/<w>/src/               widget sources (as in the sister repo: render.vm with markers "## BW_SHARED <file>" and
                                "## BW_INLINE_JS", parameters.vm, graph.js, optional editor.js (inlined before graph.js),
@@ -154,11 +164,13 @@ shared/js/core.js              client core copied from the sister repo (layout, 
 shared/vm/*.vm                 Velocity snippets inlined at BW_SHARED markers: dm-read.vm (model item -> text lines),
                                dm-yaml.vm (YAML subset parser -> path maps), dm-model.vm (validation, roles, rules,
                                bindings), dm-check.vm (dmCheck evaluation); style.vm (copied);
-                               params/common/collection/documents.vm (copied, unused yet)
+                               params/common/collection/documents.vm (copied from the sister repo, not inlined by any
+                               widget yet: kept for the collection context, dmCheck K11)
 shared/resources/              xlsx.js + LICENSE (third-party, unchanged)
 tools/                         build-widget.py, vcheck.sh + VCheck.java (copied), test-widget.sh (build + harness +
                                Chromium, "all" also runs test-spikes.sh); tools/vtest/dmmocks/DmMocks.java = mock Polarion
                                objects of this repo (newMap() is a HashMap); tools/vtest/<w>/*Harness.java + browser-check.js;
+                               tools/vtest/dmCheck/sql-check.py runs the drill-down queries on an SQLite copy of the test data;
                                tools/vtest/mocks/ = sister-repo mocks (reference)
 tests/<name>-vN.N.x/           spikes: spike-tests.md (plan + findings) and diagnostic widget; dmSpike-v0.1.x = model
                                item, YAML parser prototype, bindings, configuration, REST (smoke test + zip:
@@ -176,11 +188,13 @@ exploded view (`viewSwitch`, `drawExploded`).
 
 ## Where the work stands (read first in a new session)
 
-- Pending checks of the PO on 2512, in order: `docs/PO_CHECKS.md` (§1–§4 done 2026-10-30; open: dmCheck 0.2.0 checks 3.7–3.12, severity per side 2.21 and 3.14, starter generator 2.22–2.25, exploded view 2.26–2.28 and 3.15–3.16;
-  §5 later: REST token disabled, 2612). Record each result in the spec / `tests/dmSpike-v0.1.x/spike-tests.md`, then tick it there.
-- Done 2026-10-30: dmDefine 0.7.0 starter generator (S7 variant B queries), dmCheck 0.2.0 drill-down;
-  the 0.1.0 evaluation is kept (PO 2026-10-30); set queries only for the drill-down. Exploded view built (dmDefine 0.8.0 D16, dmCheck 0.4.0 K17; mockup agreed by the PO). Next: to agree with the PO.
-  Specs §8 of each widget list them.
+- Open checks of the PO on 2512, in order: `docs/PO_CHECKS.md` (§1–§4 done; open: dmCheck drill-down 3.7–3.12, severity
+  per side 2.21 and 3.14, starter generator 2.22–2.25, exploded view 2.26–2.28 and 3.15–3.16; §5 later: REST token
+  disabled, 2612). Record each result in the spec / `tests/dmSpike-v0.1.x/spike-tests.md`, then tick it there.
+- Decisions of 2026-10-30: the 0.1.0 evaluation of dmCheck is kept, set queries serve the drill-down only; exploded view
+  as the mockup agreed with the PO. Next increments: to agree with the PO (candidates in §8 of each spec: collection
+  context K11, orphans / wrong document / field rules K13).
+- Review 2026-10-30 (see the commit): open points are listed in `docs/PO_CHECKS.md` §5 when they need an instance.
 
 ## Working conventions
 

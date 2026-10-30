@@ -10,7 +10,7 @@ Previews below are rendered from mock data (`tools/test-widget.sh`, test structu
 2. **Administration → Velocity Widgets → Upload**. No server restart, no extension.
 3. The widget appears in the widget list of LiveReport pages as *Data Model Check*.
 
-Target: Polarion 2512 (0.1.0 verified on 2512, `docs/PO_CHECKS.md` §3; the 0.2.0 drill-down: checks 3.7–3.11); 2612 not verified.
+Target: Polarion 2512 (0.1.0 verified on 2512, `docs/PO_CHECKS.md` §3; later versions: the open checks there, from 3.7); 2612 not verified.
 
 ## Parameters
 

@@ -1,9 +1,9 @@
-# Architecture of the data model widgets (preliminary)
+# Architecture of the data model widgets
 
-**Status:** v0.2, 2026-10-30: §3 and §5–§8 describe dmDefine 0.1.0 as built; §4 (dmCheck) is still preliminary. Written after the specifications were agreed with the product owner (PO).
+**Status:** v0.3, 2026-10-30: describes the widgets as built (dmDefine 0.8, dmCheck 0.4). Written after the specifications were agreed with the product owner (PO), revised after the spikes (all run on 2512).
 Requirements: `widgets/dmDefine/SPECIFICATION.md`, `widgets/dmCheck/SPECIFICATION.md`. Model format:
 `docs/DATA_MODEL_FORMAT.md`. Polarion facts verified on 2512 (in the sister repo) are listed in `CLAUDE.md`.
-Everything marked **[S…]/[T…]** depends on a spike that has not run yet. The architecture is revised after the spikes.
+Marks **[S…]/[T…]** name the spike that verified a point (results in `tests/dmSpike-v0.1.x/spike-tests.md` and the specs).
 
 The widgets follow the same pattern as the sister widgets (docBranches, docCoverage, advImpact). See
 `docs/reference/ARCHITECTURE-docwidgets.md` for the parts reused as they are (build, inlining, page model, static view,
@@ -186,7 +186,8 @@ Velocity: type counts per document (min/max, unexpected types against the union 
 the counted items of each end (end type, or the listed not-ignored types), the matching links (pooled: any documents
 of the roles; paired: declared pairs only, others = cross-pair), `from_min` / `to_min` per item, unpaired documents;
 unexpected links = links not matched by any rule. Violations are counted always and listed up to the list cap per rule
-and check. The table below was the preliminary plan; the set queries (`NOT EXISTS` / `NOT IN`) are measured by S10.
+and check. The table below was the plan before the spikes, kept for reference: S10 verified `NOT IN` / `NOT EXISTS`, and the PO
+kept the evaluation above (the set queries serve the drill-down only).
 
 Inputs: the normalized model, the module URIs per role, and the excluded types. Every query is restricted to the
 **declared documents**, never to the whole project.
@@ -297,8 +298,8 @@ choices use buttons or checkboxes, not `<select>` (guide §11.7).
 ## 7. Static view (PDF / print)
 
 No JavaScript. dmDefine prints the problems, the table of roles (types, documents) and the table of rules. dmCheck prints the summary per
-rule, the violation table (full or summary depending on the parameter) and a static SVG of the model graph with
-integer geometry, as the sister widgets do.
+rule, the documents and the violation table (no graph: neither widget draws a static SVG; the collapsed / exploded
+choice applies to the browser view only).
 
 ## 8. Build, tests, packaging
 
@@ -344,8 +345,10 @@ T1) there.
 | 0.3.0 | **Built**: editor (forms + YAML text, Copy, Download, start from an empty model) | — |
 | 0.4.0 | **Built**: `uses:` reference, documents of other projects (tested on mocks) | — |
 | 0.5.0 | **Built**: *Save to Polarion* (REST, optional, tested with a mocked REST API) | **0.1.0 built**: v1 checks, graph by compliance, report table, Excel, PDF (tested on mocks from `test-data/vcycle-check/`) |
-| next | starter generator (D8, after spike S7) | 0.2.0: faster set queries, drill-down (K9, after spike S10) |
-| later | exploded view of the graph (D16: one box per document in role frames, pairs drawn per pair) | exploded view coloured per document / pair (K17); collection context, orphans, wrong document, field rules |
+| 0.6.0 / 0.2.0 | **Built**: severity per side of a rule (D17) | **0.2.0 built**: drill-down queries (K9, S10 form) |
+| 0.7.0 / 0.3.0 | **Built**: starter generator (D8, S7 queries) | **0.3.0 built**: severity per side (K18) |
+| 0.8.0 / 0.4.0 | **Built**: exploded view (D16) | **0.4.0 built**: exploded view (K17) |
+| later | — | collection context (K11), orphans, wrong document, field rules (K13) |
 
 ## 11. Risks
 
@@ -353,7 +356,7 @@ T1) there.
 |---|---|
 | Rich-text editor alters the YAML (spaces, quotes, line breaks) | S1 first; accept a `<pre>`/code block; Copy button output already in the right form; problems with line numbers |
 | Velocity 1.4 parser bugs or limits | Small grammar, fixtures test in the harness with velocity-1.4.jar, parser isolated in one snippet |
-| SQL forms not accepted (correlated sub-select) | Verified fallback: `GROUP BY … HAVING` + set difference in Velocity on the declared documents |
+| SQL forms not accepted (correlated sub-select) | Closed: S10 verified `NOT IN` / `NOT EXISTS`; the evaluation uses verified forms only |
 | REST disabled on the instance | Write-back optional, probe before showing the button, copy/paste always there |
 | Model reused in a project whose configuration differs | Validation against the checked project's configuration; clear problems |
 | 2612 changes (SQL columns, rendering API) | Public APIs only; repeat key spikes on 2612; unverified items marked as such |

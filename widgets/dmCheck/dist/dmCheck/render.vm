@@ -4,7 +4,7 @@
 ## Velocity 1.4 and writes widgets/dmCheck/dist/dmCheck.zip.
 ## Velocity 1.4 dialect (guide 3.1.9): no map literals, one statement per line, no backslashes in strings.
 ## Model pipeline as dmDefine (dm-read, dm-yaml, dm-model); checks in dm-check.vm (SPECIFICATION K3-K5, K15, K16).
-#set($bwVersion = "0.4.0")
+#set($bwVersion = "0.4.1")
 ## Shared snippet style.vm (shared/vm), inlined by tools/build-widget.py at "## BW_SHARED style.vm".
 ## CSS of the interactive view and the static (PDF/print) table. Root classes: bw-root, cw-root (sister repo), dd-root (dmDefine), dc-root (dmCheck).
 <style>
@@ -409,12 +409,20 @@
     #set($dmNoInd = $dmRaw.replaceAll("^ +", ""))
     #set($dmInd = $dmRaw.length() - $dmNoInd.length())
     #set($dmC = $dmNoInd.trim())
-    ## Comment at the end of the line: " #" with no quote before it.
+    ## Comment at the end of the line: the first " #" outside quotes (an even number of each quote character before it).
     #set($dmCi = $dmC.indexOf(" #"))
-    #if($dmCi > 0)
-      #set($dmCb = $dmC.substring(0, $dmCi))
-      #if($dmCb.indexOf('"') < 0 && $dmCb.indexOf("'") < 0)
-        #set($dmC = $dmCb.trim())
+    #foreach($dmG in [1..20])
+      #if($dmCi > 0)
+        #set($dmCb = $dmC.substring(0, $dmCi))
+        #set($dmQ2 = $dmCb.length() - $dmCb.replace('"', "").length())
+        #set($dmQ1 = $dmCb.length() - $dmCb.replace("'", "").length())
+        #if($dmQ2 % 2 == 0 && $dmQ1 % 2 == 0)
+          #set($dmC = $dmCb.trim())
+          #set($dmCi = -1)
+        #else
+          #set($dmCi1 = $dmCi + 1)
+          #set($dmCi = $dmC.indexOf(" #", $dmCi1))
+        #end
       #end
     #end
     #set($dmDash = false)

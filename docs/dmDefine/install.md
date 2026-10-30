@@ -10,7 +10,7 @@ configuration. Previews below are rendered from mock data (`tools/test-widget.sh
    extension: the package holds the templates, the widget icon and the Excel library (`resources/xlsx.js`).
 3. The widget appears in the widget list of LiveReport pages as *Data Model Definition*.
 
-Target: Polarion 2512 (verified with the spike widget); 2612 not verified yet.
+Target: Polarion 2512 (0.1.0–0.5.0 verified, `docs/PO_CHECKS.md` §2; later versions: the open checks there); 2612 not verified yet.
 
 ## Prepare the model
 
