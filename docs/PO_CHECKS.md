@@ -5,7 +5,7 @@ Polarion instance**. Run the checks in this order when you have time; for each o
 screenshots or PDF exports: the repository is public). Findings are then recorded in the specification and in
 `tests/dmSpike-v0.1.x/spike-tests.md`.
 
-Last update: 2026-11-02 (open: dmCheck 0.2.0 checks 3.9–3.12; severity per side: 2.21 and 3.14; exploded view: 2.27; quote warning: 2.29; removed roles: 2.30–2.31; done 2026-11-02: 2.22–2.26, 2.28, 3.7, 3.8, 3.15, 3.16), dmDefine 0.5.0, dmCheck 0.1.0, dmSpike S7 and S10; §1 done; §1–§4 done (dmDefine 0.5.0 and dmCheck 0.1.0 verified, decisions agreed); §5 later.
+Last update: 2026-11-02 (open: dmCheck 0.2.0 checks 3.9–3.12; severity per side: 2.21 and 3.14; exploded view: 2.27; quote warning: 2.29; done 2026-11-02: 2.22–2.26, 2.28, 2.30, 2.31, 3.7, 3.8, 3.15, 3.16), dmDefine 0.5.0, dmCheck 0.1.0, dmSpike S7 and S10; §1 done; §1–§4 done (dmDefine 0.5.0 and dmCheck 0.1.0 verified, decisions agreed); §5 later.
 
 ## 1. Spike widget dmSpike (upload `tests/dmSpike-v0.1.x/spike-widget/dmSpike.zip`)
 
@@ -53,8 +53,8 @@ Use a model with the names of your project (start from `test-data/vcycle-model.y
 | 2.27 | Leave a document out of the pairs (e.g. remove the STD B pair) | that document outlined in orange, "in no pair of L2" | 0.8.0 |
 | 2.28 | ✅ **Done 2026-11-02** (as expected). Widget parameter *Graph view when the page opens* = Exploded; and a model with one document per role and no pair | opens in the exploded view; no *View* switch for the simple model | 0.8.0 |
 | 2.29 | **dmDefine 0.8.2**: *Edit model*, type a name holding both quote characters, e.g. `Model "A" of the customer's project` | a warning under the forms: "Name contains both quote characters …" | 0.8.2 |
-| 2.30 | **dmDefine 0.9.0** (upload the new zip) on the model of use case 3: *Edit model*, *Remove* on role SolutionSTD; first *Cancel*, then again and *OK* | a question naming the rules that use it ("… used by 1 rule(s) (L2) …"); Cancel changes nothing; OK removes the role, its documents, L2 and its pairs; *Generate YAML* has none of them | 0.9.0 |
-| 2.31 | A model saved with rules on a removed role (e.g. delete the SolutionSTD role lines in the text, save, reload) | above the problems: *Quick fix: remove the N rule(s) … that use undefined roles*; a click opens the YAML text tab without those rules, their pairs and the role's bindings, other lines and comments unchanged, a note naming what was removed; *Save to Polarion* (or copy/paste) and reload: no problem, forms available again | 0.9.0 |
+| 2.30 | ✅ **Done 2026-11-02** (question shown, role and its rules removed). **dmDefine 0.9.0** (upload the new zip) on the model of use case 3: *Edit model*, *Remove* on role SolutionSTD; first *Cancel*, then again and *OK* | a question naming the rules that use it ("… used by 1 rule(s) (L2) …"); Cancel changes nothing; OK removes the role, its documents, L2 and its pairs; *Generate YAML* has none of them | 0.9.0 |
+| 2.31 | ✅ **Done 2026-11-02** (quick fix works). A model saved with rules on a removed role (e.g. delete the SolutionSTD role lines in the text, save, reload) | above the problems: *Quick fix: remove the N rule(s) … that use undefined roles*; a click opens the YAML text tab without those rules, their pairs and the role's bindings, other lines and comments unchanged, a note naming what was removed; *Save to Polarion* (or copy/paste) and reload: no problem, forms available again | 0.9.0 |
 
 ## 3. dmCheck (upload `widgets/dmCheck/dist/dmCheck.zip`)
 

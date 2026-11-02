@@ -13,7 +13,7 @@ requirements linked with `satisfies` → tests linked with `verifies`). Two widg
   **0.9.0**: 0.1.0 read, validate, show; 0.2.0 pairs; 0.3.0 editor (forms + YAML text, `src/editor.js`); 0.4.0 `uses:` +
   documents of other projects; 0.5.0 Save to Polarion (REST, optional); 0.6.0 severity per side of a rule
   (`from_severity` / `to_severity`, D17); 0.7.0 starter generator (D8, *Propose a model from the project*); 0.8.0 exploded
-  view (D16); 0.9.0 removed roles: confirmation in the forms + quick fix in the problem list (D18). **0.1.0–0.7.0 verified on 2512 by the PO** (except 2.21); 0.8.0 partly; open checks in `docs/PO_CHECKS.md`.
+  view (D16); 0.9.0 removed roles: confirmation in the forms + quick fix in the problem list (D18). **0.1.0–0.7.0 and 0.9.0 verified on 2512 by the PO** (except 2.21); 0.8.0 partly; open checks in `docs/PO_CHECKS.md`.
 - **dmCheck** (`widgets/dmCheck/`): reads the same model, checks the real documents/items/links, reports violations
   (table, Excel, graph coloured by compliance). **0.4.1**: 0.1.0 v1 checks (`shared/vm/dm-check.vm`, verified SQL forms
   only); 0.2.0 drill-down queries (S10 `NOT IN` form inside Lucene `SQL:(…)`, checked on an SQLite copy of the test
@@ -133,7 +133,8 @@ resolves documents of a named space and of another project; a missing one is sim
 
 Verified by the PO 2026-11-02: starter generator (2.22–2.25, a new project with many documents), dmDefine exploded view
 (2.26, 2.28), dmCheck exploded view and its *Show* filter (3.15–3.16), drill-down link `#/project/P/workitems?query=…` opens
-Polarion's table with the query and the copied query gives the same items (3.7–3.8).
+Polarion's table with the query and the copied query gives the same items (3.7–3.8); dmDefine 0.9.0 removed roles:
+confirmation in the forms and quick fix (2.30–2.31).
 
 Verified by the PO with dmCheck 0.1.0 (PO_CHECKS 3.1–3.6): the test structure gives exactly the expected violations; table,
 Excel, PDF; real model of the largest project in an acceptable time; a model with errors checks nothing.
@@ -193,7 +194,7 @@ exploded view (`viewSwitch`, `drawExploded`).
 ## Where the work stands (read first in a new session)
 
 - Open checks of the PO on 2512, in order: `docs/PO_CHECKS.md` (§1–§4 done; open: dmCheck drill-down 3.9–3.12, severity
-  per side 2.21 and 3.14, exploded view 2.27, quote warning 2.29, removed roles 2.30–2.31; §5 later: REST token
+  per side 2.21 and 3.14, exploded view 2.27, quote warning 2.29; §5 later: REST token
   disabled, 2612). Record each result in the spec / `tests/dmSpike-v0.1.x/spike-tests.md`, then tick it there.
 - Decisions of 2026-10-30: the 0.1.0 evaluation of dmCheck is kept, set queries serve the drill-down only; exploded view
   as the mockup agreed with the PO. Next increments: to agree with the PO (candidates in §8 of each spec: collection
