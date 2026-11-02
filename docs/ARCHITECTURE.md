@@ -217,7 +217,7 @@ l.c_role = 'R' AND (<other documents>) AND t.c_type IN (…))`, mirrored for the
 document of the other role (pooled) or the documents paired with this one (paired); `from_min`/`to_min` > 1 add
 `GROUP BY … HAVING COUNT(*) >= n` inside the sub-select, not verified on 2512), and per document the unexpected-type
 query (`c_type NOT IN` the listed types). Each is wrapped as `project.id:P AND SQL:(…)` (accepted by `queryWorkItems`,
-S10) and opened in Polarion's work item table (`#/project/P/workitems?query=…`, URL form to check on 2512) or copied.
+S10) and opened in Polarion's work item table (`#/project/P/workitems?query=…`, URL form verified on 2512, PO_CHECKS 3.7) or copied.
 The queries are not run by the widget (no cost on the render); `tools/vtest/dmCheck/sql-check.py` runs them on an SQLite
 copy of the test structure and checks that each lists exactly the items of the evaluation.
 
