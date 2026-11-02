@@ -5,7 +5,7 @@ Polarion instance**. Run the checks in this order when you have time; for each o
 screenshots or PDF exports: the repository is public). Findings are then recorded in the specification and in
 `tests/dmSpike-v0.1.x/spike-tests.md`.
 
-Last update: 2026-11-02 (open: dmCheck 0.2.0 checks 3.9–3.12; severity per side: 2.21 and 3.14; exploded view: 2.27; quote warning: 2.29; done 2026-11-02: 2.22–2.26, 2.28, 2.30, 2.31, 3.7, 3.8, 3.15, 3.16), dmDefine 0.5.0, dmCheck 0.1.0, dmSpike S7 and S10; §1 done; §1–§4 done (dmDefine 0.5.0 and dmCheck 0.1.0 verified, decisions agreed); §5 later.
+Last update: 2026-11-02 (open: dmCheck 0.2.0 checks 3.9–3.12; severity per side: 2.21 and 3.14; exploded view: 2.27; quote warning: 2.29; loops: 2.32, 3.17; done 2026-11-02: 2.22–2.26, 2.28, 2.30, 2.31, 3.7, 3.8, 3.15, 3.16), dmDefine 0.5.0, dmCheck 0.1.0, dmSpike S7 and S10; §1 done; §1–§4 done (dmDefine 0.5.0 and dmCheck 0.1.0 verified, decisions agreed); §5 later.
 
 ## 1. Spike widget dmSpike (upload `tests/dmSpike-v0.1.x/spike-widget/dmSpike.zip`)
 
@@ -55,6 +55,7 @@ Use a model with the names of your project (start from `test-data/vcycle-model.y
 | 2.29 | **dmDefine 0.8.2**: *Edit model*, type a name holding both quote characters, e.g. `Model "A" of the customer's project` | a warning under the forms: "Name contains both quote characters …" | 0.8.2 |
 | 2.30 | ✅ **Done 2026-11-02** (question shown, role and its rules removed). **dmDefine 0.9.0** (upload the new zip) on the model of use case 3: *Edit model*, *Remove* on role SolutionSTD; first *Cancel*, then again and *OK* | a question naming the rules that use it ("… used by 1 rule(s) (L2) …"); Cancel changes nothing; OK removes the role, its documents, L2 and its pairs; *Generate YAML* has none of them | 0.9.0 |
 | 2.31 | ✅ **Done 2026-11-02** (quick fix works). A model saved with rules on a removed role (e.g. delete the SolutionSTD role lines in the text, save, reload) | above the problems: *Quick fix: remove the N rule(s) … that use undefined roles*; a click opens the YAML text tab without those rules, their pairs and the role's bindings, other lines and comments unchanged, a note naming what was removed; *Save to Polarion* (or copy/paste) and reload: no problem, forms available again | 0.9.0 |
+| 2.32 | **dmDefine 0.9.1** (upload the new zip) on your model with the loop between two roles (rules L47 / L70) | the graph uses about 4 columns (no far-away boxes, readable after *Fit*); L70 drawn as an arc below the boxes; in the problems an **info** "Loop between roles … rules L47 (…), L70 (…)" at the line of L47; status line "…, 1 info"; with L70 removed, the info disappears | 0.9.1 |
 
 ## 3. dmCheck (upload `widgets/dmCheck/dist/dmCheck.zip`)
 
@@ -76,6 +77,7 @@ Use a model with the names of your project (start from `test-data/vcycle-model.y
 | 3.14 | *Show*: untick *Errors* | the L1 line stays (its info violations), the error ones are hidden | dmCheck 0.3.0 |
 | 3.15 | ✅ **Done 2026-11-02** (as expected). **dmCheck 0.4.0** (upload the new zip) on the test structure: *View: Exploded* | as the mockup: L1 arrows "L1 errors 1" from Solution Spec A and B to the CustomerSpec frame; "L2 warnings 4" (STD A → Solution Spec A), "L2 warnings 1" (STD B → Solution Spec B); dotted "cross-pair 1" (STD A → Solution Spec B); STD B green (100%), Customer Specification "L1: 1 not covered" | 0.4.0 |
 | 3.16 | ✅ **Done 2026-11-02** (button and hiding as expected). *Show*: untick *Warnings* | only the two L1 arrows remain | 0.4.0 |
+| 3.17 | **dmCheck 0.4.2** (upload the new zip) with the same model (loop L47 / L70) | the graph is compact as in 2.32, in the collapsed and the exploded view | 0.4.2 |
 
 ## 4. Decisions to confirm (dmCheck, proposed in `widgets/dmCheck/SPECIFICATION.md` §7)
 

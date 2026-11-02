@@ -2,7 +2,7 @@
 
 **Status:** v0.4, 2026-11-02. **dmDefine 0.9** built: 0.1.0 read, validate, show (D1–D7, D11, D13); 0.2.0 pairs (D14);
 0.3.0 editor (D9); 0.4.0 `uses:` and documents of other projects (D15, D12); 0.5.0 *Save to Polarion* (D10); 0.6.0 severity
-per side (D17); 0.7.0 starter generator (D8); 0.8.0 exploded view (D16); 0.9.0 removed roles (D18, verified 2.30–2.31). 0.1.0–0.7.0 verified on 2512 by the PO
+per side (D17); 0.7.0 starter generator (D8); 0.8.0 exploded view (D16); 0.9.0 removed roles (D18, verified 2.30–2.31); 0.9.1 loops between roles (D19). 0.1.0–0.7.0 verified on 2512 by the PO
 (0.6.0 except 2.21); 0.8.0 partly (2.26, 2.28); open checks: `docs/PO_CHECKS.md`. Spikes S1–S10 all run on 2512 (`tests/dmSpike-v0.1.x/spike-tests.md`).
 
 ## 1. Goal
@@ -46,6 +46,7 @@ The model is stored in Polarion (SPEC §6) and read by **dmCheck** (`widgets/dmC
 | D13 | **Model text** view with line numbers (problem lines marked, a click on a problem shows its line) and **Copy YAML** (copies the text, e.g. to reuse the model in another project) | Should (done) | 1 |
 | D17 | **Severity per side** of a link rule (PO 2026-10-30, decision 10): optional `from_severity` / `to_severity` (error, warning, info; default = the rule's `severity`) validated, shown in the rule details, tooltip, table and Excel, edited in the forms (two pickers per rule, empty = rule severity), written by the YAML writer and kept by the round trip | Should (done, 0.6.0; verified on 2512: PO_CHECKS 2.19–2.20) | 0.6.0 |
 | D18 | **Removed roles** (PO 2026-11-02, decision 12). (a) *Forms*: *Remove* on a role that rules use asks first, naming those rules ("Role X is used by N rules (L2, L9, …). Remove the role, its documents and these rules with their pairs?"); OK removes all of them, Cancel nothing; a role no rule uses is removed at once. (b) *Quick fix* above the problem list when the model text has rules whose `from` / `to` role is not defined in `model.roles` (local model only, not with `uses:`): *Quick fix: remove the N rules that use undefined roles* opens the editor's YAML text tab with those rules, their `pairs:` entries and the `bindings` entries of undefined roles removed, every other line (comments included) unchanged, and a note naming what was removed; nothing is saved: the user checks the text, then *Copy* or *Save to Polarion* and reloads. A rule whose block cannot be found safely (its `- id:` item under `links:`, by indentation) is left in place and named in the note | Should (done, 0.9.0; verified on 2512: PO_CHECKS 2.30–2.31) | 0.9.0 |
+| D19 | **Loops between roles** (PO 2026-11-02, decision 13): rules between different roles that go round in a circle (e.g. A `satisfies` B and B `satisfies` A, directly or through other roles) are reported as one **info** per loop in the problem list ("Loop between roles A and B: rules L47 (…), L70 (…) …"), at the line of the loop's first rule, counted in the status line, table and Excel (browser view; the PDF lists the server problems only). The graph stays compact: the layout leaves the rules closing a loop out when it places the roles in columns and draws them backwards (arc below the boxes). Same layout fix in dmCheck (shared `core.js`) | Should (done, 0.9.1) | 0.9.1 |
 | D16 | **Exploded view** of the graph (PO 2026-10-30, decision 9): a switch *Collapsed / Exploded*. Collapsed = today's graph (one box per role, one arrow per rule). Exploded = one box per declared document inside a frame per role; **paired** rules drawn document to document (one arrow per pair); **pooled** rules drawn from each document of the `from` role to the **frame** of the `to` role ("any document of this role"), not one arrow per document combination; pair problems (documents of the rule's roles in no pair, pairs naming undeclared documents) outlined in orange. Shown when a role has more than one document. Shown when a role has more than one document or a rule is paired. Parameter *Initial view* (collapsed by default). The PDF view has no graph (tables only, in both views), so the parameter applies to the browser view. Table and Excel unchanged (the *Document pairs* sheet already lists the pairs). Mockup agreed by the PO 2026-10-30. A pooled rule inside one role is listed in the role details, not drawn | Should (done, 0.8.0; verified on 2512: PO_CHECKS 2.26, 2.28; 2.27 open) | 0.8.0 |
 
 ## 4. Non-functional requirements
@@ -145,6 +146,12 @@ Decided by the PO (2026-10-30):
    the problem list rewrites the YAML text (the user keeps control: review, then copy or save). Other quick fixes
    (e.g. a type that no longer exists) may follow later.
 
+13. **Loops between roles (D19)**, PO 2026-11-02: on a starter proposal of a real project, rules in both directions
+   between two roles (`satisfies`) made the graph about 20 columns wide (the longest-path layout never ends on a loop;
+   a limit of 50 levels stopped it). Fixed in the shared layout; the PO asked for an info in the problem list too,
+   since such loops are usually not intended. Reported per strongly connected group of roles (rules inside one role,
+   such as `parent`, are not loops).
+
 ## 8. Increments
 
 PO 2026-10-30: dmDefine is completed before dmCheck is started.
@@ -160,6 +167,7 @@ PO 2026-10-30: dmDefine is completed before dmCheck is started.
 8. **0.8.0** (done) exploded view of the graph (D16); shared drawing in `shared/js/core.js` (`viewSwitch`, `drawExploded`).
 9. **0.9.0** (done) removed roles: confirmation in the forms and quick fix in the problem list (D18); checks on 2512:
    `docs/PO_CHECKS.md` 2.30–2.31.
+10. **0.9.1** (done) loops between roles: compact layout and info (D19); checks on 2512: `docs/PO_CHECKS.md` 2.32.
 
 ## 9. Open checks on 2512
 

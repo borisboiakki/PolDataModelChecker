@@ -15,7 +15,7 @@ import java.util.regex.*;
 public class DefineHarness {
 
     static final String P = "DMTEST";
-    static DmMocks.Module modelDoc, errorsDoc, syntaxDoc, emptyDoc, pairedDoc, pairErrDoc, removedDoc;
+    static DmMocks.Module modelDoc, errorsDoc, syntaxDoc, emptyDoc, pairedDoc, pairErrDoc, removedDoc, loopDoc;
     static final Map<String, DmMocks.Module> USES_DOCS = new LinkedHashMap<String, DmMocks.Module>();
 
     /** Local part of a model that reuses the roles and rules of SYSENG/SE-12 (uses:, dmDefine 0.4.0). */
@@ -58,6 +58,112 @@ public class DefineHarness {
         "      # end of L3", "  unexpected_links: ignore", "bindings:", "  CustomerSpec: [\"Specs/System Specification\"]",
         "  SolutionSpec: [\"Specs/Solution Spec A\", \"Specs/Solution Spec B\"]", "  SolutionSTD: [\"Tests/STD A\", \"Tests/STD B\"]",
         "pairs:", "  L2:", "    - [\"Tests/STD A\", \"Specs/Solution Spec A\"]", "    - [\"Tests/STD B\", \"Specs/Solution Spec B\"]" };
+    /** Starter proposal of a real project, anonymised (D19): rules L47 and L70 form a loop between SysReq and ItemBReq,
+     *  which made the layered layout grow to about 20 columns before dmDefine 0.9.1. */
+    static final String[] LOOP_MODEL = {
+        "version: 1",
+        "name: Loop between two roles (anonymised from a starter proposal)",
+        "",
+        "model:",
+        "  roles:",
+        "    SysReq:",
+        "      items:",
+        "        - { type: heading, ignored: true }",
+        "        - { type: systemRequirement, min: 1 }",
+        "    PBS:",
+        "      items:",
+        "        - { type: subsystemRequirement, min: 1 }",
+        "        - { type: heading, ignored: true }",
+        "    Design:",
+        "      items:",
+        "        - { type: heading, ignored: true }",
+        "        - { type: subsystemRequirement, min: 1 }",
+        "    SysTests:",
+        "      items:",
+        "        - { type: heading, ignored: true }",
+        "        - { type: testCase, min: 1 }",
+        "        - { type: subsystemRequirement, min: 1 }",
+        "    ItemAReq:",
+        "      items:",
+        "        - { type: heading, ignored: true }",
+        "        - { type: systemRequirement, min: 1 }",
+        "    ItemBReq:",
+        "      items:",
+        "        - { type: heading, ignored: true }",
+        "        - { type: systemRequirement, min: 1 }",
+        "    ItemBTests:",
+        "      items:",
+        "        - { type: heading, ignored: true }",
+        "        - { type: testCase, min: 1 }",
+        "        - { type: subsystemRequirement, min: 1 }",
+        "    ItemCReq:",
+        "      items:",
+        "        - { type: heading, ignored: true }",
+        "        - { type: systemRequirement, min: 1 }",
+        "    ItemCTests:",
+        "      items:",
+        "        - { type: heading, ignored: true }",
+        "        - { type: testCase, min: 1 }",
+        "        - { type: subsystemRequirement, min: 1 }",
+        "  links:",
+        "    - id: L1",
+        "      from: { role: PBS, type: subsystemRequirement }",
+        "      link_role: satisfies",
+        "      to: { role: SysReq, type: systemRequirement }",
+        "    - id: L9",
+        "      from: { role: ItemCTests, type: testCase }",
+        "      link_role: verifies",
+        "      to: { role: ItemCReq, type: systemRequirement }",
+        "    - id: L10",
+        "      from: { role: ItemCTests, type: testCase }",
+        "      link_role: verifies",
+        "      to: { role: ItemCTests, type: subsystemRequirement }",
+        "    - id: L11",
+        "      from: { role: ItemCTests, type: testCase }",
+        "      link_role: parent",
+        "      to: { role: ItemCTests, type: subsystemRequirement }",
+        "    - id: L20",
+        "      from: { role: SysTests, type: testCase }",
+        "      link_role: verifies",
+        "      to: { role: SysReq, type: systemRequirement }",
+        "    - id: L21",
+        "      from: { role: SysTests, type: testCase }",
+        "      link_role: parent",
+        "      to: { role: SysTests, type: subsystemRequirement }",
+        "    - id: L22",
+        "      from: { role: PBS, type: subsystemRequirement }",
+        "      link_role: satisfies",
+        "      to: { role: ItemBReq, type: systemRequirement }",
+        "    - id: L34",
+        "      from: { role: ItemCTests, type: subsystemRequirement }",
+        "      link_role: verifies",
+        "      to: { role: ItemCReq, type: systemRequirement }",
+        "    - id: L43",
+        "      from: { role: ItemAReq, type: systemRequirement }",
+        "      link_role: satisfies",
+        "      to: { role: SysReq, type: systemRequirement }",
+        "    - id: L47",
+        "      from: { role: SysReq, type: systemRequirement }",
+        "      link_role: satisfies",
+        "      to: { role: ItemBReq, type: systemRequirement }",
+        "    - id: L70",
+        "      from: { role: ItemBReq, type: systemRequirement }",
+        "      link_role: satisfies",
+        "      to: { role: SysReq, type: systemRequirement }",
+        "    - id: L71",
+        "      from: { role: ItemCReq, type: systemRequirement }",
+        "      link_role: satisfies",
+        "      to: { role: ItemBReq, type: systemRequirement }",
+        "    - id: L74",
+        "      from: { role: ItemBTests, type: testCase }",
+        "      link_role: verifies",
+        "      to: { role: ItemBTests, type: subsystemRequirement }",
+        "    - id: L81",
+        "      from: { role: PBS, type: subsystemRequirement }",
+        "      link_role: satisfies",
+        "      to: { role: ItemAReq, type: systemRequirement }",
+        "bindings:",
+        "  SysReq: [\"Specs/System Specification\"]" };
     static int SAMPLE_LINES, SPEC_LINE;
 
     static final String[] ERRORS_MODEL = {
@@ -92,6 +198,8 @@ public class DefineHarness {
         pairErrDoc = new DmMocks.Module(P, "Model", "Pair Errors", "Pair Errors");
         removedDoc = new DmMocks.Module(P, "Model", "Removed Roles", "Removed Roles");
         DmMocks.MODULES.add(removedDoc);
+        loopDoc = new DmMocks.Module(P, "Model", "Loop", "Loop");
+        DmMocks.MODULES.add(loopDoc);
         DmMocks.MODULES.addAll(Arrays.asList(pairedDoc, pairErrDoc,
             new DmMocks.Module(P, "Specs", "Solution Spec A", "Solution Spec A"), new DmMocks.Module(P, "Specs", "Solution Spec B", "Solution Spec B"),
             new DmMocks.Module(P, "Tests", "STD A", "STD A"), new DmMocks.Module(P, "Tests", "STD B", "STD B")));
@@ -124,6 +232,7 @@ public class DefineHarness {
         DmMocks.ITEMS.add(new DmMocks.WorkItem(syntaxDoc, P, "DM-30", "text", "Syntax", DmMocks.asStoredHtml(Arrays.asList(SYNTAX_MODEL))));
         DmMocks.ITEMS.add(new DmMocks.WorkItem(emptyDoc, P, "DM-40", "heading", "Nothing", ""));
         DmMocks.ITEMS.add(new DmMocks.WorkItem(pairedDoc, P, "DM-50", "text", "Paired", DmMocks.asStoredHtml(Arrays.asList(PAIRED_MODEL))));
+        DmMocks.ITEMS.add(new DmMocks.WorkItem(loopDoc, P, "DM-80", "text", "Loop", DmMocks.asStoredHtml(Arrays.asList(LOOP_MODEL))));
         DmMocks.ITEMS.add(new DmMocks.WorkItem(removedDoc, P, "DM-70", "text", "Removed roles", DmMocks.asStoredHtml(Arrays.asList(REMOVED_ROLES_MODEL))));
         DmMocks.ITEMS.add(new DmMocks.WorkItem(pairErrDoc, P, "DM-60", "text", "Pair errors", DmMocks.asStoredHtml(Arrays.asList(PAIR_ERRORS_MODEL))));
         DmMocks.MODULES.add(new DmMocks.Module("SYSENG", "Tests", "Shared Tests", "Shared Tests"));
@@ -329,6 +438,9 @@ public class DefineHarness {
             h.contains("data-msg=\"model.links[2].from: role Gone is not defined in model.roles.\"") &&
             h.contains("data-msg=\"model.links[2].to: role SolutionSTD is not defined in model.roles.\"") &&
             h.contains("data-msg=\"bindings: SolutionSTD is not a role of model.roles.\""), "removed roles (D18): rules and binding of undefined roles reported");
+
+        h = run(dir, out, "loop", params(loopDoc, ""), false);
+        DmMocks.check(count(h, "<i class=\"dm-p\" data-sev=\"error\"") == 0 && count(h, "<i class=\"dm-r\"") == 9 && count(h, "<i class=\"dm-l\"") == 14, "loop model: 9 roles, 14 rules, no error");
 
         h = run(dir, out, "uses", params(USES_DOCS.get("uses"), ""), false);
         DmMocks.check(count(h, "<i class=\"dm-p\"") == 0, "uses: no problem");

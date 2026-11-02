@@ -102,3 +102,5 @@ PO 2026-10-30: dmCheck is started after dmDefine is completed.
 3. Later: collection context (K11); orphans, wrong document, field rules.
 4. **0.3.0** (done) severity per side (K18). The collection context moves to a later increment.
 5. **0.4.0** (done) exploded view (K17), with dmDefine 0.8.0 (D16).
+6. **0.4.2** (done) graph layout with loops between roles (dmDefine D19, shared `core.js`): the rules closing a loop are
+   left out when placing the roles in columns and drawn backwards, so the graph stays compact (PO_CHECKS 3.17).

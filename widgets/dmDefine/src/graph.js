@@ -26,6 +26,45 @@
     return (s || '').split(sep).filter(function (x) { return x !== ''; });
   }
 
+  // D19: rules between different roles that form a loop (strongly connected roles, Tarjan) -> one info per loop, at the
+  // line of its first rule (no line when the rules come from a model reused with uses:).
+  function loopProblems(rules, byKey, reused) {
+    var outs = {};
+    rules.forEach(function (r) {
+      if (byKey[r.from] && byKey[r.to] && r.from !== r.to) { (outs[r.from] = outs[r.from] || []).push(r.to); }
+    });
+    var index = {}, low = {}, onStack = {}, stack = [], comps = [], counter = 0;
+    function visit(k) {
+      index[k] = low[k] = counter++;
+      stack.push(k);
+      onStack[k] = true;
+      (outs[k] || []).forEach(function (t) {
+        if (index[t] === undefined) { visit(t); low[k] = Math.min(low[k], low[t]); }
+        else if (onStack[t]) { low[k] = Math.min(low[k], index[t]); }
+      });
+      if (low[k] === index[k]) {
+        var comp = [];
+        var x;
+        do { x = stack.pop(); onStack[x] = false; comp.push(x); } while (x !== k);
+        if (comp.length > 1) { comps.push(comp); }
+      }
+    }
+    Object.keys(outs).sort().forEach(function (k) { if (index[k] === undefined) { visit(k); } });
+    return comps.map(function (comp) {
+      var inC = {};
+      comp.forEach(function (k) { inC[k] = true; });
+      var rs = rules.filter(function (r) { return inC[r.from] && inC[r.to] && r.from !== r.to; });
+      rs.sort(function (a, b) { return a.line - b.line; });
+      var names = comp.slice().sort();
+      var roleText = names.length === 2 ? names[0] + ' and ' + names[1] : names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1];
+      return {
+        sev: 'info', line: reused ? 0 : (rs.length ? rs[0].line : 0),
+        msg: 'Loop between roles ' + roleText + ': rules ' + rs.map(function (r) { return r.id + ' (' + r.from + ' ' + r.rname + ' ' + r.to + ')'; }).join(', ') +
+          '. Links that go round in a circle are usually not intended: check whether one of these rules should be removed. The graph draws one of them backwards.'
+      };
+    });
+  }
+
   function readModel(root) {
     var nodes = [];
     var byKey = {};
@@ -66,6 +105,7 @@
       var p = pEls[k].dataset;
       probs.push({ sev: p.sev, line: toInt(p.line), msg: p.msg || '' });
     }
+    loopProblems(rules, byKey, !!root.dataset.uses).forEach(function (p2) { probs.push(p2); });
     probs.sort(function (x, y) {
       return SEVERITIES.indexOf(x.sev) - SEVERITIES.indexOf(y.sev) || x.line - y.line;
     });
@@ -329,7 +369,7 @@
     var nDocs = 0;
     this.model.nodes.forEach(function (n) { nDocs += n.docs.length; });
     return this.model.nodes.length + ' roles, ' + this.model.rules.length + ' rules, ' + nDocs + ' documents ' + DASH + ' ' +
-      c.error + ' errors, ' + c.warning + ' warnings ' + DASH + ' links matching no rule: ' + this.unexp;
+      c.error + ' errors, ' + c.warning + ' warnings' + (c.info ? ', ' + c.info + ' info' : '') + ' ' + DASH + ' links matching no rule: ' + this.unexp;
   };
 
   Widget.prototype.render = function (refit) {

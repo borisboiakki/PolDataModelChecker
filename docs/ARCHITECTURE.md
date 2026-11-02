@@ -256,7 +256,10 @@ harness checks.
 ## 6. Client side
 
 `shared/js/core.js` is reused (layered layout, SVG drawing, toolbar, tooltip, zoom, table, SVG/Excel/CSV export), with two
-optional widget fields added: `isolatedText` and `searchText`. Widget code:
+optional widget fields added: `isolatedText` and `searchText`. Layout with loops (0.9.1 / 0.4.2): the edges closing a loop
+(back edges of a depth-first search) are left out of the longest-path levels and drawn backwards (`e.back`, arc below the
+boxes); no level exceeds the number of linked nodes. dmDefine reports each loop between roles as an info (`loopProblems()`
+in `graph.js`, Tarjan on the rules between different roles; browser only). Widget code:
 - **dmDefine `graph.js`** (0.1.0): nodes = roles (key, title, counted types, documents found, rules inside the role
   marked with a loop sign); edges = rules between two roles grouped per pair, o = target role on the left, arrow in the
   link direction; one line style per link role with a filter checkbox; a click on a role shows its types, documents
@@ -354,6 +357,7 @@ T1) there.
 | 0.7.0 / 0.3.0 | **Built**: starter generator (D8, S7 queries) | **0.3.0 built**: severity per side (K18) |
 | 0.8.0 / 0.4.0 | **Built**: exploded view (D16) | **0.4.0 built**: exploded view (K17) |
 | 0.9.0 | **Built**: removed roles: confirmation in the forms, quick fix (D18) | — |
+| 0.9.1 / 0.4.2 | **Built**: loops between roles: compact layout, info (D19) | **0.4.2 built**: same layout fix |
 | later | — | collection context (K11), orphans, wrong document, field rules (K13) |
 
 ## 11. Risks

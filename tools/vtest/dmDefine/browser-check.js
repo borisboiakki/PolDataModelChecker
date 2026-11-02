@@ -310,6 +310,23 @@ async function clickNode(p, key) {
     p.off('dialog', onDialog);
   }
 
+  // ---------------------------------------------------------------- loop between roles (D19): compact layout, info
+  await p.goto('file://' + dir + '/loop.html');
+  await p.waitForTimeout(300);
+  const loopVb = (await p.getAttribute('.bw-svg', 'viewBox')).split(' ').map(Number);
+  const loopXs = await p.$$eval('.bw-node rect', rs => Array.from(new Set(rs.map(r => r.getAttribute('x')))).length);
+  console.log('loop layout: viewBox', loopVb.join(' '), 'columns', loopXs);
+  expect(loopVb[2] < 2000, 'loop: compact layout (graph width ' + loopVb[2] + ', 20 columns before the fix)');
+  const loopLine = (await p.$$eval('.dm-y', ys => ys.map(y => y.getAttribute('data-t')))).indexOf('    - id: L47') + 1;
+  const loopProbs = await p.$$eval('.dd-prob', rs => rs.map(r => r.textContent));
+  console.log('loop problems:', JSON.stringify(loopProbs.filter(t => t.indexOf('Loop') >= 0)));
+  expect(loopProbs.filter(t => t.indexOf('Loop between') >= 0).length === 1 &&
+    loopProbs.some(t => t.indexOf('infoline ' + loopLine + 'Loop between roles ItemBReq and SysReq: rules L47 (SysReq satisfies ItemBReq), L70 (ItemBReq satisfies SysReq).') === 0),
+    'loop: one info at the line of L47 naming the roles and rules');
+  expect((await p.content()).indexOf('0 errors, 0 warnings, 1 info') > 0 || (await p.content()).indexOf(' warnings, 1 info') > 0, 'loop: info counted in the status line');
+  expect((await p.$$('.bw-edge')).length === 9, 'loop: all 9 lines between roles drawn (L47 and L70 both shown)');
+  await p.screenshot({ path: dir + '/shot-loop.png', fullPage: true });
+
   // ---------------------------------------------------------------- PDF view (static, no script)
   await p.goto('file://' + dir + '/pdf.html');
   await p.screenshot({ path: dir + '/shot-pdf.png', fullPage: true });
