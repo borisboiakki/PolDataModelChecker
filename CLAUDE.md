@@ -191,7 +191,8 @@ docs/<w>/                      install guide, previews (mock data), icon source 
 the commit and tell the PO (open question: git submodule or a common package later). Local changes so far: `style.vm`
 root classes `dd-root`/`dc-root`, `.bw-on` / `.bw-viewsw`; `core.js` optional widget fields `isolatedText`, `searchText`,
 exploded view (`viewSwitch`, `drawExploded`), layout with loops (back edges left out of the levels, drawn
-backwards; to port to the sister repo).
+backwards; ported to the sister repo 2026-11-02: docBranches 0.4.5, docCoverage 0.4.2, advImpact 0.3.1, with the same
+rule for their static PDF graph, macro `bwBackEdges` in their `common.vm`).
 
 ## Where the work stands (read first in a new session)
 
