@@ -4,7 +4,7 @@ Siemens Polarion **LiveReport widgets** to formalize the **data model** of a pro
 
 | Widget | Purpose | Status | Docs |
 |---|---|---|---|
-| <img src="docs/dmDefine/icon.svg" width="32" alt=""> **dmDefine** — Data Model Definition | A key user / project admin formalizes the main documents (roles), the work item types each must contain and the links between them (e.g. V-cycle: `satisfies`). Shows the model as a graph and tables, validates it against the project configuration, lists the problems with their line | **0.8.0** (0.5.0 **verified on Polarion 2512**; 0.6.0 = severity per side of a rule (verified); 0.7.0 = propose a model from the project; 0.8.0 = exploded view (one box per document); 0.2.0 = document pairs, 0.3.0 = form editor, 0.4.0 = `uses:` and documents of other projects, 0.5.0 = Save to Polarion (REST); [checks](docs/PO_CHECKS.md)) | [install](docs/dmDefine/install.md) · [specification](widgets/dmDefine/SPECIFICATION.md) |
+| <img src="docs/dmDefine/icon.svg" width="32" alt=""> **dmDefine** — Data Model Definition | A key user / project admin formalizes the main documents (roles), the work item types each must contain and the links between them (e.g. V-cycle: `satisfies`). Shows the model as a graph and tables, validates it against the project configuration, lists the problems with their line | **0.9.0** (0.1.0–0.7.0 **verified on Polarion 2512**; 0.6.0 = severity per side of a rule; 0.7.0 = propose a model from the project; 0.8.0 = exploded view (one box per document); 0.9.0 = removed roles: confirmation and quick fix; 0.2.0 = document pairs, 0.3.0 = form editor, 0.4.0 = `uses:` and documents of other projects, 0.5.0 = Save to Polarion (REST); [checks](docs/PO_CHECKS.md)) | [install](docs/dmDefine/install.md) · [specification](widgets/dmDefine/SPECIFICATION.md) |
 | <img src="docs/dmCheck/icon.svg" width="32" alt=""> **dmCheck** — Data Model Check | Checks the declared documents, items and links against the model: required item types, required links per item (pooled or paired documents), unexpected types and links. Graph coloured by compliance, report table, Excel, PDF | **0.4.0** (0.1.0 **verified on Polarion 2512**; 0.3.0 = severity per side of a rule; 0.4.0 = exploded view; 0.2.0 = drill-down: open the violating items in Polarion's work item table, built and tested on mocks; [checks](docs/PO_CHECKS.md)) | [install](docs/dmCheck/install.md) · [specification](widgets/dmCheck/SPECIFICATION.md) |
 
 ![dmDefine preview rendered from the sample model (mock data)](docs/dmDefine/preview-graph.png)
@@ -34,8 +34,8 @@ This repository was started from [polarion_branches_copies_widget](https://githu
 3. Spikes with the diagnostic widget **dmSpike** ([run sheet and findings](tests/dmSpike-v0.1.x/spike-tests.md)): all
    run on 2512 (model item, YAML parser in Velocity, bindings, configuration, REST GET/PATCH, editor controls, starter
    data S7, dmCheck set queries and Lucene drill-down S10).
-4. **dmDefine** 0.1.0–0.5.0 and **dmCheck** 0.1.0 verified on 2512; later increments (severity per side, starter
-   generator, drill-down, exploded view) built and tested on mocks, checks to run: [docs/PO_CHECKS.md](docs/PO_CHECKS.md).
+4. **dmDefine** 0.1.0–0.7.0 and **dmCheck** 0.1.0, 0.3.0, 0.4.0 verified on 2512; the other increments (drill-down,
+   exploded view of dmDefine, removed roles) built and tested on mocks, checks to run: [docs/PO_CHECKS.md](docs/PO_CHECKS.md).
    Next increments: listed in §8 of each specification.
 
 ## Repository contents

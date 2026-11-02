@@ -263,6 +263,53 @@ async function clickNode(p, key) {
     yamlS.indexOf('{ type: heading, ignored: true }') > 0 && yamlS.indexOf('{ type: systemRequirement, min: 1 }') > 0 && yamlS.indexOf('from_min') < 0 &&
     yamlS.indexOf('  System_Specification: ["Specs/System Specification"]') > 0, 'starter: rules per link combination (heading links left out), headings ignored, min 1, bindings');
 
+  // ---------------------------------------------------------------- removed roles (D18): quick fix and confirmation
+  await p.goto('file://' + dir + '/removed-roles.html');
+  await p.waitForTimeout(300);
+  const qfBtn = await p.$$eval('.dd-qf button', bs => bs.map(x => x.textContent));
+  expect(JSON.stringify(qfBtn) === JSON.stringify(['Quick fix: remove the 2 rule(s) and 1 binding(s) that use undefined roles']), 'quick fix: offered above the problems');
+  await p.click('.dd-qf button');
+  await p.waitForTimeout(100);
+  const yamlQ = await p.$eval('.dd-ta', t => t.value);
+  fs.writeFileSync(dir + '/roundtrip-quickfix.yaml', yamlQ);
+  const noteQ = await p.textContent('.dd-fixnote');
+  console.log('quick fix note:', noteQ);
+  expect(noteQ.indexOf('removed 2 rule(s) using undefined roles (L2, L3), the pairs of L2, the bindings of SolutionSTD.') > 0 && noteQ.indexOf('Nothing is saved') > 0,
+    'quick fix: note names the removed rules, pairs and bindings');
+  expect(yamlQ.indexOf('    # the rules') > 0 && yamlQ.indexOf('id: L1') > 0 && yamlQ.indexOf('L2') < 0 && yamlQ.indexOf('L3') < 0 && yamlQ.indexOf('end of L3') < 0 &&
+    yamlQ.indexOf('SolutionSTD') < 0 && yamlQ.indexOf('pairs:') < 0 && yamlQ.indexOf('  unexpected_links: ignore') > 0 && yamlQ.indexOf('  SolutionSpec: [') > 0,
+    'quick fix: rules, pairs and binding removed, other lines and comments kept');
+  expect(await p.isVisible('.dd-ta') && (await p.$$('.dd-ed-head .dd-on')).length === 1 && (await p.textContent('.dd-ed-head .dd-on')) === 'YAML text', 'quick fix: shown in the YAML text tab');
+  await p.goto('file://' + dir + '/paired.html');
+  await p.waitForTimeout(300);
+  expect((await p.$$('.dd-qf')).length === 0, 'quick fix: not offered for a model without such problems');
+  {
+    const msgs = [];
+    let accept = false;
+    const onDialog = d => { msgs.push(d.message()); accept ? d.accept() : d.dismiss(); };
+    p.on('dialog', onDialog);
+    await p.click('button:has-text("Edit model")');
+    const roleKeys = () => p.$$eval('.dd-ed-forms input[placeholder="e.g. SystemSpec"]', is => is.map(i => i.value));
+    const ruleIds = () => p.$$eval('.dd-ed-forms input[placeholder="e.g. L1"]', is => is.map(i => i.value));
+    const rmStd = () => p.evaluate(() => {
+      const card = Array.from(document.querySelectorAll('.dd-ed-forms .dd-card')).find(c => { const i = c.querySelector('input[placeholder="e.g. SystemSpec"]'); return i && i.value === 'SolutionSTD'; });
+      card.querySelector('button[title^="Remove this role"]').click();
+    });
+    await rmStd();
+    await p.waitForTimeout(100);
+    expect(msgs.length === 1 && msgs[0] === 'Role SolutionSTD is used by 1 rule(s) (L2). Remove the role, its documents and these rules with their pairs?' &&
+      (await roleKeys()).length === 3 && (await ruleIds()).length === 2, 'remove role: asks first, Cancel keeps everything');
+    accept = true;
+    await rmStd();
+    await p.waitForTimeout(100);
+    expect(JSON.stringify(await roleKeys()) === JSON.stringify(['CustomerSpec', 'SolutionSpec']) && JSON.stringify(await ruleIds()) === JSON.stringify(['L1']),
+      'remove role: OK removes the role and its rules');
+    await p.click('button:has-text("Generate YAML")');
+    const yamlR = await p.$eval('.dd-ta', t => t.value);
+    expect(yamlR.indexOf('SolutionSTD') < 0 && yamlR.indexOf('pairs:') < 0 && yamlR.indexOf('id: L1') > 0, 'remove role: generated YAML without the role, its rules and pairs');
+    p.off('dialog', onDialog);
+  }
+
   // ---------------------------------------------------------------- PDF view (static, no script)
   await p.goto('file://' + dir + '/pdf.html');
   await p.screenshot({ path: dir + '/shot-pdf.png', fullPage: true });

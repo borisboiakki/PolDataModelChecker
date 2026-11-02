@@ -28,6 +28,8 @@
   .dd-ed-head { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
   .dd-ed-head .dd-on, .dd-seg-b.dd-on { background: rgb(51,103,214); color: rgb(255,255,255); border-color: rgb(51,103,214); }
   .dd-ed-note { margin: 4px 0; }
+  .dd-qf { margin: 2px 0 6px 0; }
+  .dd-fixnote { margin: 4px 0; padding: 4px 8px; border: 1px solid rgb(200,215,235); background: rgb(244,248,253); }
   .dd-sec { margin: 6px 0 10px 0; }
   .dd-card { border: 1px solid rgb(215,220,230); background: rgb(255,255,255); padding: 4px 6px; margin: 4px 0; }
   .dd-starter-list { max-height: 260px; overflow-y: auto; margin: 4px 0; }

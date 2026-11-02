@@ -119,6 +119,149 @@
     return { header: header, comments: comments, unknown: unknown };
   }
 
+  // ------------------------------------------------------------------ Quick fix (D18)
+
+  // Rules whose from/to role is not defined, and bindings of undefined roles, removed from the model text. Works on the
+  // text lines (line numbers of the problems), so every other line and comment stays as it is. A block that cannot be
+  // found safely is left in place and reported.
+  var QF_RULE_MSG = ' is not defined in model.roles.';
+  var QF_BIND_MSG = ' is not a role of model.roles.';
+
+  function qfInd(l) {
+    var n = 0;
+    while (n < l.length && (l.charAt(n) === ' ' || l.charCodeAt(n) === 160)) { n++; }
+    return n;
+  }
+  function qfSkip(l) { var t = l.trim(); return t === '' || t.charAt(0) === HASH; }
+  function qfUnq(v) {
+    var c = v.indexOf(' ' + HASH);
+    if (c >= 0) { v = v.substring(0, c); }
+    v = v.trim();
+    var f = v.charAt(0);
+    if ((f === '"' || f === "'") && v.length > 1 && v.charAt(v.length - 1) === f) { v = v.substring(1, v.length - 1); }
+    return v;
+  }
+  // Key of a "key: ..." line ('' when the line is not one).
+  function qfKey(l) {
+    var t = l.trim();
+    var c = t.indexOf(':');
+    return c > 0 ? qfUnq(t.substring(0, c)) : '';
+  }
+  // Last line of the block that starts at line s: deeper lines, comments indented deeper (blank lines inside it kept
+  // with it, trailing blank lines left).
+  function qfEnd(lines, s) {
+    var d = qfInd(lines[s]);
+    var e = s;
+    for (var j = s + 1; j < lines.length; j++) {
+      if (lines[j].trim() === '') { continue; }
+      if (qfInd(lines[j]) <= d) { break; }
+      e = j;
+    }
+    return e;
+  }
+  // Nearest line above i (not blank, not a comment) indented less than ind; -1 when none.
+  function qfParent(lines, i, ind) {
+    for (var j = i - 1; j >= 0; j--) {
+      if (!qfSkip(lines[j]) && qfInd(lines[j]) < ind) { return j; }
+    }
+    return -1;
+  }
+  // The list item "- ..." under links: holding line i; -1 when not found safely.
+  function qfRuleStart(lines, i) {
+    var j = i;
+    for (var g = 0; g < 50 && j >= 0; g++) {
+      if (lines[j].trim().indexOf('- ') === 0) {
+        var p = qfParent(lines, j, qfInd(lines[j]));
+        return p >= 0 && lines[p].trim() === 'links:' ? j : -1;
+      }
+      if (lines[j].trim() === 'links:') { return -1; }
+      j = qfParent(lines, j, qfInd(lines[j]));
+    }
+    return -1;
+  }
+  function qfRuleId(lines, s, e) {
+    for (var j = s; j <= e; j++) {
+      var t = lines[j].trim();
+      if (t.indexOf('- ') === 0) { t = t.substring(2).trim(); }
+      if (t.charAt(0) === '{') { t = t.substring(1).trim(); }
+      if (t.indexOf('id:') === 0) {
+        t = t.substring(3);
+        var c = t.search(/[,}]/);
+        return qfUnq(c >= 0 ? t.substring(0, c) : t);
+      }
+    }
+    return '';
+  }
+  // Children of the top-level section "name:" (block form): [{key, s, e}], or null when absent / not a block.
+  function qfSection(lines, name) {
+    for (var i = 0; i < lines.length; i++) {
+      if (qfInd(lines[i]) === 0 && qfKey(lines[i]) === name) {
+        if (qfUnq(lines[i].trim().substring(name.length + 1)) !== '') { return null; }
+        var out = [];
+        var e = qfEnd(lines, i);
+        for (var j = i + 1; j <= e; j++) {
+          if (qfSkip(lines[j])) { continue; }
+          var ce = qfEnd(lines, j);
+          out.push({ key: qfKey(lines[j]), s: j, e: ce });
+          j = ce;
+        }
+        return { line: i, end: e, items: out };
+      }
+    }
+    return null;
+  }
+
+  function edQuickFix(lines, probs) {
+    var drop = {};
+    var rules = [];
+    var binds = [];
+    var skipped = [];
+    var seen = {};
+    function cut(s, e) { for (var j = s; j <= e; j++) { drop[j] = true; } }
+    probs.forEach(function (p) {
+      var m = p.msg;
+      if (p.line < 1 || p.line > lines.length || m.indexOf('model.links[') !== 0 || m.indexOf(QF_RULE_MSG) < 0) { return; }
+      var s = qfRuleStart(lines, p.line - 1);
+      if (s < 0) { skipped.push('line ' + p.line); return; }
+      if (seen[s]) { return; }
+      seen[s] = true;
+      var e = qfEnd(lines, s);
+      rules.push(qfRuleId(lines, s, e) || ('(no id, line ' + (s + 1) + ')'));
+      cut(s, e);
+    });
+    probs.forEach(function (p) {
+      var m = p.msg;
+      if (p.line < 1 || p.line > lines.length || m.indexOf('bindings: ') !== 0 || m.indexOf(QF_BIND_MSG) < 0) { return; }
+      var key = m.substring(10, m.indexOf(QF_BIND_MSG));
+      var i = p.line - 1;
+      if (qfKey(lines[i]) !== key || qfInd(lines[i]) === 0) { skipped.push('binding ' + key); return; }
+      binds.push(key);
+      cut(i, qfEnd(lines, i));
+    });
+    var pairs = [];
+    var sec = rules.length ? qfSection(lines, 'pairs') : null;
+    if (sec) {
+      var left = 0;
+      sec.items.forEach(function (it) {
+        if (rules.indexOf(it.key) >= 0) { pairs.push(it.key); cut(it.s, it.e); } else { left++; }
+      });
+      if (!left && pairs.length) { cut(sec.line, sec.end); }
+    }
+    return {
+      lines: lines.filter(function (l, i) { return !drop[i]; }),
+      rules: rules, bindings: binds, pairs: pairs, skipped: skipped
+    };
+  }
+
+  function edQuickFixText(fx) {
+    var s = 'Quick fix: removed ' + fx.rules.length + ' rule(s) using undefined roles (' + fx.rules.join(', ') + ')';
+    if (fx.pairs.length) { s += ', the pairs of ' + fx.pairs.join(', '); }
+    if (fx.bindings.length) { s += ', the bindings of ' + fx.bindings.join(', '); }
+    s += '.';
+    if (fx.skipped.length) { s += ' Not found safely, left in place: ' + fx.skipped.join(', ') + ' (correct them by hand).'; }
+    return s + ' Nothing is saved yet: check the text, then Copy (or Save to Polarion) and reload the page.';
+  }
+
   // ------------------------------------------------------------------ YAML writer
 
   function edQuote(v) {
@@ -646,8 +789,17 @@
       r.oldKey = r.key;
       self.label(top, 'Title');
       self.input(top, r.title, 'e.g. System specification', function (v) { r.title = v; changed(); }, 220);
-      self.remove(top, 'Remove this role (its documents too; rules that use it must be corrected)', function () {
-        M.roles.splice(ri, 1);
+      self.remove(top, 'Remove this role, its documents and the rules that use it (asks first when rules use it)', function () {
+        // D18: the rules of a removed role would be errors once pasted; ask, then remove them with their pairs.
+        var used = M.links.filter(function (k) { return r.key && (k.fromRole === r.key || k.toRole === r.key); });
+        if (used.length) {
+          var ids = used.map(function (k) { return k.id || '(no id)'; });
+          var q = 'Role ' + r.key + ' is used by ' + used.length + ' rule(s) (' + (ids.length > 8 ? ids.slice(0, 8).join(', ') + ', ...' : ids.join(', ')) +
+            '). Remove the role, its documents and these rules with their pairs?';
+          if (!window.confirm(q)) { return; }
+          used.forEach(function (k) { if (k.id) { delete M.pairs[k.id]; } M.links.splice(M.links.indexOf(k), 1); });
+        }
+        M.roles.splice(M.roles.indexOf(r), 1);
         delete M.bindings[r.key];
         rerender();
       });
@@ -811,6 +963,8 @@
     var p = this.textPane;
     el('div', { 'class': 'bw-muted' }, p, 'To apply the model: Copy, open the model work item, select its whole description, ' +
       'paste as plain text (Ctrl+Shift+V), save, then Reload page. Edits made here are not read back into the forms.');
+    this.fixNote = el('div', { 'class': 'dd-fixnote' }, p, '');
+    this.fixNote.style.display = 'none';
     this.ta = el('textarea', { 'class': 'dd-ta', spellcheck: 'false', rows: 22 }, p);
     this.ta.value = this.w.model.lines.join(NLC) + (this.w.model.lines.length ? NLC : '');
     var row = el('div', { 'class': 'dd-row' }, p);
@@ -826,6 +980,20 @@
     this.copied = el('span', { 'class': 'bw-muted' }, row, '');
     this.restInfo = el('div', { 'class': 'bw-muted dd-rest' }, p, '');
     this.probeRest();
+  };
+
+  // D18: apply the quick fix to the model text as read and show it in the YAML text tab (nothing is saved).
+  Editor.prototype.quickFix = function () {
+    var orig = this.w.model.lines.join(NLC) + (this.w.model.lines.length ? NLC : '');
+    if (this.ta.value !== orig && !window.confirm('Replace the edited YAML text with the model text corrected by the quick fix?')) { return; }
+    var fx = edQuickFix(this.w.model.lines, this.w.model.probs);
+    this.ta.value = fx.lines.join(NLC) + NLC;
+    this.toggle(true);
+    this.show('text');
+    this.copied.textContent = '';
+    this.fixNote.textContent = edQuickFixText(fx);
+    this.fixNote.style.display = '';
+    this.box.scrollIntoView({ block: 'nearest' });
   };
 
   // ------------------------------------------------------------------ Save to Polarion (REST, dmDefine 0.5.0, SPEC D10)

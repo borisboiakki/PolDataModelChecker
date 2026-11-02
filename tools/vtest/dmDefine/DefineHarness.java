@@ -15,7 +15,7 @@ import java.util.regex.*;
 public class DefineHarness {
 
     static final String P = "DMTEST";
-    static DmMocks.Module modelDoc, errorsDoc, syntaxDoc, emptyDoc, pairedDoc, pairErrDoc;
+    static DmMocks.Module modelDoc, errorsDoc, syntaxDoc, emptyDoc, pairedDoc, pairErrDoc, removedDoc;
     static final Map<String, DmMocks.Module> USES_DOCS = new LinkedHashMap<String, DmMocks.Module>();
 
     /** Local part of a model that reuses the roles and rules of SYSENG/SE-12 (uses:, dmDefine 0.4.0). */
@@ -45,6 +45,19 @@ public class DefineHarness {
         "  Spec: [\"Specs/Solution Spec A\", \"Specs/Solution Spec B\"]", "  Test: [\"Tests/STD A\", \"Tests/STD B\"]", "pairs:", "  V1:",
         "    - [\"Tests/STD A\", \"Specs/Solution Spec A\"]", "    - [\"Tests/STD A\", \"Specs/Solution Spec A\"]",
         "    - [\"Specs/Solution Spec B\", \"Tests/STD B\"]", "    - [\"Tests/STD A\"]", "  V9:", "    - [a, b]" };
+    /** Use case 3 after role SolutionSTD was removed (D18): L2 and its pairs, L3 (block form, both ends undefined) and the
+     *  binding of SolutionSTD remain; comments must survive the quick fix. */
+    static final String[] REMOVED_ROLES_MODEL = {
+        "version: 1", "name: Removed role", "model:", "  roles:", "    CustomerSpec:", "      items:",
+        "        - { type: systemRequirement, min: 1 }", "    SolutionSpec:", "      items:", "        - { type: subsystemRequirement, min: 1 }",
+        "  links:", "    # the rules", "    - id: L1",
+        "      from: { role: SolutionSpec, type: subsystemRequirement }", "      link_role: satisfies",
+        "      to: { role: CustomerSpec, type: systemRequirement }", "      from_min: 1", "    - id: L2",
+        "      from: { role: SolutionSTD, type: testCase }", "      link_role: verifies", "      to: { role: SolutionSpec, type: subsystemRequirement }",
+        "      to_min: 1", "    - id: L3", "      from:", "        role: Gone", "      link_role: verifies", "      to:", "        role: SolutionSTD",
+        "      # end of L3", "  unexpected_links: ignore", "bindings:", "  CustomerSpec: [\"Specs/System Specification\"]",
+        "  SolutionSpec: [\"Specs/Solution Spec A\", \"Specs/Solution Spec B\"]", "  SolutionSTD: [\"Tests/STD A\", \"Tests/STD B\"]",
+        "pairs:", "  L2:", "    - [\"Tests/STD A\", \"Specs/Solution Spec A\"]", "    - [\"Tests/STD B\", \"Specs/Solution Spec B\"]" };
     static int SAMPLE_LINES, SPEC_LINE;
 
     static final String[] ERRORS_MODEL = {
@@ -77,6 +90,8 @@ public class DefineHarness {
         emptyDoc = new DmMocks.Module(P, "Model", "Empty", "Empty");
         pairedDoc = new DmMocks.Module(P, "Model", "Paired Model", "Paired Model");
         pairErrDoc = new DmMocks.Module(P, "Model", "Pair Errors", "Pair Errors");
+        removedDoc = new DmMocks.Module(P, "Model", "Removed Roles", "Removed Roles");
+        DmMocks.MODULES.add(removedDoc);
         DmMocks.MODULES.addAll(Arrays.asList(pairedDoc, pairErrDoc,
             new DmMocks.Module(P, "Specs", "Solution Spec A", "Solution Spec A"), new DmMocks.Module(P, "Specs", "Solution Spec B", "Solution Spec B"),
             new DmMocks.Module(P, "Tests", "STD A", "STD A"), new DmMocks.Module(P, "Tests", "STD B", "STD B")));
@@ -109,6 +124,7 @@ public class DefineHarness {
         DmMocks.ITEMS.add(new DmMocks.WorkItem(syntaxDoc, P, "DM-30", "text", "Syntax", DmMocks.asStoredHtml(Arrays.asList(SYNTAX_MODEL))));
         DmMocks.ITEMS.add(new DmMocks.WorkItem(emptyDoc, P, "DM-40", "heading", "Nothing", ""));
         DmMocks.ITEMS.add(new DmMocks.WorkItem(pairedDoc, P, "DM-50", "text", "Paired", DmMocks.asStoredHtml(Arrays.asList(PAIRED_MODEL))));
+        DmMocks.ITEMS.add(new DmMocks.WorkItem(removedDoc, P, "DM-70", "text", "Removed roles", DmMocks.asStoredHtml(Arrays.asList(REMOVED_ROLES_MODEL))));
         DmMocks.ITEMS.add(new DmMocks.WorkItem(pairErrDoc, P, "DM-60", "text", "Pair errors", DmMocks.asStoredHtml(Arrays.asList(PAIR_ERRORS_MODEL))));
         DmMocks.MODULES.add(new DmMocks.Module("SYSENG", "Tests", "Shared Tests", "Shared Tests"));
         // Shared models in another project (no document needed: read with getWorkItem, verified on 2512 by dmSpike S8).
@@ -203,6 +219,17 @@ public class DefineHarness {
         DmMocks.check(count(h, "<i class=\"dm-r\"") == 3 && count(h, "<i class=\"dm-l\"") == 3, "starter: 3 roles, 3 rules");
     }
 
+    /** The model text corrected by the quick fix (browser check) reads with no problem: 2 roles, rule L1 only (D18). */
+    static void quickFixReadBack(String dir, String out, String yamlFile) throws Exception {
+        List<String> lines = Files.readAllLines(new File(yamlFile).toPath(), StandardCharsets.UTF_8);
+        DmMocks.Module doc = new DmMocks.Module(P, "Model", "Quick fix", "Quick fix");
+        DmMocks.MODULES.add(doc);
+        DmMocks.ITEMS.add(new DmMocks.WorkItem(doc, P, "RT-quickfix", "text", "Quick fix", DmMocks.asStoredHtml(lines)));
+        String h = run(dir, out, "roundtrip-quickfix", params(doc, ""), false);
+        DmMocks.check(count(h, "<i class=\"dm-p\"") == 0, "quick fix: the corrected model reads with no problem");
+        DmMocks.check(count(h, "<i class=\"dm-r\"") == 2 && count(h, "<i class=\"dm-l\"") == 1 && h.contains("data-id=\"L1\""), "quick fix: 2 roles, rule L1 only");
+    }
+
     public static void main(String[] args) throws Exception {
         if (args[0].equals("--roundtrip")) {
             buildTestSet(args[3]);
@@ -210,6 +237,7 @@ public class DefineHarness {
             roundTrip(args[1], args[2], "paired", args[2] + "/roundtrip-paired.yaml", "paired");
             roundTrip(args[1], args[2], "uses", args[2] + "/roundtrip-uses.yaml", "uses");
             starterReadBack(args[1], args[2], args[2] + "/roundtrip-starter.yaml");
+            quickFixReadBack(args[1], args[2], args[2] + "/roundtrip-quickfix.yaml");
             restRoundTrip(args[1], args[2]);
             System.out.println("dmDefine round trip: all checks passed");
             return;
@@ -295,6 +323,12 @@ public class DefineHarness {
         };
         for (String e : pairExpected) { DmMocks.check(h.contains(e), "pair errors: " + e); }
         DmMocks.check(count(h, "<i class=\"dm-p\"") == pairExpected.length, "pair errors: no other problem");
+
+        h = run(dir, out, "removed-roles", params(removedDoc, ""), false);
+        DmMocks.check(h.contains("data-msg=\"model.links[1].from: role SolutionSTD is not defined in model.roles.\"") &&
+            h.contains("data-msg=\"model.links[2].from: role Gone is not defined in model.roles.\"") &&
+            h.contains("data-msg=\"model.links[2].to: role SolutionSTD is not defined in model.roles.\"") &&
+            h.contains("data-msg=\"bindings: SolutionSTD is not a role of model.roles.\""), "removed roles (D18): rules and binding of undefined roles reported");
 
         h = run(dir, out, "uses", params(USES_DOCS.get("uses"), ""), false);
         DmMocks.check(count(h, "<i class=\"dm-p\"") == 0, "uses: no problem");

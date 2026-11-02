@@ -236,6 +236,16 @@
       return;
     }
     box.className = 'dd-probs';
+    // D18: quick fix for rules (and bindings) that use roles not defined in model.roles (local model only).
+    var fx = this.uses ? null : edQuickFix(this.model.lines, probs);
+    if (fx && (fx.rules.length || fx.bindings.length)) {
+      var qf = el('div', { 'class': 'dd-qf' }, box);
+      var label = 'Quick fix: remove the ' + fx.rules.length + ' rule(s)' + (fx.bindings.length ? ' and ' + fx.bindings.length + ' binding(s)' : '') + ' that use undefined roles';
+      this.button(qf, label, 'Write the model text without them in the editor (YAML text tab); you check it, then copy or save it', function () {
+        if (!self.editor) { self.editor = new Editor(self); }
+        self.editor.quickFix();
+      });
+    }
     probs.forEach(function (p) {
       var row = el('div', { 'class': 'dd-prob' }, box);
       el('span', { 'class': 'dd-sev dd-sev-' + p.sev }, row, p.sev);

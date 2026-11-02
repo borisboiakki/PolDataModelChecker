@@ -279,6 +279,11 @@ optional widget fields added: `isolatedText` and `searchText`. Widget code:
   text tab with Copy (clipboard API, `execCommand` fallback) and Download. A model with errors opens in the text tab
   only; without model text the forms start empty. Round-trip test: the generated YAML is read again by the Velocity
   pipeline and must give the same roles, rules and pairs (`DefineHarness --roundtrip`, run by `tools/test-widget.sh`).
+  Removed roles (0.9.0, D18): *Remove* on a role used by rules confirms and removes those rules and their pairs; the
+  quick fix above the problem list (`edQuickFix()`) works on the model text lines and the problem line numbers: it
+  removes the `- ` item under `links:` holding each "role … is not defined" line (found by indentation), the `pairs:`
+  entries of those rules and the `bindings` entries of undefined roles, keeps every other line, and shows the result in
+  the YAML text tab (nothing saved; the harness reads the corrected text back with no problem).
 - **dmCheck `graph.js`**: same graph, coloured by compliance (green = all compliant, orange = warnings only, red =
   errors; counts on edges and nodes); a click lists the violations and, from 0.2.0, the drill-down per document (link to
   Polarion's work item table with the query, *Copy query*); table (violations, rules, documents, drill-down queries);
@@ -348,6 +353,7 @@ T1) there.
 | 0.6.0 / 0.2.0 | **Built**: severity per side of a rule (D17) | **0.2.0 built**: drill-down queries (K9, S10 form) |
 | 0.7.0 / 0.3.0 | **Built**: starter generator (D8, S7 queries) | **0.3.0 built**: severity per side (K18) |
 | 0.8.0 / 0.4.0 | **Built**: exploded view (D16) | **0.4.0 built**: exploded view (K17) |
+| 0.9.0 | **Built**: removed roles: confirmation in the forms, quick fix (D18) | — |
 | later | — | collection context (K11), orphans, wrong document, field rules (K13) |
 
 ## 11. Risks
